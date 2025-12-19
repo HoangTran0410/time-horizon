@@ -4,7 +4,7 @@ import { ViewportState, TimelineEvent } from "../types";
 interface MiniMapProps {
   viewport: ViewportState;
   events: TimelineEvent[];
-  onNavigate: (year: number) => void;
+  onNavigate: (year: number, animated: boolean) => void;
   containerWidth: number;
 }
 
@@ -16,6 +16,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const hasMovedSignificant = useRef(false);
 
   // Calculate the full timeline range from events
   const { minYear, totalSpan } = useMemo(() => {
@@ -62,49 +63,70 @@ const MiniMap: React.FC<MiniMapProps> = ({
 
   // Handle navigation (both click and drag)
   const navigateToX = useCallback(
-    (clientX: number) => {
+    (clientX: number, animated: boolean) => {
       const targetYear = clientXToYear(clientX);
-      onNavigate(targetYear);
+      onNavigate(targetYear, animated);
     },
     [clientXToYear, onNavigate]
   );
 
   // Mouse events
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsDragging(true);
-    navigateToX(e.clientX);
+    hasMovedSignificant.current = false;
+    // Don't navigate immediately on mousedown - wait to see if it's a click or drag
   };
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isDragging) return;
-      navigateToX(e.clientX);
+      e.stopPropagation();
+      hasMovedSignificant.current = true;
+      navigateToX(e.clientX, false); // Immediate during drag
     },
     [isDragging, navigateToX]
   );
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging && !hasMovedSignificant.current) {
+        // It was a click, not a drag - animate
+        navigateToX(e.clientX, true);
+      }
+      setIsDragging(false);
+    },
+    [isDragging, navigateToX]
+  );
 
   // Touch events
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
     setIsDragging(true);
-    navigateToX(e.touches[0].clientX);
+    hasMovedSignificant.current = false;
+    // Don't navigate immediately on touch start - wait to see if it's a tap or drag
   };
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
       if (!isDragging) return;
       e.preventDefault();
-      navigateToX(e.touches[0].clientX);
+      hasMovedSignificant.current = true;
+      navigateToX(e.touches[0].clientX, false); // Immediate during drag
     },
     [isDragging, navigateToX]
   );
 
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+  const handleTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      if (isDragging && !hasMovedSignificant.current) {
+        // It was a tap, not a drag - animate
+        navigateToX(e.changedTouches[0].clientX, true);
+      }
+      setIsDragging(false);
+    },
+    [isDragging, navigateToX]
+  );
 
   // Attach global event listeners when dragging
   React.useEffect(() => {

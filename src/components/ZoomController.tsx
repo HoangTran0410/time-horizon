@@ -4,9 +4,30 @@ import { ViewportState } from "../types";
 
 interface Props {
   onZoom: (delta: number) => void;
-  onFastScale: (scale: "millennium" | "year" | "month" | "day") => void;
+  onFastScale: (targetSpanYears: number) => void;
   viewport: ViewportState;
 }
+
+// Scale options: label and value in years
+const SCALE_OPTIONS = [
+  { label: "1 Hour", value: 1 / (365.25 * 24) },
+  { label: "6 Hours", value: 6 / (365.25 * 24) },
+  { label: "1 Day", value: 1 / 365.25 },
+  { label: "1 Week", value: 7 / 365.25 },
+  { label: "1 Month", value: 1 / 12 },
+  { label: "6 Months", value: 0.5 },
+  { label: "1 Year", value: 1 },
+  { label: "10 Years", value: 10 },
+  { label: "100 Years", value: 100 },
+  { label: "1,000 Years", value: 1_000 },
+  { label: "10,000 Years", value: 10_000 },
+  { label: "100,000 Years", value: 100_000 },
+  { label: "1M Years", value: 1_000_000 },
+  { label: "10M Years", value: 10_000_000 },
+  { label: "100M Years", value: 100_000_000 },
+  { label: "1B Years", value: 1_000_000_000 },
+  { label: "10B Years", value: 10_000_000_000 },
+];
 
 const ZoomController: React.FC<Props> = ({ onZoom, onFastScale, viewport }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -113,6 +134,26 @@ const ZoomController: React.FC<Props> = ({ onZoom, onFastScale, viewport }) => {
     return `${spanMinutes.toFixed(1)} Minutes`;
   };
 
+  // Find closest scale option to current viewport
+  const getCurrentScaleValue = () => {
+    const canvasWidth = window.innerWidth - (window.innerWidth > 768 ? 320 : 0);
+    const currentSpan = canvasWidth / viewport.zoom;
+
+    // Find closest option
+    let closest = SCALE_OPTIONS[0];
+    let minDiff = Math.abs(Math.log(currentSpan) - Math.log(closest.value));
+
+    for (const option of SCALE_OPTIONS) {
+      const diff = Math.abs(Math.log(currentSpan) - Math.log(option.value));
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = option;
+      }
+    }
+
+    return closest.value;
+  };
+
   const showControls = !isMobile || isExpanded;
 
   return (
@@ -174,7 +215,7 @@ const ZoomController: React.FC<Props> = ({ onZoom, onFastScale, viewport }) => {
             </button>
           </div>
 
-          {/* Combined Scale Label + Fast Scale Buttons */}
+          {/* Combined Scale Label + Fast Scale Dropdown */}
           <div className="bg-slate-900/80 backdrop-blur border border-white/10 rounded-xl shadow-xl overflow-hidden">
             {/* Visible Span Label */}
             <div className="px-2 md:px-3 py-1.5 text-center border-b border-white/10">
@@ -183,32 +224,26 @@ const ZoomController: React.FC<Props> = ({ onZoom, onFastScale, viewport }) => {
               </div>
             </div>
 
-            {/* Fast Scale Buttons Row */}
-            <div className="flex">
-              <button
-                onClick={() => onFastScale("millennium")}
-                className="flex-1 px-1.5 md:px-2 py-1 md:py-1.5 text-[8px] md:text-[9px] font-bold text-slate-400 hover:text-white hover:bg-indigo-600/30 transition-colors border-r border-white/5"
+            {/* Fast Scale Dropdown */}
+            <div className="p-1">
+              <select
+                value={getCurrentScaleValue()}
+                onChange={(e) => onFastScale(parseFloat(e.target.value))}
+                className="w-full px-2 py-1 md:py-1.5 text-[10px] md:text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors appearance-none text-center"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 4px center",
+                  backgroundSize: "16px",
+                  paddingRight: "24px",
+                }}
               >
-                1kY
-              </button>
-              <button
-                onClick={() => onFastScale("year")}
-                className="flex-1 px-1.5 md:px-2 py-1 md:py-1.5 text-[8px] md:text-[9px] font-bold text-slate-400 hover:text-white hover:bg-indigo-600/30 transition-colors border-r border-white/5"
-              >
-                1Y
-              </button>
-              <button
-                onClick={() => onFastScale("month")}
-                className="flex-1 px-1.5 md:px-2 py-1 md:py-1.5 text-[8px] md:text-[9px] font-bold text-slate-400 hover:text-white hover:bg-indigo-600/30 transition-colors border-r border-white/5"
-              >
-                1M
-              </button>
-              <button
-                onClick={() => onFastScale("day")}
-                className="flex-1 px-1.5 md:px-2 py-1 md:py-1.5 text-[8px] md:text-[9px] font-bold text-slate-400 hover:text-white hover:bg-indigo-600/30 transition-colors"
-              >
-                1D
-              </button>
+                {SCALE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </>
