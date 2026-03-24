@@ -1,6 +1,6 @@
 import React from "react";
 import { Event } from "../types";
-import { formatYear } from "../utils";
+import { getEventDisplayLabel } from "../utils";
 
 interface ModalProps {
   event: Event;
@@ -26,7 +26,7 @@ export const Modal: React.FC<ModalProps> = ({ event, onClose }) => {
           <div>
             <h2 className="text-2xl font-bold text-white">{event.title}</h2>
             <p className="text-emerald-500 font-mono text-sm mt-1">
-              {formatYear(event.absoluteYear)}
+              {getEventDisplayLabel(event)}
             </p>
           </div>
         </div>

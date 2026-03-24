@@ -3,49 +3,62 @@ export interface Event {
   title: string;
   description: string;
   /**
-   * Absolute year on the timeline (can be fractional for month/day/hour/minute).
-   * Examples: 1969, -13800000000, 2026.23
+   * [year, month, day, hour, minute, second]
+   * Only year is required. Others can be null.
+   * Examples: [1969, null, null, null, null, null], [2026, 3, 24, 16, 40, 45]
    */
-  absoluteYear: number;
+  time: [
+    year: number,
+    month: number | null,
+    day: number | null,
+    hour: number | null,
+    minute: number | null,
+    seconds: number | null,
+  ];
   /**
-   * Optional exact local datetime (YYYY-MM-DDTHH:mm).
-   * When present, UI/labels use this for month/day/hour/minute precision.
-   * absoluteYear should stay in sync as decimal-year for plotting.
+   * Optional duration in years. Used to auto-zoom when focusing this event.
+   * Example: 1 => show ~20 years around event; 0.01 => show month/day neighborhood.
    */
-  exactDateTime?: string;
-  /**
-   * Reference year representing "now".
-   * Displayed offset = timelineYear - pivotYear.
-   */
-  pivotYear: number;
+  duration?: number;
   emoji: string;
   groups: string[];
   priority: number; // Higher number = higher priority (shown when zoomed out)
 }
 
-/**
- * Returns the offset (years from pivot) for display/logic that previously
- * used the old "year from now" semantics.
- * Equivalent to: absoluteYear - pivotYear
- */
 export const getEventTimelineYear = (event: Event): number => {
-  if (!event.exactDateTime) return event.absoluteYear;
-  const d = new Date(event.exactDateTime);
-  if (isNaN(d.getTime())) return event.absoluteYear;
+  const [year, month, day, hour, minute, seconds] = event.time;
+
+  if (
+    month === null &&
+    day === null &&
+    hour === null &&
+    minute === null &&
+    seconds === null
+  ) {
+    return year;
+  }
+
+  const d = new Date(
+    year,
+    (month ?? 1) - 1,
+    day ?? 1,
+    hour ?? 0,
+    minute ?? 0,
+    seconds ?? 0,
+  );
+
+  if (isNaN(d.getTime())) return year;
+
   const y = d.getFullYear();
   const start = new Date(y, 0, 1).getTime();
   const end = new Date(y + 1, 0, 1).getTime();
   const frac = (d.getTime() - start) / (end - start);
+
   return y + frac;
 };
-
-export const getYearOffset = (event: Event): number =>
-  getEventTimelineYear(event) - event.pivotYear;
 
 export interface TimelineState {
   zoom: number; // Pixels per year
   offset: number; // Scroll position in pixels
 }
 
-/** Default pivot = current calendar year (the "now" reference). */
-export const DEFAULT_PIVOT_YEAR = new Date().getFullYear();

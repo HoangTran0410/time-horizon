@@ -7,15 +7,14 @@ interface EventEditorProps {
   onClose: () => void;
 }
 
+type TimeField = 1 | 2 | 3 | 4 | 5;
+
 export const EventEditor: React.FC<EventEditorProps> = ({
   event,
   onSave,
   onClose,
 }) => {
   const [editedEvent, setEditedEvent] = useState<Event>({ ...event });
-  const [inputMode, setInputMode] = useState<"datetime" | "offset">(
-    Math.abs(event.absoluteYear) < 2000 ? "datetime" : "offset",
-  );
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -35,28 +34,24 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     setEditedEvent((prev) => ({ ...prev, groups }));
   };
 
-  /** Convert absolute year → datetime-local string (YYYY-MM-DDTHH:MM). */
-  const absoluteYearToDatetimeLocal = (absoluteYear: number) => {
-    const date = new Date(Math.round(absoluteYear), 0, 1);
-    if (isNaN(date.getTime())) return "";
-    const Y = date.getFullYear();
-    if (Y < 0 || Y > 9999) return "";
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${Y.toString().padStart(4, Y < 0 ? "-" : "0")}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const handleTimeChange = (index: TimeField, raw: string) => {
+    if (raw !== "" && isNaN(Number(raw))) return; // reject non-numeric input
+    const v = raw === "" ? null : Number(raw);
+    if (v !== null) {
+      if (index === 1 && (v < 1 || v > 12)) return; // month 1-12
+      if (index === 2 && (v < 1 || v > 31)) return; // day 1-31
+      if (index === 3 && (v < 0 || v > 23)) return; // hour 0-23
+      if (index === 4 && (v < 0 || v > 59)) return; // minute 0-59
+      if (index === 5 && (v < 0 || v > 59)) return; // seconds 0-59
+    }
+    setEditedEvent((prev) => {
+      const nextTime = [...prev.time] as Event["time"];
+      nextTime[index] = v;
+      return { ...prev, time: nextTime };
+    });
   };
 
-  /** Convert datetime-local string → absolute year. */
-  const datetimeLocalToAbsoluteYear = (dt: string): number => {
-    if (!dt) return editedEvent.pivotYear;
-    // Handle negative years: datetime-local uses "0001-01-01T00:00" as the earliest,
-    // so negative years must be handled by detecting a leading "-" prefix.
-    const isNegative = dt.startsWith("-");
-    const dateStr = isNegative ? dt.slice(1) : dt;
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 0;
-    const year = date.getFullYear();
-    return isNegative ? -year : year;
-  };
+  const [year, month, day, hour, minute, seconds] = editedEvent.time;
 
   return (
     <div
@@ -112,70 +107,115 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </div>
 
           <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
-            <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800 mb-4">
-              <button
-                type="button"
-                onClick={() => setInputMode("datetime")}
-                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${inputMode === "datetime" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-              >
-                Date & Time
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputMode("offset")}
-                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${inputMode === "offset" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-              >
-                Year Offset
-              </button>
-            </div>
+            <label className="block text-sm font-medium text-zinc-400 mb-3">
+              Time [year, month, day, hour, minute, seconds]
+            </label>
 
-            {inputMode === "datetime" ? (
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">
-                  Date & Time
-                </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs text-zinc-500 mb-1">Year *</label>
                 <input
-                  type="datetime-local"
-                  value={absoluteYearToDatetimeLocal(editedEvent.absoluteYear)}
+                  type="number"
+                  value={year}
                   onChange={(e) => {
-                    const newAbsoluteYear = datetimeLocalToAbsoluteYear(
-                      e.target.value,
-                    );
+                    const v = Number(e.target.value);
                     setEditedEvent((prev) => ({
                       ...prev,
-                      absoluteYear: newAbsoluteYear,
+                      time: [v, prev.time[1], prev.time[2], prev.time[3], prev.time[4], prev.time[5]],
                     }));
                   }}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
-            ) : (
+
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">
-                  Absolute Year
-                </label>
+                <label className="block text-xs text-zinc-500 mb-1">Month</label>
                 <input
                   type="number"
-                  name="absoluteYear"
-                  value={editedEvent.absoluteYear}
-                  onChange={handleChange}
+                  min={1}
+                  max={12}
+                  value={month ?? ""}
+                  onChange={(e) => handleTimeChange(1, e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="null"
                 />
               </div>
-            )}
+
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Day</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={day ?? ""}
+                  onChange={(e) => handleTimeChange(2, e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="null"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Hour</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={hour ?? ""}
+                  onChange={(e) => handleTimeChange(3, e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="null"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Minute</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={minute ?? ""}
+                  onChange={(e) => handleTimeChange(4, e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="null"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-xs text-zinc-500 mb-1">Seconds</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={seconds ?? ""}
+                  onChange={(e) => handleTimeChange(5, e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="null"
+                />
+              </div>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">
-              Pivot Year (reference "now", e.g. 0 for cosmic, 2026 for current)
+              Duration (years, optional)
             </label>
             <input
               type="number"
-              name="pivotYear"
-              value={editedEvent.pivotYear}
-              onChange={handleChange}
+              step="0.000001"
+              value={editedEvent.duration ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setEditedEvent((prev) => ({
+                  ...prev,
+                  duration: raw === "" ? undefined : Number(raw),
+                }));
+              }}
               className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+              placeholder="e.g. 1"
             />
+            <p className="text-xs text-zinc-500 mt-1">
+              Used for auto-zoom when focusing this event.
+            </p>
           </div>
 
           <div>

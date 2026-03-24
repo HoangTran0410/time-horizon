@@ -1,5 +1,95 @@
+import { Event, getEventTimelineYear } from "./types";
+
 /** Strip trailing zeros from toFixed output, e.g. "100.0B" → "100B" */
-const stripTrailingZeros = (s: string): string => s.replace(/\.0+(?=\s|[A-Z]|$)/, "");
+const stripTrailingZeros = (s: string): string =>
+  s.replace(/\.0+(?=\s|[A-Z]|$)/, "");
+
+const formatAbsoluteYear = (year: number): string => {
+  const rounded = Math.round(year);
+  if (rounded > 0) return `${rounded}`;
+  if (rounded === 0) return "1 BC";
+  return `${Math.abs(rounded)} BC`;
+};
+
+const parseAbsoluteYearToDate = (absoluteYear: number): Date => {
+  const y = Math.floor(absoluteYear);
+  const frac = absoluteYear - y;
+  const start = new Date(y, 0, 1).getTime();
+  const end = new Date(y + 1, 0, 1).getTime();
+  return new Date(start + frac * (end - start));
+};
+
+export const formatYear = (absoluteYear: number): string => {
+  if (absoluteYear <= -1e9)
+    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e9).toFixed(2))} Billion ${absoluteYear <= 0 ? "BC" : "AD"}`;
+  if (absoluteYear <= -1e6)
+    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e6).toFixed(2))} Million ${absoluteYear <= 0 ? "BC" : "AD"}`;
+  if (absoluteYear <= -10000)
+    return `${Math.abs(Math.round(absoluteYear)).toLocaleString()} ${absoluteYear <= 0 ? "BC" : "AD"}`;
+
+  if (absoluteYear <= 0) return formatAbsoluteYear(absoluteYear);
+
+  if (Math.abs(absoluteYear - Math.round(absoluteYear)) < 1e-9) {
+    return `${Math.round(absoluteYear)}`;
+  }
+
+  const d = parseAbsoluteYearToDate(absoluteYear);
+  if (isNaN(d.getTime()))
+    return `${stripTrailingZeros(absoluteYear.toFixed(6))}`;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatEventTime = (event: Event): string => {
+  const [year, month, day, hour, minute, seconds] = event.time;
+
+  if (month === null) return formatYear(year);
+
+  // JavaScript Date formatting around BC years is unreliable for locale output.
+  // For BCE dates, fall back to decimal year formatting.
+  if (year <= 0) return formatYear(getEventTimelineYear(event));
+
+  const d = new Date(
+    year,
+    month - 1,
+    day ?? 1,
+    hour ?? 0,
+    minute ?? 0,
+    seconds ?? 0,
+  );
+
+  if (isNaN(d.getTime())) return formatYear(getEventTimelineYear(event));
+
+  if (day === null) {
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }
+
+  const hasTime = hour !== null || minute !== null || seconds !== null;
+  if (!hasTime) {
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: seconds !== null ? "2-digit" : undefined,
+  });
+};
+
+export const getEventDisplayLabel = (event: Event): string =>
+  formatEventTime(event);
 
 export const getNiceInterval = (ideal: number): number => {
   const intervals = [
@@ -45,44 +135,7 @@ export const getNiceInterval = (ideal: number): number => {
   return best;
 };
 
-const MS_PER_YEAR = 31557600000;
-
-const formatAbsoluteYear = (year: number) => {
-  const rounded = Math.round(year);
-  if (rounded > 0) return `${rounded}`;
-  if (rounded === 0) return `1 BC`;
-  return `${Math.abs(rounded)} BC`;
-};
-
-export const formatYear = (absoluteYear: number): string => {
-  if (absoluteYear <= -1e9)
-    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e9).toFixed(2))} Billion ${absoluteYear <= 0 ? "BC" : "AD"}`;
-  if (absoluteYear <= -1e6)
-    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e6).toFixed(2))} Million ${absoluteYear <= 0 ? "BC" : "AD"}`;
-  if (absoluteYear <= -10000)
-    return `${Math.abs(Math.round(absoluteYear)).toLocaleString()} ${absoluteYear <= 0 ? "BC" : "AD"}`;
-
-  if (absoluteYear <= 0) {
-    return formatAbsoluteYear(absoluteYear);
-  }
-
-  try {
-    const d = new Date(absoluteYear, 0, 1);
-    if (isNaN(d.getTime())) return formatAbsoluteYear(absoluteYear);
-    return d.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch (e) {
-    return formatAbsoluteYear(absoluteYear);
-  }
-};
-
 export const formatTick = (absoluteYear: number, interval: number): string => {
-
   if (interval >= 1e9)
     return `${stripTrailingZeros(Math.abs(absoluteYear / 1e9).toFixed(1))}B ${absoluteYear <= 0 ? "BC" : "AD"}`;
   if (interval >= 1e6)
@@ -91,28 +144,20 @@ export const formatTick = (absoluteYear: number, interval: number): string => {
   if (interval >= 1 || absoluteYear <= 0)
     return formatAbsoluteYear(absoluteYear);
 
-  try {
-    // For sub-yearly ticks, use Jan 1 of the absolute year as the date anchor.
-    // Sub-hourly tick labels (hour/minute) don't apply to year-scale events.
-    const d = new Date(Math.round(absoluteYear), 0, 1);
-    if (isNaN(d.getTime())) return formatAbsoluteYear(absoluteYear);
+  const d = parseAbsoluteYearToDate(absoluteYear);
+  if (isNaN(d.getTime())) return formatAbsoluteYear(absoluteYear);
 
-    if (interval >= 1 / 12)
-      return d.toLocaleDateString(undefined, {
-        month: "short",
-        year: "numeric",
-      });
-    if (interval >= 1 / 365.25)
-      return d.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
-    return d.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch (e) {
-    return formatAbsoluteYear(absoluteYear);
-  }
+  if (interval >= 1 / 12)
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  if (interval >= 1 / 365.25)
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
+
+export const formatTimelineTick = (
+  absoluteYear: number,
+  interval: number,
+): string => formatTick(absoluteYear, interval);

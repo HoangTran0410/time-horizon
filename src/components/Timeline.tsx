@@ -8,12 +8,15 @@ import {
   MotionValue,
   useSpring,
 } from "motion/react";
-import { Event } from "../types";
-import { EVENTS } from "../constants";
-import { Modal } from "./Modal";
+import { Event, getEventTimelineYear } from "../types";
+import { BIG_BANG_YEAR, EVENTS } from "../constants";
 import { Sidebar } from "./Sidebar";
 import { EventEditor } from "./EventEditor";
-import { formatYear, formatTick, getNiceInterval } from "../utils";
+import {
+  getEventDisplayLabel,
+  formatTimelineTick,
+  getNiceInterval,
+} from "../utils";
 
 const EventMarker: React.FC<{
   event: Event;
@@ -23,10 +26,11 @@ const EventMarker: React.FC<{
   layout: any;
   onClick: (e: Event) => void;
 }> = ({ event, zoom, focusPixel, focusYear, layout, onClick }) => {
-  const yearMV = useMotionValue(event.absoluteYear);
+  const timelineYear = getEventTimelineYear(event);
+  const yearMV = useMotionValue(timelineYear);
   useEffect(() => {
-    yearMV.set(event.absoluteYear);
-  }, [event.absoluteYear, yearMV]);
+    yearMV.set(timelineYear);
+  }, [timelineYear, yearMV]);
 
   const markerX = useTransform(() => {
     const z = zoom.get();
@@ -90,7 +94,7 @@ const EventMarker: React.FC<{
             {event.title}
           </span>
           <span className="text-xs text-zinc-500">
-            {formatYear(event.absoluteYear)}
+            {getEventDisplayLabel(event)}
           </span>
         </motion.div>
       </div>
@@ -107,7 +111,7 @@ const BigBangMarker: React.FC<{
     const z = zoom.get();
     const fp = focusPixel.get();
     const fy = focusYear.get();
-    const pos = (-13.8e9 - fy) * z + fp;
+    const pos = (BIG_BANG_YEAR - fy) * z + fp;
     if (pos < -100000) return -100000;
     if (pos > 100000) return 100000;
     return pos;
@@ -120,7 +124,7 @@ const BigBangMarker: React.FC<{
     >
       <div className="w-1 h-full bg-gradient-to-b from-transparent via-amber-500/50 to-transparent" />
       <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-2 bg-zinc-900/80 backdrop-blur-sm border border-amber-500/30 rounded-full text-amber-500 font-bold text-sm tracking-widest uppercase shadow-[0_0_30px_rgba(245,158,11,0.2)]">
-        The Big Bang
+        Big Bang
       </div>
     </motion.div>
   );
@@ -146,12 +150,16 @@ const TickMarker: React.FC<{
       <div className="flex flex-col items-center -translate-x-1/2">
         <div className="w-px h-3 bg-zinc-600 -mt-1.5" />
         <span className="mt-2 text-[10px] text-zinc-500 font-mono select-none whitespace-nowrap">
-          {formatTick(tick.year, tick.interval)}
+          {formatTimelineTick(tick.year, tick.interval)}
         </span>
       </div>
     </motion.div>
   );
 };
+
+// Motion Values
+const MIN_ZOOM = 100 / 13.8e9;
+const MAX_ZOOM = 1000 / (1 / 365.25);
 
 export const Timeline: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -166,10 +174,6 @@ export const Timeline: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selecting, setSelecting] = useState(false);
   const [ticks, setTicks] = useState<{ year: number; interval: number }[]>([]);
-
-  // Motion Values
-  const MIN_ZOOM = 100 / 13.8e9;
-  const MAX_ZOOM = 1000 / (1 / 365.25);
 
   const focusPixel = useMotionValue(
     typeof window !== "undefined" ? window.innerWidth / 2 : 500,
@@ -216,7 +220,7 @@ export const Timeline: React.FC = () => {
     const minDistYears = MIN_DIST_PX / currentZoom;
 
     const visibleEvents = events.filter((e) => {
-      if (e.absoluteYear < -13.8e9) return false;
+      if (getEventTimelineYear(e) < BIG_BANG_YEAR) return false;
       const matchesSearch =
         e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -245,11 +249,11 @@ export const Timeline: React.FC = () => {
         const collision = occupied.some(
           (occ) =>
             occ.level === actualLevel &&
-            Math.abs(occ.year - ev.absoluteYear) < minDistYears,
+            Math.abs(occ.year - getEventTimelineYear(ev)) < minDistYears,
         );
         if (!collision) {
           placedLevel = actualLevel;
-          occupied.push({ year: ev.absoluteYear, level: actualLevel });
+          occupied.push({ year: getEventTimelineYear(ev), level: actualLevel });
           break;
         }
       }
@@ -314,7 +318,7 @@ export const Timeline: React.FC = () => {
     const visibleYears = width / currentZoom;
 
     const roughInterval = getNiceInterval(visibleYears / 10);
-    const sampleString = formatTick(startYear, roughInterval);
+    const sampleString = formatTimelineTick(startYear, roughInterval);
     const estimatedWidthPx = Math.max(80, sampleString.length * 8 + 40);
 
     const maxTicks = Math.max(2, Math.floor(width / estimatedWidthPx));
@@ -328,7 +332,7 @@ export const Timeline: React.FC = () => {
     const newTicks: { year: number; interval: number }[] = [];
     const firstTick = Math.floor(startYear / interval) * interval;
     for (let y = firstTick; y <= endYear; y += interval) {
-      if (y >= -13.8e9) {
+      if (y >= BIG_BANG_YEAR) {
         newTicks.push({ year: y, interval });
       }
     }
@@ -340,8 +344,7 @@ export const Timeline: React.FC = () => {
         prev.length === newTicks.length &&
         prev.every(
           (t, i) =>
-            t.year === newTicks[i].year &&
-            t.interval === newTicks[i].interval,
+            t.year === newTicks[i].year && t.interval === newTicks[i].interval,
         )
       ) {
         return prev;
@@ -421,7 +424,7 @@ export const Timeline: React.FC = () => {
 
     const currentX = panX.get();
     const currentZ = zoom.get();
-    const minFocusPixel = -(-13.8e9) * currentZ + window.innerWidth / 2;
+    const minFocusPixel = -BIG_BANG_YEAR * currentZ + window.innerWidth / 2;
     const nextX = Math.min(currentX + deltaX, minFocusPixel);
 
     focusPixel.set(nextX);
@@ -447,8 +450,8 @@ export const Timeline: React.FC = () => {
     const inertiaLoop = () => {
       v *= friction;
       const currentZ = zoom.get();
-      // Clamp: Big Bang (-13.8e9 yrs) can go no further right than screen center
-      const minFocusPixel = -(-13.8e9) * currentZ + window.innerWidth / 2;
+      // Clamp: Big Bang (BIG_BANG_YEAR yrs) can go no further right than screen center
+      const minFocusPixel = -BIG_BANG_YEAR * currentZ + window.innerWidth / 2;
       const nextX = Math.min(panX.get() + v, minFocusPixel);
       focusPixel.set(nextX);
       focusYear.set(0);
@@ -470,7 +473,11 @@ export const Timeline: React.FC = () => {
   useMotionValueEvent(logZoom, "change", (val) => {
     // Only recalculate ticks when zoom actually changes (not during spring animation).
     // scheduleTickUpdate will be called once after the spring settles.
-    if (prevLogZoom.current !== null && Math.abs(val - prevLogZoom.current) < 1e-6) return;
+    if (
+      prevLogZoom.current !== null &&
+      Math.abs(val - prevLogZoom.current) < 1e-6
+    )
+      return;
     prevLogZoom.current = val;
     scheduleTickUpdate();
 
@@ -516,16 +523,35 @@ export const Timeline: React.FC = () => {
     if (!container) return;
     const width = container.clientWidth;
 
+    const eventYear = getEventTimelineYear(event);
+
     animate(focusPixel, width / 2, {
       type: "spring",
       stiffness: 400,
       damping: 40,
     });
-    animate(focusYear, event.absoluteYear, {
+    animate(focusYear, eventYear, {
       type: "spring",
       stiffness: 400,
       damping: 40,
     });
+
+    // If event has duration, auto-zoom to show neighborhood around that duration.
+    if (event.duration && event.duration > 0) {
+      // Rule of thumb: show ~20x duration around center, clamped to sane bounds.
+      const targetRangeYears = Math.min(
+        Math.max(event.duration * 20, 1 / 365.25),
+        1e9,
+      );
+      const targetZoom = width / targetRangeYears;
+      const clampedZoom = Math.max(MIN_ZOOM, Math.min(targetZoom, MAX_ZOOM));
+      targetLogZoom.current = Math.log(clampedZoom);
+      animate(logZoom, targetLogZoom.current, {
+        type: "spring",
+        stiffness: 400,
+        damping: 40,
+      });
+    }
   };
 
   const zoomTrackRef = useRef<HTMLDivElement>(null);
@@ -650,7 +676,7 @@ export const Timeline: React.FC = () => {
 
         {/* Events */}
         {events
-          .filter((e) => e.absoluteYear >= -13.8e9)
+          .filter((e) => getEventTimelineYear(e) >= BIG_BANG_YEAR)
           .map((event) => (
             <EventMarker
               key={event.id}
@@ -725,52 +751,60 @@ export const Timeline: React.FC = () => {
       {/* Floating Info Panel */}
       {selectedEventInfo && (
         <div
-          className="fixed bottom-8 right-8 z-50 bg-zinc-900 border border-zinc-700 p-6 rounded-2xl shadow-2xl w-80 max-h-[80vh] overflow-y-auto"
+          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 border border-zinc-700 px-4 py-3 rounded-xl shadow-2xl w-[min(92vw,560px)]"
           onPointerDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center text-2xl border border-zinc-700">
-              {selectedEventInfo.emoji}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-9 h-9 shrink-0 bg-zinc-800 rounded-full flex items-center justify-center text-lg border border-zinc-700">
+                {selectedEventInfo.emoji}
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-white truncate">
+                  {selectedEventInfo.title}
+                </h3>
+                <p className="text-emerald-500 font-mono text-xs mt-0.5 truncate">
+                  {getEventDisplayLabel(selectedEventInfo)}
+                </p>
+                <p className="text-zinc-300 text-xs mt-1.5 line-clamp-2">
+                  {selectedEventInfo.description}
+                </p>
+              </div>
             </div>
-            <button
-              onClick={() => setSelectedEventInfo(null)}
-              className="text-zinc-500 hover:text-white p-1"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => {
+                  setEditingEvent(selectedEventInfo);
+                  setSelectedEventInfo(null);
+                }}
+                className="bg-zinc-800 hover:bg-zinc-700 text-white px-2.5 py-1.5 rounded-md transition-colors text-xs font-medium border border-zinc-700"
               >
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
+                Edit
+              </button>
+              <button
+                onClick={() => setSelectedEventInfo(null)}
+                className="text-zinc-500 hover:text-white p-1"
+                aria-label="Close"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
           </div>
-          <h3 className="text-xl font-bold text-white mb-1">
-            {selectedEventInfo.title}
-          </h3>
-          <p className="text-emerald-500 font-mono text-sm mb-4">
-            {formatYear(selectedEventInfo.absoluteYear)}
-          </p>
-          <p className="text-zinc-300 text-sm mb-6 leading-relaxed">
-            {selectedEventInfo.description}
-          </p>
-          <button
-            onClick={() => {
-              setEditingEvent(selectedEventInfo);
-              setSelectedEventInfo(null);
-            }}
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg transition-colors text-sm font-medium border border-zinc-700"
-          >
-            Edit Event
-          </button>
         </div>
       )}
 
