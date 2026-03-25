@@ -170,6 +170,7 @@ export const Timeline: React.FC = () => {
     null,
   );
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [addingEvent, setAddingEvent] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selecting, setSelecting] = useState(false);
@@ -630,7 +631,25 @@ export const Timeline: React.FC = () => {
       prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)),
     );
     setEditingEvent(null);
+    setAddingEvent(false);
   };
+
+  const handleAddEvent = (newEvent: Event) => {
+    setEvents((prev) => [...prev, newEvent]);
+    setAddingEvent(false);
+  };
+
+  const createNewEvent = (): Event => ({
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    title: "",
+    description: "",
+    emoji: "📅",
+    time: [new Date().getFullYear(), null, null, null, null, null],
+    groups: [],
+    priority: 50,
+  });
 
   return (
     <div
@@ -650,6 +669,7 @@ export const Timeline: React.FC = () => {
         onSearchChange={setSearchQuery}
         onFocusEvent={handleFocusEvent}
         onEditEvent={setEditingEvent}
+        onAddEvent={() => setAddingEvent(true)}
       />
 
       {/* Horizon Line */}
@@ -810,9 +830,19 @@ export const Timeline: React.FC = () => {
 
       {editingEvent && (
         <EventEditor
+          mode="edit"
           event={editingEvent}
           onSave={handleSaveEvent}
           onClose={() => setEditingEvent(null)}
+        />
+      )}
+
+      {addingEvent && (
+        <EventEditor
+          mode="create"
+          event={createNewEvent()}
+          onSave={handleAddEvent}
+          onClose={() => setAddingEvent(false)}
         />
       )}
     </div>

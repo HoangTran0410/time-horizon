@@ -9,6 +9,7 @@ interface SidebarProps {
   onSearchChange: (query: string) => void;
   onFocusEvent: (event: Event) => void;
   onEditEvent: (event: Event) => void;
+  onAddEvent: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -19,6 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSearchChange,
   onFocusEvent,
   onEditEvent,
+  onAddEvent,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -70,7 +72,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         <div className="p-6 pt-20 flex-1 overflow-y-auto">
-          <h2 className="text-xl font-bold text-white mb-6">Timeline Events</h2>
+          <h2 className="text-xl font-bold text-white mb-4">Timeline Events</h2>
+
+          <div className="mb-6">
+            <button
+              onClick={onAddEvent}
+              className="w-full bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors text-sm font-semibold"
+            >
+              Add Event
+            </button>
+          </div>
 
           {/* Search */}
           <div className="mb-6">

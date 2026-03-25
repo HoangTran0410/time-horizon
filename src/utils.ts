@@ -4,6 +4,60 @@ import { Event, getEventTimelineYear } from "./types";
 const stripTrailingZeros = (s: string): string =>
   s.replace(/\.0+(?=\s|[A-Z]|$)/, "");
 
+const NICE_INTERVALS: number[] = [
+  1e10,
+  5e9,
+  1e9,
+  5e8,
+  1e8,
+  5e7,
+  1e7,
+  5e6,
+  1e6,
+  5e5,
+  1e5,
+  5e4,
+  1e4,
+  5000,
+  1000,
+  500,
+  100,
+  50,
+  10,
+  5,
+  1,
+  1 / 12, // 1 month
+  1 / 52, // 1 week
+  1 / 365.25, // 1 day
+  1 / (365.25 * 24), // 1 hour
+  1 / (365.25 * 24 * 60), // 1 minute
+  1 / (365.25 * 24 * 3600), // 1 second
+] as const;
+
+const MONTH_YEAR_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  year: "numeric",
+};
+
+const MONTH_DAY_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+};
+
+const FULL_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+};
+
+const DATE_TIME_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+
 const formatAbsoluteYear = (year: number): string => {
   const rounded = Math.round(year);
   if (rounded > 0) return `${rounded}`;
@@ -20,12 +74,19 @@ const parseAbsoluteYearToDate = (absoluteYear: number): Date => {
 };
 
 export const formatYear = (absoluteYear: number): string => {
-  if (absoluteYear <= -1e9)
-    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e9).toFixed(2))} Billion ${absoluteYear <= 0 ? "BC" : "AD"}`;
-  if (absoluteYear <= -1e6)
-    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e6).toFixed(2))} Million ${absoluteYear <= 0 ? "BC" : "AD"}`;
-  if (absoluteYear <= -10000)
-    return `${Math.abs(Math.round(absoluteYear)).toLocaleString()} ${absoluteYear <= 0 ? "BC" : "AD"}`;
+  const absYear = Math.abs(absoluteYear);
+
+  if (absoluteYear <= -1e9) {
+    return `${stripTrailingZeros((absYear / 1e9).toFixed(2))} Billion BC`;
+  }
+
+  if (absoluteYear <= -1e6) {
+    return `${stripTrailingZeros((absYear / 1e6).toFixed(2))} Million BC`;
+  }
+
+  if (absoluteYear <= -10000) {
+    return `${Math.abs(Math.round(absoluteYear)).toLocaleString()} BC`;
+  }
 
   if (absoluteYear <= 0) return formatAbsoluteYear(absoluteYear);
 
@@ -34,15 +95,11 @@ export const formatYear = (absoluteYear: number): string => {
   }
 
   const d = parseAbsoluteYearToDate(absoluteYear);
-  if (isNaN(d.getTime()))
+  if (isNaN(d.getTime())) {
     return `${stripTrailingZeros(absoluteYear.toFixed(6))}`;
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  }
+
+  return d.toLocaleString(undefined, DATE_TIME_FORMAT);
 };
 
 const formatEventTime = (event: Event): string => {
@@ -66,24 +123,16 @@ const formatEventTime = (event: Event): string => {
   if (isNaN(d.getTime())) return formatYear(getEventTimelineYear(event));
 
   if (day === null) {
-    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    return d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
   }
 
   const hasTime = hour !== null || minute !== null || seconds !== null;
   if (!hasTime) {
-    return d.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return d.toLocaleDateString(undefined, FULL_DATE_FORMAT);
   }
 
   return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    ...DATE_TIME_FORMAT,
     second: seconds !== null ? "2-digit" : undefined,
   });
 };
@@ -92,65 +141,53 @@ export const getEventDisplayLabel = (event: Event): string =>
   formatEventTime(event);
 
 export const getNiceInterval = (ideal: number): number => {
-  const intervals = [
-    1e10,
-    5e9,
-    1e9,
-    5e8,
-    1e8,
-    5e7,
-    1e7,
-    5e6,
-    1e6,
-    5e5,
-    1e5,
-    5e4,
-    1e4,
-    5000,
-    1000,
-    500,
-    100,
-    50,
-    10,
-    5,
-    1,
-    1 / 12, // 1 month
-    1 / 52, // 1 week
-    1 / 365.25, // 1 day
-    1 / (365.25 * 24), // 1 hour
-    1 / (365.25 * 24 * 60), // 1 minute
-    1 / (365.25 * 24 * 3600), // 1 second
-  ];
+  const logIdeal = Math.log10(ideal);
+  let best = NICE_INTERVALS[0];
+  let minDiff = Math.abs(logIdeal - Math.log10(best));
 
-  let best = intervals[0];
-  let minDiff = Math.abs(Math.log10(ideal) - Math.log10(best));
-
-  for (const interval of intervals) {
-    const diff = Math.abs(Math.log10(ideal) - Math.log10(interval));
+  for (let i = 1; i < NICE_INTERVALS.length; i += 1) {
+    const interval = NICE_INTERVALS[i];
+    const diff = Math.abs(logIdeal - Math.log10(interval));
     if (diff < minDiff) {
       minDiff = diff;
       best = interval;
     }
   }
+
   return best;
 };
 
 export const formatTick = (absoluteYear: number, interval: number): string => {
-  if (interval >= 1e9)
-    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e9).toFixed(1))}B ${absoluteYear <= 0 ? "BC" : "AD"}`;
-  if (interval >= 1e6)
-    return `${stripTrailingZeros(Math.abs(absoluteYear / 1e6).toFixed(1))}M ${absoluteYear <= 0 ? "BC" : "AD"}`;
-  if (interval >= 1000) return formatAbsoluteYear(absoluteYear);
-  if (interval >= 1 || absoluteYear <= 0)
+  const absYear = Math.abs(absoluteYear);
+  const era = absoluteYear <= 0 ? "BC" : "AD";
+
+  if (interval >= 1e9) {
+    return `${stripTrailingZeros((absYear / 1e9).toFixed(1))}B ${era}`;
+  }
+
+  if (interval >= 1e6) {
+    return `${stripTrailingZeros((absYear / 1e6).toFixed(1))}M ${era}`;
+  }
+
+  if (interval >= 1000 || absoluteYear <= 0) {
     return formatAbsoluteYear(absoluteYear);
+  }
+
+  if (interval >= 1) {
+    return formatAbsoluteYear(absoluteYear);
+  }
 
   const d = parseAbsoluteYearToDate(absoluteYear);
   if (isNaN(d.getTime())) return formatAbsoluteYear(absoluteYear);
 
-  if (interval >= 1 / 12)
-    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-  if (interval >= 1 / 365.25)
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (interval >= 1 / 12) {
+    return d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
+  }
+
+  if (interval >= 1 / 365.25) {
+    return d.toLocaleDateString(undefined, MONTH_DAY_FORMAT);
+  }
+
   return d.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",

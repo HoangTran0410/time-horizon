@@ -21,6 +21,8 @@ export interface Event {
    */
   duration?: number;
   emoji: string;
+  /** Optional accent color as a hex string, e.g. "#ef4444". */
+  color?: string | null;
   groups: string[];
   priority: number; // Higher number = higher priority (shown when zoomed out)
 }
