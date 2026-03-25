@@ -77,3 +77,11 @@ export interface TimelineState {
   offset: number; // Scroll position in pixels
 }
 
+export interface EventCollectionMeta {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  author: string;
+  createdAt: string;
+}

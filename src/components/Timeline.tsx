@@ -1,33 +1,96 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  startTransition,
+} from "react";
 import {
-  motion,
   useMotionValue,
-  useTransform,
   useMotionValueEvent,
+  useTransform,
   animate,
   MotionValue,
-  useSpring,
 } from "motion/react";
-import { Menu, X, Maximize2, ChevronDown, Pencil } from "lucide-react";
 import { Event, getEventTimelineYear } from "../types";
-import { BIG_BANG_YEAR, EVENTS } from "../constants";
+import { BIG_BANG_YEAR } from "../constants";
+import {
+  EVENT_COLLECTIONS,
+  PLAYGROUND_COLLECTION,
+  SYNCABLE_COLLECTION_IDS,
+  loadEventCollection,
+} from "../data/collections";
 import { Sidebar } from "./Sidebar";
 import { EventEditor } from "./EventEditor";
 import {
-  getEventDisplayLabel,
+  AutoFitButton,
+  EventInfoPanel,
+  FpsBadge,
+  ZoomController,
+} from "./timeline/TimelineHud";
+import {
+  CollapsedEventGroup,
+  EventLayoutState,
+  TimelineTick,
+  WarpOverlay,
+} from "./timeline/TimelineMarkers";
+import { TimelineViewport } from "./timeline/TimelineViewport";
+import {
   formatTimelineTick,
   getNiceInterval,
   getTimelineHighlightStep,
   isHighlightedTimelineTick,
 } from "../utils";
 
-type TimelineTick = {
-  year: number;
-  interval: number;
-  isHighlighted: boolean;
+const tickLabelWidthEstimateCache = new Map<number, number>();
+const TICK_OVERSCAN_INTERVALS = 2;
+const COLLECTION_CACHE_KEY = "time-horizon:collection-cache:v1";
+const ZOOM_UI_THROTTLE_MS = 80;
+const ZOOM_SETTLE_DELAY_MS = 140;
+type CollectionCache = {
+  version: number;
+  collections: Record<string, Event[]>;
+  visibleCollectionIds?: string[];
 };
 
-const tickLabelWidthEstimateCache = new Map<number, number>();
+const readCollectionCache = (): {
+  collections: Record<string, Event[]>;
+  visibleCollectionIds: string[];
+} => {
+  if (typeof window === "undefined") {
+    return { collections: {}, visibleCollectionIds: [] };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(COLLECTION_CACHE_KEY);
+    if (!raw) {
+      return { collections: {}, visibleCollectionIds: [] };
+    }
+
+    const parsed = JSON.parse(raw) as CollectionCache;
+    if (!parsed || !parsed.collections) {
+      return { collections: {}, visibleCollectionIds: [] };
+    }
+
+    const fallbackVisibleCollectionIds = Object.keys(parsed.collections);
+    const nextVisibleCollectionIds = Array.isArray(parsed.visibleCollectionIds)
+      ? parsed.visibleCollectionIds
+      : fallbackVisibleCollectionIds;
+
+    return {
+      collections: parsed.collections,
+      visibleCollectionIds: nextVisibleCollectionIds.filter(
+        (collectionId, index, allIds) =>
+          allIds.indexOf(collectionId) === index &&
+          Object.prototype.hasOwnProperty.call(parsed.collections, collectionId),
+      ),
+    };
+  } catch (error) {
+    console.error("Failed to restore cached collections", error);
+    return { collections: {}, visibleCollectionIds: [] };
+  }
+};
+
 const getStableTickLabelWidthEstimate = (interval: number) => {
   const cached = tickLabelWidthEstimateCache.get(interval);
   if (cached !== undefined) return cached;
@@ -44,243 +107,50 @@ const getStableTickLabelWidthEstimate = (interval: number) => {
   return estimate;
 };
 
-const EventMarker: React.FC<{
-  event: Event;
-  zoom: MotionValue<number>;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-  layout: any;
-  isFocused: boolean;
-  onClick: (e: Event) => void;
-}> = ({ event, zoom, focusPixel, focusYear, layout, isFocused, onClick }) => {
-  const timelineYear = getEventTimelineYear(event);
-  const yearMV = useMotionValue(timelineYear);
-  useEffect(() => {
-    yearMV.set(timelineYear);
-  }, [timelineYear, yearMV]);
-
-  const markerX = useTransform(() => {
-    const z = zoom.get();
-    const fp = focusPixel.get();
-    const fy = focusYear.get();
-    const pos = (yearMV.get() - fy) * z + fp;
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
-  });
-  const yOffset = layout.y;
-  const opacity = layout.opacity;
-  const pointerEvents = useTransform(opacity, (v: number) =>
-    v > 0.5 ? "auto" : "none",
-  );
-
-  const lineTop = useTransform(yOffset, (y: number) => (y < 0 ? 48 : -y + 24));
-  const lineHeight = useTransform(yOffset, (y: number) =>
-    Math.max(0, Math.abs(y) - 24),
-  );
-  const textTop = useTransform(yOffset, (y: number) =>
-    y < 0 ? "auto" : "56px",
-  );
-  const textBottom = useTransform(yOffset, (y: number) =>
-    y < 0 ? "56px" : "auto",
-  );
-
-  // Scale: focused/hovered → 1.25, default → 1
-  const scale = useTransform(opacity, (v: number) =>
-    isFocused ? Math.max(v, 1) : v,
-  );
-
-  return (
-    <motion.div
-      className="absolute top-1/2 z-10"
-      style={{
-        x: markerX,
-        y: yOffset,
-        translateY: "-50%",
-        opacity,
-        pointerEvents: pointerEvents as any,
-        scale,
-        zIndex: isFocused ? 30 : 10,
-      }}
-    >
-      <div className="flex flex-col items-center -translate-x-1/2 group">
-        <motion.div
-          className="absolute w-px bg-zinc-700 group-hover:bg-emerald-500 transition-colors z-0"
-          style={{
-            height: lineHeight,
-            top: lineTop,
-            left: "50%",
-            backgroundColor: isFocused ? "#10b981" : undefined,
-          }}
-        />
-
-        <div
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick(event);
-          }}
-          className={`
-            w-12 h-12 bg-zinc-900 border-2 rounded-full flex items-center
-            justify-center text-2xl group-hover:scale-125 transition-all
-            cursor-pointer shadow-lg z-10 relative
-            ${
-              isFocused
-                ? "border-emerald-500 shadow-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                : "border-zinc-700 group-hover:border-emerald-500"
-            }
-          `}
-        >
-          {event.emoji}
-        </div>
-
-        <motion.div
-          className="absolute flex flex-col items-center opacity-70 group-hover:opacity-100 transition-opacity w-48 text-center"
-          style={{ top: textTop, bottom: textBottom }}
-        >
-          <span
-            className={`text-sm font-medium ${
-              isFocused ? "text-emerald-400" : "text-zinc-200"
-            }`}
-          >
-            {event.title}
-          </span>
-          <span
-            className={`text-xs ${
-              isFocused ? "text-emerald-500" : "text-zinc-500"
-            }`}
-          >
-            {getEventDisplayLabel(event)}
-          </span>
-        </motion.div>
-      </div>
-    </motion.div>
-  );
+const formatZoomRangeLabel = (
+  currentLogZoom: number,
+  viewportWidth: number,
+): string => {
+  const currentZoom = Math.exp(currentLogZoom);
+  const rangeInYears = viewportWidth / currentZoom;
+  if (rangeInYears >= 1e9) {
+    return `${(rangeInYears / 1e9).toFixed(0)}B Yrs`;
+  }
+  if (rangeInYears >= 1e6) {
+    return `${(rangeInYears / 1e6).toFixed(0)}M Yrs`;
+  }
+  if (rangeInYears >= 1000) {
+    return `${(rangeInYears / 1000).toFixed(0)}K Yrs`;
+  }
+  if (rangeInYears >= 1) {
+    return `${rangeInYears.toFixed(0)} Yrs`;
+  }
+  if (rangeInYears >= 1 / 12) {
+    return `${(rangeInYears * 12).toFixed(0)} Mos`;
+  }
+  if (rangeInYears >= 1 / 365.25) {
+    return `${(rangeInYears * 365.25).toFixed(0)} Days`;
+  }
+  return `${(rangeInYears * 365.25 * 24).toFixed(0)} Hrs`;
 };
 
-const BigBangMarker: React.FC<{
-  zoom: MotionValue<number>;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-}> = ({ zoom, focusPixel, focusYear }) => {
-  const markerX = useTransform(() => {
-    const z = zoom.get();
-    const fp = focusPixel.get();
-    const fy = focusYear.get();
-    const pos = (BIG_BANG_YEAR - fy) * z + fp;
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
+const areCollapsedGroupsEqual = (
+  prevGroups: CollapsedEventGroup[],
+  nextGroups: CollapsedEventGroup[],
+) =>
+  prevGroups.length === nextGroups.length &&
+  prevGroups.every((group, index) => {
+    const nextGroup = nextGroups[index];
+    const nextEventIds = new Set(nextGroup.eventIds);
+    return (
+      group.id === nextGroup.id &&
+      group.year === nextGroup.year &&
+      group.side === nextGroup.side &&
+      group.count === nextGroup.count &&
+      group.eventIds.length === nextEventIds.size &&
+      group.eventIds.every((eventId) => nextEventIds.has(eventId))
+    );
   });
-
-  return (
-    <motion.div
-      className="absolute top-0 bottom-0 flex flex-col items-center pointer-events-none"
-      style={{ x: markerX }}
-    >
-      <div className="w-1 h-full bg-gradient-to-b from-transparent via-amber-500/50 to-transparent" />
-      <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-2 bg-zinc-900/80 backdrop-blur-sm border border-amber-500/30 rounded-full text-amber-500 font-bold text-sm tracking-widest uppercase shadow-[0_0_30px_rgba(245,158,11,0.2)]">
-        Big Bang
-      </div>
-    </motion.div>
-  );
-};
-
-// ── Warp Overlay ────────────────────────────────────────────────────────────
-// CSS-animated star-streak effect shown during long-distance camera jumps.
-// Direction: 1 = fly forward (left→right), -1 = fly backward (right→left).
-const WarpOverlay: React.FC<{ isWarping: boolean; direction: 1 | -1 }> = ({
-  isWarping,
-  direction,
-}) => (
-  <div
-    aria-hidden="true"
-    className="pointer-events-none fixed inset-0 z-[70] overflow-hidden"
-    style={{
-      opacity: isWarping ? 1 : 0,
-      transition: "opacity 150ms ease",
-    }}
-  >
-    {/* Speed lines */}
-    {Array.from({ length: 24 }).map((_, i) => {
-      const top = (i / 24) * 100;
-      const delay = (i * 0.041) % 1;
-      const short = i % 3 === 0;
-      return (
-        <div
-          key={i}
-          className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
-          style={{
-            top: `${top}%`,
-            left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
-            right: direction === -1 ? (short ? "-20%" : "-40%") : undefined,
-            width: short ? "30%" : "60%",
-            height: "1px",
-            animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
-            transform: direction === -1 ? "scaleX(-1)" : undefined,
-          }}
-        />
-      );
-    })}
-
-    {/* Vanishing-point glow on the destination edge */}
-    <div
-      className="absolute inset-0 flex items-center justify-center"
-      style={{
-        background:
-          direction === 1
-            ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
-            : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)",
-      }}
-    />
-
-    <style>{`
-      @keyframes warp-streak {
-        0%   { transform: translateX(0) scaleX(0.3); opacity: 0; }
-        10%  { opacity: 1; }
-        90%  { opacity: 1; }
-        100% { transform: translateX(${direction === 1 ? "100vw" : "-100vw"}) scaleX(1.5); opacity: 0; }
-      }
-    `}</style>
-  </div>
-);
-
-const TickMarker: React.FC<{
-  tick: TimelineTick;
-  zoom: MotionValue<number>;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-}> = ({ tick, zoom, focusPixel, focusYear }) => {
-  const markerX = useTransform(() => {
-    const z = zoom.get();
-    const fp = focusPixel.get();
-    const fy = focusYear.get();
-    const pos = (tick.year - fy) * z + fp;
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
-  });
-  return (
-    <motion.div className="absolute top-1/2" style={{ x: markerX }}>
-      <div className="flex flex-col items-center -translate-x-1/2">
-        <div
-          className={`w-px -mt-1.5 ${
-            tick.isHighlighted ? "h-5 bg-white/80" : "h-3 bg-zinc-600"
-          }`}
-        />
-        <span
-          className={`mt-2 font-mono select-none whitespace-nowrap ${
-            tick.isHighlighted
-              ? "text-[11px] text-white/90 font-semibold"
-              : "text-[10px] text-zinc-500"
-          }`}
-        >
-          {formatTimelineTick(tick.year, tick.interval)}
-        </span>
-      </div>
-    </motion.div>
-  );
-};
 
 // Motion Values
 const MIN_ZOOM = 100 / 13.8e9;
@@ -288,20 +158,188 @@ const MAX_ZOOM = 1000 / (1 / 365.25);
 
 export const Timeline: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const initialCacheRef = useRef(readCollectionCache());
 
   // App State
-  const [events, setEvents] = useState<Event[]>(EVENTS);
+  const [collectionEventsById, setCollectionEventsById] = useState<
+    Record<string, Event[]>
+  >(initialCacheRef.current.collections);
   const [selectedEventInfo, setSelectedEventInfo] = useState<Event | null>(
     null,
   );
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [addingCollectionId, setAddingCollectionId] = useState<string | null>(
+    null,
+  );
   const [isWarping, setIsWarping] = useState(false);
   const [warpDirection, setWarpDirection] = useState<1 | -1>(1);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [visibleCollectionIds, setVisibleCollectionIds] = useState<string[]>(
+    initialCacheRef.current.visibleCollectionIds,
+  );
+  const [downloadingCollectionIds, setDownloadingCollectionIds] = useState<
+    string[]
+  >([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selecting, setSelecting] = useState(false);
   const [ticks, setTicks] = useState<TimelineTick[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<CollapsedEventGroup[]>(
+    [],
+  );
+  const [fps, setFps] = useState(0);
+
+  const addVisibleCollection = (collectionId: string) => {
+    setVisibleCollectionIds((prev) =>
+      prev.includes(collectionId) ? prev : [...prev, collectionId],
+    );
+  };
+
+  const ensurePlaygroundCollection = () => {
+    setCollectionEventsById((prev) =>
+      Object.prototype.hasOwnProperty.call(prev, PLAYGROUND_COLLECTION.id)
+        ? prev
+        : { ...prev, [PLAYGROUND_COLLECTION.id]: [] },
+    );
+  };
+
+  const getCollectionEvents = (collectionId: string) =>
+    collectionEventsById[collectionId] ?? [];
+
+  const collections = useMemo(
+    () =>
+      Object.prototype.hasOwnProperty.call(
+        collectionEventsById,
+        PLAYGROUND_COLLECTION.id,
+      )
+        ? [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION]
+        : EVENT_COLLECTIONS,
+    [collectionEventsById],
+  );
+
+  const timelineEvents = useMemo(
+    () =>
+      collections
+        .filter((collection) => visibleCollectionIds.includes(collection.id))
+        .flatMap((collection) => getCollectionEvents(collection.id)),
+    [collectionEventsById, collections, visibleCollectionIds],
+  );
+
+  const singleVisibleCollectionId =
+    visibleCollectionIds.length === 1 ? visibleCollectionIds[0] : null;
+
+  const findEventCollectionId = (eventId: string) => {
+    for (const collectionId of Object.keys(collectionEventsById)) {
+      const collectionEvents = collectionEventsById[collectionId] ?? [];
+      if (collectionEvents.some((event) => event.id === eventId)) {
+        return collectionId;
+      }
+    }
+
+    return null;
+  };
+
+  const animateCameraToEvents = (events: Event[], immediate = false) => {
+    const container = containerRef.current;
+    if (!container || events.length === 0) return;
+
+    const width = container.clientWidth;
+    const PADDING = 0.12;
+    const years = events.map((event) => getEventTimelineYear(event));
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years);
+
+    if (Math.abs(maxYear - minYear) < 1e-9) {
+      const targetYear = minYear;
+      const targetZoom = Math.min(Math.max(zoom.get() * 2, MIN_ZOOM), MAX_ZOOM);
+
+      if (immediate) {
+        focusPixel.set(width / 2);
+        focusYear.set(targetYear);
+        targetLogZoom.current = Math.log(targetZoom);
+        logZoom.set(targetLogZoom.current);
+      } else {
+        animate(focusPixel, width / 2, {
+          type: "spring",
+          stiffness: 300,
+          damping: 30,
+        });
+        animate(focusYear, targetYear, {
+          type: "spring",
+          stiffness: 300,
+          damping: 30,
+        });
+        targetLogZoom.current = Math.log(targetZoom);
+        animate(logZoom, targetLogZoom.current, {
+          type: "spring",
+          stiffness: 300,
+          damping: 30,
+        });
+      }
+      return;
+    }
+
+    const fitZoom = Math.max(
+      MIN_ZOOM,
+      Math.min((width * (1 - PADDING * 2)) / (maxYear - minYear), MAX_ZOOM),
+    );
+    const centerYear = (minYear + maxYear) / 2;
+    const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
+
+    if (immediate) {
+      focusPixel.set(width / 2);
+      focusYear.set(centerYear);
+      targetLogZoom.current = Math.log(fitZoom);
+      logZoom.set(targetLogZoom.current);
+    } else if (pixelDist > width * 0.5) {
+      const duration = Math.min(1.0, 0.2 + pixelDist / 4000);
+      animate(focusPixel, width / 2, { duration, ease: "easeInOut" });
+      animate(focusYear, centerYear, { duration, ease: "easeInOut" });
+      targetLogZoom.current = Math.log(fitZoom);
+      animate(logZoom, targetLogZoom.current, { duration, ease: "easeInOut" });
+    } else {
+      animate(focusPixel, width / 2, {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      });
+      animate(focusYear, centerYear, {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      });
+      targetLogZoom.current = Math.log(fitZoom);
+      animate(logZoom, targetLogZoom.current, {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const persistedVisibleCollectionIds = visibleCollectionIds.filter(
+        (collectionId, index, allIds) =>
+          allIds.indexOf(collectionId) === index &&
+          Object.prototype.hasOwnProperty.call(
+            collectionEventsById,
+            collectionId,
+          ),
+      );
+
+      window.localStorage.setItem(
+        COLLECTION_CACHE_KEY,
+        JSON.stringify({
+          version: 2,
+          collections: collectionEventsById,
+          visibleCollectionIds: persistedVisibleCollectionIds,
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to persist collection cache", error);
+    }
+  }, [collectionEventsById, visibleCollectionIds]);
 
   // Ref version of the currently focused event — read inside updateLayout (rAF path)
   // so it sees the latest value without triggering React re-renders.
@@ -321,17 +359,14 @@ export const Timeline: React.FC = () => {
     containerRef.current?.clientWidth ??
     (typeof window !== "undefined" ? window.innerWidth : 1000);
   const getViewportCenter = () => getViewportWidth() / 2;
-  const clampPanX = (nextPanX: number, currentZoom: number) =>
-    Math.min(nextPanX, getViewportCenter() - BIG_BANG_YEAR * currentZoom);
   const setCameraFromPanX = (
     nextPanX: number,
     currentZoom: number,
     anchorPixel = focusPixel.get(),
   ) => {
-    const clampedPanX = clampPanX(nextPanX, currentZoom);
     focusPixel.set(anchorPixel);
-    focusYear.set((anchorPixel - clampedPanX) / currentZoom);
-    return clampedPanX;
+    focusYear.set((anchorPixel - nextPanX) / currentZoom);
+    return nextPanX;
   };
   const getCenterYear = (centerPixel = getViewportCenter()) =>
     (centerPixel - panX.get()) / zoom.get();
@@ -351,21 +386,11 @@ export const Timeline: React.FC = () => {
   } | null>(null);
 
   // Layout State (MotionValues to bypass React renders)
-  const eventLayouts = useRef<
-    Record<
-      string,
-      {
-        y: MotionValue<number>;
-        opacity: MotionValue<number>;
-        targetY: number;
-        targetOpacity: number;
-      }
-    >
-  >({});
+  const eventLayouts = useRef<Record<string, EventLayoutState>>({});
 
   // Initialize layout motion values
   useMemo(() => {
-    events.forEach((e) => {
+    timelineEvents.forEach((e) => {
       if (!eventLayouts.current[e.id]) {
         eventLayouts.current[e.id] = {
           y: new MotionValue(0),
@@ -375,7 +400,7 @@ export const Timeline: React.FC = () => {
         };
       }
     });
-  }, [events]);
+  }, [timelineEvents]);
 
   // ── Layout Engine ───────────────────────────────────────────────────────────
   // Assigns each event a stable vertical lane (left/right alternating, up to 3 rows)
@@ -393,18 +418,15 @@ export const Timeline: React.FC = () => {
     const focusedId = focusedEventIdRef.current;
 
     // 1. Filter: visible + pass search/group. Always include focused event.
-    const visibleEvents = events.filter((e) => {
+    const visibleEvents = timelineEvents.filter((e) => {
       const ty = getEventTimelineYear(e);
       if (ty < BIG_BANG_YEAR) return false;
-      if (ty < layoutStart || ty > layoutEnd) return false;
       if (e.id === focusedId) return true;
-      const matchesSearch =
+      if (ty < layoutStart || ty > layoutEnd) return false;
+      return (
         e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGroup =
-        selectedGroups.length === 0 ||
-        e.groups.some((g) => selectedGroups.includes(g));
-      return matchesSearch && matchesGroup;
+        e.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     });
 
     // 2. Sort by priority, but keep focused event at top so it gets first lane choice.
@@ -415,10 +437,11 @@ export const Timeline: React.FC = () => {
     });
 
     // 3. Build stable side map ONCE to avoid repeated findIndex inside the loop.
-    const eventIndexMap = new Map(events.map((e, i) => [e.id, i]));
+    const eventIndexMap = new Map(timelineEvents.map((e, i) => [e.id, i]));
 
     const LEVELS = [1, 2, 3];
     const occupied: { year: number; level: number }[] = [];
+    const nextCollapsedGroups: CollapsedEventGroup[] = [];
 
     sortedEvents.forEach((ev) => {
       const layout = eventLayouts.current[ev.id];
@@ -470,6 +493,24 @@ export const Timeline: React.FC = () => {
         }
       } else {
         // No free lane — collapse instead of overlap.
+        const existingGroup = nextCollapsedGroups.find(
+          (group) =>
+            group.side === side && Math.abs(group.year - evYear) < minDistYears,
+        );
+
+        if (existingGroup) {
+          existingGroup.count += 1;
+          existingGroup.eventIds.push(ev.id);
+        } else {
+          nextCollapsedGroups.push({
+            id: `${ev.id}-collapsed`,
+            year: evYear,
+            side,
+            count: 1,
+            eventIds: [ev.id],
+          });
+        }
+
         if (layout.targetOpacity !== 0) {
           layout.targetOpacity = 0;
           if (immediate) {
@@ -482,7 +523,7 @@ export const Timeline: React.FC = () => {
     });
 
     // 4. Collapse filtered-out events.
-    events.forEach((ev) => {
+    timelineEvents.forEach((ev) => {
       if (visibleEvents.some((v) => v.id === ev.id)) return;
       const layout = eventLayouts.current[ev.id];
       if (!layout) return;
@@ -495,6 +536,12 @@ export const Timeline: React.FC = () => {
         }
       }
     });
+
+    setCollapsedGroups((prevGroups) =>
+      areCollapsedGroupsEqual(prevGroups, nextCollapsedGroups)
+        ? prevGroups
+        : nextCollapsedGroups,
+    );
   };
 
   // Throttle all tick updates into a single rAF per frame — prevents duplicate
@@ -509,9 +556,9 @@ export const Timeline: React.FC = () => {
     });
   };
 
-  const updateTicks = () => {
+  const updateVisibleBounds = () => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) return null;
 
     const width = container.clientWidth;
     const currentX = panX.get();
@@ -519,11 +566,15 @@ export const Timeline: React.FC = () => {
 
     const startYear = (-width - currentX) / currentZoom;
     const endYear = (width * 2 - currentX) / currentZoom;
-
-    // Propagate bounds to the layout engine and the render filter.
-    // The layout engine already calls getEventTimelineYear per event — feeding it the
-    // same bounds via a ref avoids a second panX/zoom.get() round.
     visibleBoundsRef.current = { startYear, endYear };
+
+    return { width, currentZoom, startYear, endYear };
+  };
+
+  const updateTicks = () => {
+    const bounds = updateVisibleBounds();
+    if (!bounds) return;
+    const { width, currentZoom, startYear, endYear } = bounds;
 
     const visibleYears = width / currentZoom;
     const roughInterval = getNiceInterval(visibleYears / 10);
@@ -539,8 +590,10 @@ export const Timeline: React.FC = () => {
     // just shift pixel position. Only zoom changes (which changes `interval`)
     // produce a new set of tick years.
     const tickYears: number[] = [];
-    const firstTick = Math.floor(startYear / interval) * interval;
-    for (let y = firstTick; y <= endYear; y += interval) {
+    const bufferedStartYear = startYear - interval * TICK_OVERSCAN_INTERVALS;
+    const bufferedEndYear = endYear + interval * TICK_OVERSCAN_INTERVALS;
+    const firstTick = Math.floor(bufferedStartYear / interval) * interval;
+    for (let y = firstTick; y <= bufferedEndYear; y += interval) {
       if (y >= BIG_BANG_YEAR) {
         tickYears.push(y);
       }
@@ -586,7 +639,9 @@ export const Timeline: React.FC = () => {
       interval,
       isHighlighted: isHighlightedTimelineTick(year, highlightStep),
     }));
-    setTicks(newTicks);
+    startTransition(() => {
+      setTicks(newTicks);
+    });
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -603,13 +658,19 @@ export const Timeline: React.FC = () => {
     const mouseX = e.clientX - rect.left;
 
     const currentZ = zoom.get();
+    const nextPanX = panX.get() - e.deltaX;
 
     // Keep the world position under the cursor stable while panning/zooming,
     // but never let the Big Bang marker drift right of the viewport center.
-    setCameraFromPanX(panX.get() - e.deltaX, currentZ, mouseX);
+    setCameraFromPanX(nextPanX, currentZ, mouseX);
 
     // Apply zoom if there is vertical scrolling
     if (Math.abs(e.deltaY) > 0) {
+      // Re-anchor zoom to the exact world position under the cursor before
+      // starting the zoom spring so the timeline does not wobble in place.
+      focusPixel.set(mouseX);
+      focusYear.set((mouseX - nextPanX) / currentZ);
+
       const targetZ = Math.exp(targetLogZoom.current);
       const zoomFactor = Math.pow(1.002, Math.abs(e.deltaY));
       const direction = e.deltaY < 0 ? 1 : -1;
@@ -628,39 +689,72 @@ export const Timeline: React.FC = () => {
   const isDragging = useRef(false);
   const lastX = useRef(0);
   const lastDragTime = useRef(0);
+  const pendingDragX = useRef<number | null>(null);
+  const pendingDragTime = useRef(0);
+  const dragFrame = useRef<number | null>(null);
   const velocity = useRef(0);
   const inertiaFrame = useRef<number | null>(null);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (inertiaFrame.current !== null) {
-      cancelAnimationFrame(inertiaFrame.current);
-      inertiaFrame.current = null;
-    }
-    isDragging.current = true;
-    velocity.current = 0;
-    lastDragTime.current = performance.now();
-    setSelecting(true);
-    lastX.current = e.clientX;
-    containerRef.current?.setPointerCapture(e.pointerId);
-  };
+  const flushPendingDrag = () => {
+    if (!isDragging.current || pendingDragX.current === null) return;
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    const now = performance.now();
-    const deltaX = e.clientX - lastX.current;
+    const nextX = pendingDragX.current;
+    const now = pendingDragTime.current || performance.now();
+    const deltaX = nextX - lastX.current;
     const dt = now - lastDragTime.current;
+
     if (dt > 0) velocity.current = deltaX / dt;
 
     const currentZ = zoom.get();
     setCameraFromPanX(panX.get() + deltaX, currentZ);
 
-    lastX.current = e.clientX;
+    lastX.current = nextX;
     lastDragTime.current = now;
+    pendingDragX.current = null;
+  };
+
+  const scheduleDragFrame = () => {
+    if (dragFrame.current !== null) return;
+    dragFrame.current = requestAnimationFrame(() => {
+      dragFrame.current = null;
+      flushPendingDrag();
+    });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (inertiaFrame.current !== null) {
+      cancelAnimationFrame(inertiaFrame.current);
+      inertiaFrame.current = null;
+    }
+    if (dragFrame.current !== null) {
+      cancelAnimationFrame(dragFrame.current);
+      dragFrame.current = null;
+    }
+    isDragging.current = true;
+    velocity.current = 0;
+    const now = performance.now();
+    lastDragTime.current = now;
+    lastX.current = e.clientX;
+    pendingDragX.current = null;
+    pendingDragTime.current = now;
+    containerRef.current?.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    pendingDragX.current = e.clientX;
+    pendingDragTime.current = performance.now();
+    scheduleDragFrame();
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (dragFrame.current !== null) {
+      cancelAnimationFrame(dragFrame.current);
+      dragFrame.current = null;
+    }
+    flushPendingDrag();
     isDragging.current = false;
-    setSelecting(false);
     containerRef.current?.releasePointerCapture(e.pointerId);
 
     // Inertia: coast with velocity * 20 multiplier and slow friction decay
@@ -685,50 +779,98 @@ export const Timeline: React.FC = () => {
   };
 
   const [zoomRangeLabel, setZoomRangeLabel] = useState("");
-
-  const layoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevLogZoom = useRef<number | null>(null);
+  const zoomTickTimeoutRef = useRef<number | null>(null);
+  const zoomLabelTimeoutRef = useRef<number | null>(null);
+  const zoomSettleTimeoutRef = useRef<number | null>(null);
+  const pendingZoomLabelRef = useRef(logZoom.get());
 
-  useMotionValueEvent(panX, "change", scheduleTickUpdate);
+  const flushZoomRangeLabel = (currentLogZoom = pendingZoomLabelRef.current) => {
+    const nextLabel = formatZoomRangeLabel(currentLogZoom, getViewportWidth());
+    startTransition(() => {
+      setZoomRangeLabel((prev) => (prev !== nextLabel ? nextLabel : prev));
+    });
+  };
+
+  const scheduleZoomRangeLabelUpdate = (currentLogZoom: number) => {
+    pendingZoomLabelRef.current = currentLogZoom;
+    if (zoomLabelTimeoutRef.current !== null) {
+      return;
+    }
+
+    zoomLabelTimeoutRef.current = window.setTimeout(() => {
+      zoomLabelTimeoutRef.current = null;
+      flushZoomRangeLabel();
+    }, ZOOM_UI_THROTTLE_MS);
+  };
+
+  const flushTickUpdate = () => {
+    if (tickUpdateFrame.current !== null) return;
+    tickUpdateFrame.current = requestAnimationFrame(() => {
+      tickUpdateFrame.current = null;
+      updateTicks();
+    });
+  };
+
+  const scheduleZoomTickUpdate = () => {
+    if (zoomTickTimeoutRef.current !== null) {
+      return;
+    }
+
+    zoomTickTimeoutRef.current = window.setTimeout(() => {
+      zoomTickTimeoutRef.current = null;
+      flushTickUpdate();
+    }, ZOOM_UI_THROTTLE_MS);
+  };
+
+  const scheduleZoomSettle = () => {
+    if (zoomSettleTimeoutRef.current !== null) {
+      window.clearTimeout(zoomSettleTimeoutRef.current);
+    }
+
+    zoomSettleTimeoutRef.current = window.setTimeout(() => {
+      zoomSettleTimeoutRef.current = null;
+
+      if (zoomTickTimeoutRef.current !== null) {
+        window.clearTimeout(zoomTickTimeoutRef.current);
+        zoomTickTimeoutRef.current = null;
+      }
+      if (zoomLabelTimeoutRef.current !== null) {
+        window.clearTimeout(zoomLabelTimeoutRef.current);
+        zoomLabelTimeoutRef.current = null;
+      }
+
+      flushTickUpdate();
+      flushZoomRangeLabel(logZoom.get());
+      updateLayout();
+    }, ZOOM_SETTLE_DELAY_MS);
+  };
+
+  useMotionValueEvent(panX, "change", () => {
+    const bounds = updateVisibleBounds();
+    const tickState = tickStateRef.current;
+    if (!bounds || !tickState) {
+      scheduleTickUpdate();
+      return;
+    }
+
+    if (
+      bounds.startYear < tickState.firstTick + tickState.interval ||
+      bounds.endYear > tickState.lastTick - tickState.interval
+    ) {
+      scheduleTickUpdate();
+    }
+  });
   useMotionValueEvent(logZoom, "change", (val) => {
-    // Only recalculate ticks when zoom actually changes (not during spring animation).
-    // scheduleTickUpdate will be called once after the spring settles.
     if (
       prevLogZoom.current !== null &&
       Math.abs(val - prevLogZoom.current) < 1e-6
     )
       return;
     prevLogZoom.current = val;
-    scheduleTickUpdate();
-
-    if (layoutTimeoutRef.current) clearTimeout(layoutTimeoutRef.current);
-    layoutTimeoutRef.current = setTimeout(() => {
-      updateLayout();
-    }, 50);
-
-    const currentZoom = Math.exp(val);
-    const currentPanX = focusPixel.get() - focusYear.get() * currentZoom;
-    const clampedPanX = clampPanX(currentPanX, currentZoom);
-    if (Math.abs(clampedPanX - currentPanX) > 1e-6) {
-      setCameraFromPanX(clampedPanX, currentZoom);
-    }
-
-    const rangeInYears = getViewportWidth() / currentZoom;
-    let newLabel = "";
-    if (rangeInYears >= 1e9)
-      newLabel = `${(rangeInYears / 1e9).toFixed(0)}B Yrs`;
-    else if (rangeInYears >= 1e6)
-      newLabel = `${(rangeInYears / 1e6).toFixed(0)}M Yrs`;
-    else if (rangeInYears >= 1000)
-      newLabel = `${(rangeInYears / 1000).toFixed(0)}K Yrs`;
-    else if (rangeInYears >= 1) newLabel = `${rangeInYears.toFixed(0)} Yrs`;
-    else if (rangeInYears >= 1 / 12)
-      newLabel = `${(rangeInYears * 12).toFixed(0)} Mos`;
-    else if (rangeInYears >= 1 / 365.25)
-      newLabel = `${(rangeInYears * 365.25).toFixed(0)} Days`;
-    else newLabel = `${(rangeInYears * 365.25 * 24).toFixed(0)} Hrs`;
-
-    setZoomRangeLabel((prev) => (prev !== newLabel ? newLabel : prev));
+    scheduleZoomSettle();
+    scheduleZoomTickUpdate();
+    scheduleZoomRangeLabelUpdate(val);
   });
 
   useEffect(() => {
@@ -737,92 +879,141 @@ export const Timeline: React.FC = () => {
     updateTicks();
     updateLayout(isBootstrapping);
     hasBootstrappedRef.current = true;
-  }, [events, selectedGroups, searchQuery]);
+  }, [timelineEvents, searchQuery]);
+
+  useEffect(() => {
+    updateVisibleBounds();
+    updateLayout();
+  }, [selectedEventInfo?.id]);
+
+  useEffect(() => {
+    let frameId = 0;
+    let sampleStart = performance.now();
+    let frames = 0;
+
+    const loop = (now: number) => {
+      frames += 1;
+
+      if (now - sampleStart >= 250) {
+        const sampleDuration = now - sampleStart;
+        const nextFps = Math.round((frames * 1000) / sampleDuration);
+        setFps((prev) => (prev === nextFps ? prev : nextFps));
+        sampleStart = now;
+        frames = 0;
+      }
+
+      frameId = requestAnimationFrame(loop);
+    };
+
+    frameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  useEffect(() => {
+    flushZoomRangeLabel(logZoom.get());
+
+    return () => {
+      if (tickUpdateFrame.current !== null) {
+        cancelAnimationFrame(tickUpdateFrame.current);
+      }
+      if (zoomTickTimeoutRef.current !== null) {
+        window.clearTimeout(zoomTickTimeoutRef.current);
+      }
+      if (zoomLabelTimeoutRef.current !== null) {
+        window.clearTimeout(zoomLabelTimeoutRef.current);
+      }
+      if (zoomSettleTimeoutRef.current !== null) {
+        window.clearTimeout(zoomSettleTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Animates camera to fit all currently-visible events with padding.
   // Call this any time you want to frame the visible event set.
   const handleAutoFit = (immediate = false) => {
-    const visible = events.filter((e) => {
+    const visible = timelineEvents.filter((e) => {
       if (getEventTimelineYear(e) < BIG_BANG_YEAR) return false;
-      const matchesSearch =
+      return (
         e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGroup =
-        selectedGroups.length === 0 ||
-        e.groups.some((g) => selectedGroups.includes(g));
-      return matchesSearch && matchesGroup;
+        e.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     });
+    animateCameraToEvents(visible, immediate);
+  };
 
-    const container = containerRef.current;
-    if (!container || visible.length === 0) return;
-    const width = container.clientWidth;
-    const PADDING = 0.12;
+  const handleFocusCollapsedGroup = (group: CollapsedEventGroup) => {
+    const groupedEvents = group.eventIds
+      .map((eventId) => timelineEvents.find((event) => event.id === eventId))
+      .filter((event): event is Event => event !== undefined);
 
-    const years = visible.map((e) => getEventTimelineYear(e));
-    const minYear = Math.min(...years);
-    const maxYear = Math.max(...years);
+    animateCameraToEvents(groupedEvents);
+  };
 
-    if (Math.abs(maxYear - minYear) < 1e-9) {
-      if (immediate) {
-        focusPixel.set(width / 2);
-        focusYear.set(minYear);
-      } else {
-        animate(focusPixel, width / 2, {
-          type: "spring",
-          stiffness: 300,
-          damping: 30,
-        });
-        animate(focusYear, minYear, {
-          type: "spring",
-          stiffness: 300,
-          damping: 30,
-        });
-      }
+  const handleDownloadCollection = async (collectionId: string) => {
+    if (collectionEventsById[collectionId]) {
+      addVisibleCollection(collectionId);
       return;
     }
 
-    const fitZoom = Math.max(
-      MIN_ZOOM,
-      Math.min((width * (1 - PADDING * 2)) / (maxYear - minYear), MAX_ZOOM),
+    setDownloadingCollectionIds((prev) =>
+      prev.includes(collectionId) ? prev : [...prev, collectionId],
     );
-    const centerYear = (minYear + maxYear) / 2;
-    const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
 
-    if (immediate) {
-      focusPixel.set(width / 2);
-      focusYear.set(centerYear);
-      targetLogZoom.current = Math.log(fitZoom);
-      logZoom.set(targetLogZoom.current);
-    } else if (pixelDist > width * 0.5) {
-      const duration = Math.min(1.0, 0.2 + pixelDist / 4000);
-      animate(focusPixel, width / 2, { duration, ease: "easeInOut" });
-      animate(focusYear, centerYear, { duration, ease: "easeInOut" });
-      targetLogZoom.current = Math.log(fitZoom);
-      animate(logZoom, targetLogZoom.current, { duration, ease: "easeInOut" });
-    } else {
-      animate(focusPixel, width / 2, {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-      });
-      animate(focusYear, centerYear, {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-      });
-      targetLogZoom.current = Math.log(fitZoom);
-      animate(logZoom, targetLogZoom.current, {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-      });
+    try {
+      const loadedEvents = await loadEventCollection(collectionId);
+      addVisibleCollection(collectionId);
+      setCollectionEventsById((prev) => ({
+        ...prev,
+        [collectionId]: loadedEvents,
+      }));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setDownloadingCollectionIds((prev) =>
+        prev.filter((id) => id !== collectionId),
+      );
     }
   };
 
-  const handleToggleGroup = (group: string) => {
-    setSelectedGroups((prev) =>
-      prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group],
+  const handleSyncCollection = async (collectionId: string) => {
+    if (
+      downloadingCollectionIds.includes(collectionId) ||
+      !SYNCABLE_COLLECTION_IDS.includes(collectionId)
+    ) {
+      return;
+    }
+
+    setDownloadingCollectionIds((prev) =>
+      prev.includes(collectionId) ? prev : [...prev, collectionId],
     );
+
+    try {
+      const loadedEvents = await loadEventCollection(collectionId);
+      setCollectionEventsById((prev) => ({
+        ...prev,
+        [collectionId]: loadedEvents,
+      }));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setDownloadingCollectionIds((prev) =>
+        prev.filter((id) => id !== collectionId),
+      );
+    }
+  };
+
+  const handleSetCollectionVisibility = async (
+    collectionId: string,
+    visible: boolean,
+  ) => {
+    if (!visible) {
+      setVisibleCollectionIds((prev) =>
+        prev.filter((id) => id !== collectionId),
+      );
+      return;
+    }
+
+    addVisibleCollection(collectionId);
   };
 
   const handleFocusEvent = (event: Event) => {
@@ -908,6 +1099,23 @@ export const Timeline: React.FC = () => {
     }
   };
 
+  const handleFocusBigBang = () => {
+    const bigBangEvent = timelineEvents.find(
+      (event) => event.id === "big-bang",
+    );
+    if (bigBangEvent) {
+      handleFocusEvent(bigBangEvent);
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) return;
+    const width = container.clientWidth;
+    const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
+    animate(focusPixel, width / 2, opt);
+    animate(focusYear, BIG_BANG_YEAR, opt);
+  };
+
   const zoomTrackRef = useRef<HTMLDivElement>(null);
   const zoomThumbY = useMotionValue(0);
   const isZoomDragging = useRef(false);
@@ -980,15 +1188,56 @@ export const Timeline: React.FC = () => {
   };
 
   const handleSaveEvent = (updatedEvent: Event) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)),
-    );
+    const ownerCollectionId = findEventCollectionId(updatedEvent.id);
+    if (!ownerCollectionId) return;
+
+    setCollectionEventsById((prev) => ({
+      ...prev,
+      [ownerCollectionId]: prev[ownerCollectionId].map((event) =>
+        event.id === updatedEvent.id ? updatedEvent : event,
+      ),
+    }));
     setEditingEvent(null);
     setAddingEvent(false);
   };
 
+  const handleStartAddEvent = () => {
+    const targetCollectionId =
+      visibleCollectionIds.length === 1 &&
+      Object.prototype.hasOwnProperty.call(
+        collectionEventsById,
+        visibleCollectionIds[0],
+      )
+        ? visibleCollectionIds[0]
+        : PLAYGROUND_COLLECTION.id;
+
+    if (targetCollectionId === PLAYGROUND_COLLECTION.id) {
+      ensurePlaygroundCollection();
+      addVisibleCollection(PLAYGROUND_COLLECTION.id);
+    }
+
+    setAddingCollectionId(targetCollectionId);
+    setAddingEvent(true);
+  };
+
   const handleAddEvent = (newEvent: Event) => {
-    setEvents((prev) => [...prev, newEvent]);
+    const targetCollectionId = addingCollectionId ?? singleVisibleCollectionId;
+    if (!targetCollectionId) return;
+
+    setCollectionEventsById((prev) => ({
+      ...prev,
+      [targetCollectionId]: [
+        ...(prev[targetCollectionId] ?? []),
+        newEvent,
+      ],
+    }));
+    addVisibleCollection(targetCollectionId);
+    setAddingCollectionId(null);
+    setAddingEvent(false);
+  };
+
+  const handleCloseAddEvent = () => {
+    setAddingCollectionId(null);
     setAddingEvent(false);
   };
 
@@ -1008,178 +1257,70 @@ export const Timeline: React.FC = () => {
   return (
     <>
       <Sidebar
-        events={events}
-        selectedGroups={selectedGroups}
-        onToggleGroup={handleToggleGroup}
+        collections={collections}
+        onDownloadCollection={handleDownloadCollection}
+        onSyncCollection={handleSyncCollection}
+        syncableCollectionIds={SYNCABLE_COLLECTION_IDS}
+        visibleCollectionIds={visibleCollectionIds}
+        onSetCollectionVisibility={handleSetCollectionVisibility}
+        downloadingCollectionIds={downloadingCollectionIds}
+        collectionEventsById={collectionEventsById}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onFocusEvent={handleFocusEvent}
         onEditEvent={setEditingEvent}
-        onAddEvent={() => setAddingEvent(true)}
+        onAddEvent={handleStartAddEvent}
       />
 
-      <div
-        ref={containerRef}
-        className={`w-full h-screen overflow-hidden bg-zinc-950 text-white cursor-grab active:cursor-grabbing relative touch-none${selecting ? " select-none" : ""}`}
+      <TimelineViewport
+        containerRef={containerRef}
+        focusPixel={focusPixel}
+        focusYear={focusYear}
+        zoom={zoom}
+        ticks={ticks}
+        timelineEvents={timelineEvents}
+        collapsedGroups={collapsedGroups}
+        visibleBounds={visibleBoundsRef.current}
+        eventLayouts={eventLayouts.current}
+        focusedEventId={selectedEventInfo?.id ?? null}
+        getViewportWidth={getViewportWidth}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {/* Horizon Line */}
-        <div className="absolute left-0 right-0 h-px bg-zinc-700 top-1/2 -translate-y-1/2 z-0" />
+        onFocusBigBang={handleFocusBigBang}
+        onFocusEvent={handleFocusEvent}
+        onFocusCollapsedGroup={handleFocusCollapsedGroup}
+      />
 
-        {/* Moving Container for perfect sync */}
-        <div className="absolute inset-0 z-10">
-          <BigBangMarker
-            zoom={zoom}
-            focusPixel={focusPixel}
-            focusYear={focusYear}
-          />
+      <FpsBadge fps={fps} />
 
-          {/* Ticks */}
-          {ticks.map((tick) => (
-            <TickMarker
-              key={tick.year}
-              tick={tick}
-              zoom={zoom}
-              focusPixel={focusPixel}
-              focusYear={focusYear}
-            />
-          ))}
+      <ZoomController
+        zoomRangeLabel={zoomRangeLabel}
+        onQuickZoom={handleQuickZoom}
+        zoomTrackRef={zoomTrackRef}
+        zoomThumbY={zoomThumbY}
+        onZoomDragStart={handleZoomDragStart}
+        onZoomDragMove={handleZoomDragMove}
+        onZoomDragEnd={handleZoomDragEnd}
+      />
 
-          {/* Events — only render those within the visible year range + margin.
-              The margin lets events that are slightly off-screen start animating
-              in before the user sees them, so there's no pop-in. */}
-          {events
-            .filter((e) => {
-              const ty = getEventTimelineYear(e);
-              const { startYear, endYear } = visibleBoundsRef.current;
-              const margin = (endYear - startYear) * 0.3;
-              return ty >= startYear - margin && ty <= endYear + margin;
-            })
-            .map((event) => (
-              <EventMarker
-                key={event.id}
-                event={event}
-                zoom={zoom}
-                focusPixel={focusPixel}
-                focusYear={focusYear}
-                layout={eventLayouts.current[event.id]}
-                isFocused={event.id === selectedEventInfo?.id}
-                onClick={handleFocusEvent}
-              />
-            ))}
-        </div>
-      </div>
-
-      {/* Zoom Controller */}
-      <div
-        className="fixed right-2 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-3"
-        onPointerDown={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
-      >
-        <div className="relative flex items-center justify-center">
-          <select
-            value="current"
-            onChange={handleQuickZoom}
-            className="bg-zinc-950 text-zinc-300 text-[10px] font-mono rounded-full pr-3 py-1.5 border border-zinc-700 outline-none focus:border-emerald-500 text-center cursor-pointer hover:bg-zinc-800 transition-colors appearance-none shadow-sm"
-          >
-            <option value="current">{zoomRangeLabel || "Zoom"}</option>
-            <option disabled>──────────</option>
-            <option value="1000000000">1B Years</option>
-            <option value="1000000">1M Years</option>
-            <option value="100">100 Years</option>
-            <option value="10">10 Years</option>
-            <option value="1">1 Year</option>
-            <option value={(1 / 12).toString()}>1 Month</option>
-            <option value={(7 / 365.25).toString()}>1 Week</option>
-            <option value={(1 / 365.25).toString()}>1 Day</option>
-          </select>
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
-            <ChevronDown width={10} height={10} />
-          </div>
-        </div>
-
-        <div
-          ref={zoomTrackRef}
-          className="w-8 h-32 rounded-full border border-zinc-700 relative cursor-ns-resize touch-none shadow-inner flex items-center justify-center"
-          onPointerDown={handleZoomDragStart}
-          onPointerMove={handleZoomDragMove}
-          onPointerUp={handleZoomDragEnd}
-          onPointerCancel={handleZoomDragEnd}
-        >
-          <motion.div
-            className="absolute w-8 h-8 bg-zinc-700 hover:bg-zinc-600 rounded-full shadow-md border border-zinc-600 flex flex-col items-center justify-center gap-0.5"
-            style={{ y: zoomThumbY }}
-          >
-            <div className="w-3 h-px bg-zinc-400 rounded-full" />
-            <div className="w-3 h-px bg-zinc-400 rounded-full" />
-            <div className="w-3 h-px bg-zinc-400 rounded-full" />
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Floating Info Panel */}
       {selectedEventInfo && (
-        <div
-          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 border border-zinc-700 px-4 py-3 rounded-xl shadow-2xl w-[min(92vw,560px)]"
-          onPointerDown={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-9 h-9 shrink-0 bg-zinc-800 rounded-full flex items-center justify-center text-lg border border-zinc-700">
-                {selectedEventInfo.emoji}
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-white truncate">
-                  {selectedEventInfo.title}
-                </h3>
-                <p className="text-emerald-500 font-mono text-xs mt-0.5 truncate">
-                  {getEventDisplayLabel(selectedEventInfo)}
-                </p>
-                <p className="text-zinc-300 text-xs mt-1.5 line-clamp-2">
-                  {selectedEventInfo.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => {
-                  // Re-trigger camera animation to re-center on this event.
-                  handleFocusEvent(selectedEventInfo);
-                }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-md transition-colors text-xs font-medium border border-emerald-500"
-                title="Center camera on this event"
-              >
-                Focus
-              </button>
-              <button
-                onClick={() => {
-                  setEditingEvent(selectedEventInfo);
-                  setSelectedEventInfo(null);
-                  focusedEventIdRef.current = null;
-                }}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white px-2.5 py-1.5 rounded-md transition-colors text-xs font-medium border border-zinc-700"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedEventInfo(null);
-                  focusedEventIdRef.current = null;
-                }}
-                className="text-zinc-500 hover:text-white p-1"
-                aria-label="Close"
-              >
-                <X width={16} height={16} />
-              </button>
-            </div>
-          </div>
-        </div>
+        <EventInfoPanel
+          event={selectedEventInfo}
+          onFocus={() => {
+            handleFocusEvent(selectedEventInfo);
+          }}
+          onEdit={() => {
+            setEditingEvent(selectedEventInfo);
+            setSelectedEventInfo(null);
+            focusedEventIdRef.current = null;
+          }}
+          onClose={() => {
+            setSelectedEventInfo(null);
+            focusedEventIdRef.current = null;
+          }}
+        />
       )}
 
       {editingEvent && (
@@ -1196,23 +1337,11 @@ export const Timeline: React.FC = () => {
           mode="create"
           event={createNewEvent()}
           onSave={handleAddEvent}
-          onClose={() => setAddingEvent(false)}
+          onClose={handleCloseAddEvent}
         />
       )}
 
-      {/* Bottom-right action buttons */}
-      <div
-        className="fixed bottom-6 right-6 z-40 flex flex-col gap-2"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={handleAutoFit}
-          title="Auto-fit visible events"
-          className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-colors"
-        >
-          <Maximize2 width={18} height={18} />
-        </button>
-      </div>
+      <AutoFitButton onClick={() => handleAutoFit()} />
 
       {/* Warp speed overlay — active during long-distance camera jumps */}
       <WarpOverlay isWarping={isWarping} direction={warpDirection} />

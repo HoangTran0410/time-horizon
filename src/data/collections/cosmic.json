@@ -1,0 +1,113 @@
+[
+  {
+    "id": "big-bang",
+    "title": "Big Bang",
+    "description": "The beginning of the universe.",
+    "time": [
+      -13800000000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "emoji": "💥",
+    "groups": [
+      "Cosmic History"
+    ],
+    "priority": 100
+  },
+  {
+    "id": "earth-formed",
+    "title": "Earth Formed",
+    "description": "Formation of the Earth.",
+    "time": [
+      -4500000000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "emoji": "🌍",
+    "groups": [
+      "Cosmic History",
+      "Earth History"
+    ],
+    "priority": 90
+  },
+  {
+    "id": "first-stars",
+    "title": "First Stars",
+    "description": "First generation of stars ignite, ending the cosmic dark ages.",
+    "time": [
+      -13600000000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "emoji": "✨",
+    "groups": [
+      "Cosmic History"
+    ],
+    "priority": 98
+  },
+  {
+    "id": "milky-way-formed",
+    "title": "Milky Way Forms",
+    "description": "Our galaxy begins to take shape from gas clouds and early mergers.",
+    "time": [
+      -10600000000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "emoji": "🌀",
+    "groups": [
+      "Cosmic History"
+    ],
+    "priority": 92
+  },
+  {
+    "id": "solar-system-formed",
+    "title": "Solar System Forms",
+    "description": "Sun and planets coalesce from a protoplanetary disk.",
+    "time": [
+      -4600000000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "emoji": "☀️",
+    "groups": [
+      "Cosmic History",
+      "Earth History"
+    ],
+    "priority": 88
+  },
+  {
+    "id": "moon-formed",
+    "title": "Moon Forms",
+    "description": "A Mars-sized body collides with Earth, ejecting debris that becomes the Moon.",
+    "time": [
+      -4450000000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "emoji": "🌙",
+    "groups": [
+      "Cosmic History",
+      "Earth History"
+    ],
+    "priority": 87
+  }
+]
