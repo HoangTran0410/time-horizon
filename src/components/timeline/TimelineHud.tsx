@@ -10,7 +10,7 @@ interface FpsBadgeProps {
 
 export const FpsBadge: React.FC<FpsBadgeProps> = ({ fps }) => (
   <div
-    className="fixed top-4 right-4 z-40 rounded-full border border-zinc-700 bg-zinc-950/90 px-3 py-1.5 text-[11px] font-mono text-zinc-300 shadow-lg backdrop-blur-sm"
+    className="fixed top-4 right-4 z-40 rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300"
     onPointerDown={(e) => e.stopPropagation()}
     onWheel={(e) => e.stopPropagation()}
   >
@@ -46,7 +46,7 @@ export const ZoomController: React.FC<ZoomControllerProps> = ({
       <select
         value="current"
         onChange={onQuickZoom}
-        className="bg-zinc-950 text-zinc-300 text-[10px] font-mono rounded-full pr-3 py-1.5 border border-zinc-700 outline-none focus:border-emerald-500 text-center cursor-pointer hover:bg-zinc-800 transition-colors appearance-none shadow-sm"
+        className="bg-zinc-950 text-zinc-300 text-[10px] font-mono rounded-full pr-3 py-1.5 border border-zinc-700 outline-none focus:border-emerald-500 text-center cursor-pointer hover:bg-zinc-800 transition-colors appearance-none"
       >
         <option value="current">{zoomRangeLabel || "Zoom"}</option>
         <option disabled>──────────</option>
@@ -66,14 +66,14 @@ export const ZoomController: React.FC<ZoomControllerProps> = ({
 
     <div
       ref={zoomTrackRef}
-      className="w-8 h-32 rounded-full border border-zinc-700 relative cursor-ns-resize touch-none shadow-inner flex items-center justify-center"
+      className="w-8 h-32 rounded-full border border-zinc-700 relative cursor-ns-resize touch-none flex items-center justify-center"
       onPointerDown={onZoomDragStart}
       onPointerMove={onZoomDragMove}
       onPointerUp={onZoomDragEnd}
       onPointerCancel={onZoomDragEnd}
     >
       <motion.div
-        className="absolute w-8 h-8 bg-zinc-700 hover:bg-zinc-600 rounded-full shadow-md border border-zinc-600 flex flex-col items-center justify-center gap-0.5"
+        className="absolute w-8 h-8 bg-zinc-700 hover:bg-zinc-600 rounded-full border border-zinc-600 flex flex-col items-center justify-center gap-0.5"
         style={{ y: zoomThumbY }}
       >
         <div className="w-3 h-px bg-zinc-400 rounded-full" />
@@ -98,7 +98,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   onClose,
 }) => (
   <div
-    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 border border-zinc-700 px-4 py-3 rounded-xl shadow-2xl w-[min(92vw,560px)]"
+    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border border-zinc-700 px-4 py-3 rounded-xl w-[min(92vw,560px)]"
     onPointerDown={(e) => e.stopPropagation()}
     onWheel={(e) => e.stopPropagation()}
   >
@@ -158,7 +158,7 @@ export const AutoFitButton: React.FC<AutoFitButtonProps> = ({ onClick }) => (
     <button
       onClick={onClick}
       title="Auto-fit visible events"
-      className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-colors"
+      className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
     >
       <Maximize2 width={18} height={18} />
     </button>

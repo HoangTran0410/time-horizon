@@ -1,9 +1,19 @@
-import React, { useEffect } from "react";
-import { motion, MotionValue, useTransform, useMotionValue } from "motion/react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  motion,
+  MotionValue,
+  useTransform,
+  useMotionValue,
+  useMotionValueEvent,
+} from "motion/react";
 import { ArrowRight } from "lucide-react";
 import { Event, getEventTimelineYear } from "../../types";
 import { BIG_BANG_YEAR } from "../../constants";
-import { getEventDisplayLabel, formatTimelineTick } from "../../utils";
+import {
+  getEventDisplayLabel,
+  formatTimelineTick,
+  getNiceInterval,
+} from "../../utils";
 
 export type TimelineTick = {
   year: number;
@@ -24,6 +34,53 @@ export type CollapsedEventGroup = {
   side: 1 | -1;
   count: number;
   eventIds: string[];
+};
+
+export type WarpOverlayMode = "travel" | "zoom-in" | "zoom-out";
+const MIN_RING_DIAMETER = 72;
+const TARGET_RING_SPACING = 120;
+const MIN_RING_COUNT = 3;
+const RING_INTERVAL_REFRESH_MS = 180;
+
+const formatRingTimespan = (years: number): string => {
+  if (years >= 1e9) return `${(years / 1e9).toFixed(years >= 1e10 ? 0 : 1)}B yrs`;
+  if (years >= 1e6) return `${(years / 1e6).toFixed(years >= 1e7 ? 0 : 1)}M yrs`;
+  if (years >= 1e3) return `${(years / 1e3).toFixed(years >= 1e4 ? 0 : 1)}K yrs`;
+  if (years >= 1) return `${years.toFixed(years >= 10 ? 0 : 1)} yrs`;
+  if (years >= 1 / 12) {
+    const months = years * 12;
+    return `${months.toFixed(months >= 10 ? 0 : 1)} mo`;
+  }
+  const days = years * 365.25;
+  if (days >= 1) return `${days.toFixed(days >= 10 ? 0 : 1)} d`;
+  return `${(days * 24).toFixed(1)} h`;
+};
+
+const areIntervalsEqual = (prev: number[], next: number[]) =>
+  prev.length === next.length &&
+  prev.every((interval, index) => interval === next[index]);
+
+const getZoomReferenceIntervals = (
+  zoomValue: number,
+  maxVisibleDiameter: number,
+): number[] => {
+  if (zoomValue <= 0 || maxVisibleDiameter <= MIN_RING_DIAMETER) {
+    return [];
+  }
+
+  const ringCount = Math.max(
+    MIN_RING_COUNT,
+    Math.floor(maxVisibleDiameter / TARGET_RING_SPACING),
+  );
+  const diameterStep = maxVisibleDiameter / (ringCount + 1);
+  const intervals = new Set<number>();
+
+  for (let index = 1; index <= ringCount; index += 1) {
+    const targetDiameter = Math.max(MIN_RING_DIAMETER, diameterStep * index);
+    intervals.add(getNiceInterval(targetDiameter / zoomValue));
+  }
+
+  return Array.from(intervals).sort((a, b) => a - b);
 };
 
 interface EventMarkerProps {
@@ -115,10 +172,10 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
           className={`
             w-12 h-12 bg-zinc-900 border-2 rounded-full flex items-center
             justify-center text-2xl group-hover:scale-125 transition-all
-            cursor-pointer shadow-lg z-10 relative
+            cursor-pointer z-10 relative
             ${
               isFocused
-                ? "border-emerald-500 shadow-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                ? "border-emerald-500"
                 : "border-zinc-700 group-hover:border-emerald-500"
             }
           `}
@@ -205,7 +262,7 @@ export const CollapsedMarker: React.FC<CollapsedMarkerProps> = ({
             onClick(group);
           }}
           title={`Zoom to ${group.count} hidden events`}
-          className="pointer-events-auto relative z-10 flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full border border-amber-500/50 bg-zinc-900/95 px-3 text-xs font-semibold text-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.16)] transition-all group-hover:scale-110 group-hover:border-amber-400 group-hover:text-amber-200"
+          className="pointer-events-auto relative z-10 flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full border border-amber-500/50 bg-zinc-900 px-3 text-xs font-semibold text-amber-300 transition-all group-hover:scale-110 group-hover:border-amber-400 group-hover:text-amber-200"
         >
           +{countLabel}
         </button>
@@ -266,7 +323,7 @@ export const BigBangMarker: React.FC<BigBangMarkerProps> = ({
             e.stopPropagation();
             onClick();
           }}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-2 bg-zinc-900/80 backdrop-blur-sm border border-amber-500/30 rounded-full text-amber-500 font-bold text-sm tracking-widest uppercase shadow-[0_0_30px_rgba(245,158,11,0.2)] hover:border-amber-400/60 hover:bg-zinc-900 transition-colors"
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-2 bg-zinc-900 border border-amber-500/30 rounded-full text-amber-500 font-bold text-sm tracking-widest uppercase hover:border-amber-400/60 hover:bg-zinc-900 transition-colors"
         >
           Big Bang
         </button>
@@ -278,7 +335,7 @@ export const BigBangMarker: React.FC<BigBangMarkerProps> = ({
           e.stopPropagation();
           onClick();
         }}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-zinc-900/90 backdrop-blur-sm border border-amber-500/40 rounded-full text-amber-400 font-bold text-sm uppercase tracking-widest shadow-[0_0_24px_rgba(245,158,11,0.18)] hover:border-amber-300/70 hover:bg-zinc-900 transition-colors"
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-amber-500/40 rounded-full text-amber-400 font-bold text-sm uppercase tracking-widest hover:border-amber-300/70 hover:bg-zinc-900 transition-colors"
         style={{
           opacity: pinnedOpacity,
           pointerEvents: pinnedPointerEvents as any,
@@ -294,51 +351,172 @@ export const BigBangMarker: React.FC<BigBangMarkerProps> = ({
 
 interface WarpOverlayProps {
   isWarping: boolean;
+  mode: WarpOverlayMode;
   direction: 1 | -1;
+  zoom: MotionValue<number>;
+  zoomPivotX: MotionValue<number>;
 }
+
+interface ZoomReferenceRingProps {
+  intervalYears: number;
+  zoom: MotionValue<number>;
+  maxVisibleDiameter: number;
+  mode: Exclude<WarpOverlayMode, "travel">;
+  index: number;
+}
+
+const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
+  intervalYears,
+  zoom,
+  maxVisibleDiameter,
+  mode,
+  index,
+}) => {
+  const diameter = useTransform(() => intervalYears * zoom.get());
+  const opacity = useTransform(() => {
+    const nextDiameter = intervalYears * zoom.get();
+    if (nextDiameter < 56 || nextDiameter > maxVisibleDiameter) return 0;
+    return Math.max(0.2, 0.42 - index * 0.045);
+  });
+  return (
+    <motion.div
+      className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/45"
+      style={{
+        width: diameter,
+        height: diameter,
+        opacity,
+      }}
+    >
+      <motion.div
+        className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-500/90 bg-zinc-950 px-2 py-0.5 text-[10px] font-mono text-zinc-100"
+        style={{ opacity }}
+      >
+        {formatRingTimespan(intervalYears)}
+      </motion.div>
+    </motion.div>
+  );
+};
 
 export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   isWarping,
+  mode,
   direction,
-}) => (
-  <div
-    aria-hidden="true"
-    className="pointer-events-none fixed inset-0 z-[70] overflow-hidden"
-    style={{
-      opacity: isWarping ? 1 : 0,
-      transition: "opacity 150ms ease",
-    }}
-  >
-    {Array.from({ length: 24 }).map((_, i) => {
-      const top = (i / 24) * 100;
-      const delay = (i * 0.041) % 1;
-      const short = i % 3 === 0;
-      return (
+  zoom,
+  zoomPivotX,
+}) => {
+  const maxVisibleDiameter = useMemo(
+    () => {
+      if (typeof window === "undefined") return 1280;
+      return Math.max(window.innerWidth, window.innerHeight);
+    },
+    [],
+  );
+  const [ringIntervals, setRingIntervals] = useState<number[]>(() =>
+    getZoomReferenceIntervals(zoom.get(), maxVisibleDiameter),
+  );
+  const ringIntervalTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (mode === "travel") return;
+    setRingIntervals(getZoomReferenceIntervals(zoom.get(), maxVisibleDiameter));
+  }, [maxVisibleDiameter, mode, zoom]);
+
+  useMotionValueEvent(zoom, "change", (value: number) => {
+    if (mode === "travel") return;
+    if (ringIntervalTimeoutRef.current !== null) return;
+
+    ringIntervalTimeoutRef.current = window.setTimeout(() => {
+      ringIntervalTimeoutRef.current = null;
+      const nextIntervals = getZoomReferenceIntervals(value, maxVisibleDiameter);
+      setRingIntervals((prev) =>
+        areIntervalsEqual(prev, nextIntervals) ? prev : nextIntervals,
+      );
+    }, RING_INTERVAL_REFRESH_MS);
+  });
+
+  useEffect(
+    () => () => {
+      if (ringIntervalTimeoutRef.current !== null) {
+        window.clearTimeout(ringIntervalTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-[70] overflow-hidden"
+      style={{
+        opacity: isWarping ? 1 : 0,
+        transition: "opacity 700ms ease-out",
+      }}
+    >
+    {mode === "travel" ? (
+      <>
+        {Array.from({ length: 24 }).map((_, i) => {
+          const top = (i / 24) * 100;
+          const delay = (i * 0.041) % 1;
+          const short = i % 3 === 0;
+          return (
+            <div
+              key={i}
+              className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
+              style={{
+                top: `${top}%`,
+                left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
+                right: direction === -1 ? (short ? "-20%" : "-40%") : undefined,
+                width: short ? "30%" : "60%",
+                height: "1px",
+                animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
+                transform: direction === -1 ? "scaleX(-1)" : undefined,
+              }}
+            />
+          );
+        })}
+
         <div
-          key={i}
-          className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
+          className="absolute inset-0 flex items-center justify-center"
           style={{
-            top: `${top}%`,
-            left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
-            right: direction === -1 ? (short ? "-20%" : "-40%") : undefined,
-            width: short ? "30%" : "60%",
-            height: "1px",
-            animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
-            transform: direction === -1 ? "scaleX(-1)" : undefined,
+            background:
+              direction === 1
+                ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)",
           }}
         />
-      );
-    })}
+      </>
+    ) : mode !== "travel" ? (
+      <motion.div
+        className="absolute left-0 top-0 h-0 w-0"
+        style={{ x: zoomPivotX, top: "50%" }}
+      >
+        <div className="relative">
+          {ringIntervals.map((intervalYears, index) => (
+            <ZoomReferenceRing
+              key={intervalYears}
+              intervalYears={intervalYears}
+              zoom={zoom}
+              maxVisibleDiameter={maxVisibleDiameter}
+              mode={mode}
+              index={index}
+            />
+          ))}
 
-    <div
-      className="absolute inset-0 flex items-center justify-center"
-      style={{
-        background:
-          direction === 1
-            ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
-            : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)",
-      }}
-    />
+          <div
+            className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-100 ease-out"
+            style={{
+              width: "10px",
+              height: "10px",
+              opacity: mode === "zoom-in" ? 0.22 : 0.14,
+              background:
+                mode === "zoom-in"
+                  ? "radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 55%, transparent 100%)"
+                  : "radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 72%)",
+            }}
+          />
+        </div>
+      </motion.div>
+    ) : null}
 
     <style>{`
       @keyframes warp-streak {
@@ -348,8 +526,9 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
         100% { transform: translateX(${direction === 1 ? "100vw" : "-100vw"}) scaleX(1.5); opacity: 0; }
       }
     `}</style>
-  </div>
-);
+    </div>
+  );
+};
 
 interface TickMarkerProps {
   tick: TimelineTick;

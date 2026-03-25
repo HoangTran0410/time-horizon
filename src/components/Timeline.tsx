@@ -32,6 +32,7 @@ import {
   CollapsedEventGroup,
   EventLayoutState,
   TimelineTick,
+  WarpOverlayMode,
   WarpOverlay,
 } from "./timeline/TimelineMarkers";
 import { TimelineViewport } from "./timeline/TimelineViewport";
@@ -46,7 +47,10 @@ const tickLabelWidthEstimateCache = new Map<number, number>();
 const TICK_OVERSCAN_INTERVALS = 2;
 const COLLECTION_CACHE_KEY = "time-horizon:collection-cache:v1";
 const ZOOM_UI_THROTTLE_MS = 80;
+const ZOOM_LAYOUT_THROTTLE_MS = 1000;
 const ZOOM_SETTLE_DELAY_MS = 140;
+const ZOOM_WARP_HIDE_MS = 260;
+const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
 type CollectionCache = {
   version: number;
   collections: Record<string, Event[]>;
@@ -82,7 +86,10 @@ const readCollectionCache = (): {
       visibleCollectionIds: nextVisibleCollectionIds.filter(
         (collectionId, index, allIds) =>
           allIds.indexOf(collectionId) === index &&
-          Object.prototype.hasOwnProperty.call(parsed.collections, collectionId),
+          Object.prototype.hasOwnProperty.call(
+            parsed.collections,
+            collectionId,
+          ),
       ),
     };
   } catch (error) {
@@ -173,6 +180,7 @@ export const Timeline: React.FC = () => {
     null,
   );
   const [isWarping, setIsWarping] = useState(false);
+  const [warpMode, setWarpMode] = useState<WarpOverlayMode>("travel");
   const [warpDirection, setWarpDirection] = useState<1 | -1>(1);
   const [visibleCollectionIds, setVisibleCollectionIds] = useState<string[]>(
     initialCacheRef.current.visibleCollectionIds,
@@ -222,6 +230,10 @@ export const Timeline: React.FC = () => {
         .flatMap((collection) => getCollectionEvents(collection.id)),
     [collectionEventsById, collections, visibleCollectionIds],
   );
+  const timelineEventIndexMap = useMemo(
+    () => new Map(timelineEvents.map((event, index) => [event.id, index])),
+    [timelineEvents],
+  );
 
   const singleVisibleCollectionId =
     visibleCollectionIds.length === 1 ? visibleCollectionIds[0] : null;
@@ -235,6 +247,29 @@ export const Timeline: React.FC = () => {
     }
 
     return null;
+  };
+
+  const zoomWarpTimeoutRef = useRef<number | null>(null);
+  const prevZoomWarpSampleRef = useRef<{
+    logZoom: number;
+    time: number;
+  } | null>(null);
+
+  const triggerZoomWarp = (
+    mode: Exclude<WarpOverlayMode, "travel">,
+    _currentLogZoom: number,
+  ) => {
+    setWarpMode(mode);
+    setIsWarping(true);
+
+    if (zoomWarpTimeoutRef.current !== null) {
+      window.clearTimeout(zoomWarpTimeoutRef.current);
+    }
+
+    zoomWarpTimeoutRef.current = window.setTimeout(() => {
+      setIsWarping(false);
+      zoomWarpTimeoutRef.current = null;
+    }, ZOOM_WARP_HIDE_MS);
   };
 
   const animateCameraToEvents = (events: Event[], immediate = false) => {
@@ -416,6 +451,8 @@ export const Timeline: React.FC = () => {
     const layoutEnd = endYear + margin;
 
     const focusedId = focusedEventIdRef.current;
+    const lowerSearchQuery = searchQuery.trim().toLowerCase();
+    const hasSearchQuery = lowerSearchQuery.length > 0;
 
     // 1. Filter: visible + pass search/group. Always include focused event.
     const visibleEvents = timelineEvents.filter((e) => {
@@ -423,11 +460,13 @@ export const Timeline: React.FC = () => {
       if (ty < BIG_BANG_YEAR) return false;
       if (e.id === focusedId) return true;
       if (ty < layoutStart || ty > layoutEnd) return false;
+      if (!hasSearchQuery) return true;
       return (
-        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.description.toLowerCase().includes(searchQuery.toLowerCase())
+        e.title.toLowerCase().includes(lowerSearchQuery) ||
+        e.description.toLowerCase().includes(lowerSearchQuery)
       );
     });
+    const visibleEventIds = new Set(visibleEvents.map((event) => event.id));
 
     // 2. Sort by priority, but keep focused event at top so it gets first lane choice.
     const sortedEvents = [...visibleEvents].sort((a, b) => {
@@ -435,9 +474,6 @@ export const Timeline: React.FC = () => {
       if (b.id === focusedId) return 1;
       return b.priority - a.priority;
     });
-
-    // 3. Build stable side map ONCE to avoid repeated findIndex inside the loop.
-    const eventIndexMap = new Map(timelineEvents.map((e, i) => [e.id, i]));
 
     const LEVELS = [1, 2, 3];
     const occupied: { year: number; level: number }[] = [];
@@ -450,7 +486,7 @@ export const Timeline: React.FC = () => {
       const evYear = getEventTimelineYear(ev);
 
       // Stable side assignment: prefer left (even original index) or right (odd).
-      const originalIndex = eventIndexMap.get(ev.id) as number;
+      const originalIndex = timelineEventIndexMap.get(ev.id) as number;
       const side = originalIndex % 2 === 0 ? 1 : -1;
 
       // Find first non-colliding level.
@@ -524,7 +560,7 @@ export const Timeline: React.FC = () => {
 
     // 4. Collapse filtered-out events.
     timelineEvents.forEach((ev) => {
-      if (visibleEvents.some((v) => v.id === ev.id)) return;
+      if (visibleEventIds.has(ev.id)) return;
       const layout = eventLayouts.current[ev.id];
       if (!layout) return;
       if (layout.targetOpacity !== 0) {
@@ -781,11 +817,14 @@ export const Timeline: React.FC = () => {
   const [zoomRangeLabel, setZoomRangeLabel] = useState("");
   const prevLogZoom = useRef<number | null>(null);
   const zoomTickTimeoutRef = useRef<number | null>(null);
+  const zoomLayoutTimeoutRef = useRef<number | null>(null);
   const zoomLabelTimeoutRef = useRef<number | null>(null);
   const zoomSettleTimeoutRef = useRef<number | null>(null);
   const pendingZoomLabelRef = useRef(logZoom.get());
 
-  const flushZoomRangeLabel = (currentLogZoom = pendingZoomLabelRef.current) => {
+  const flushZoomRangeLabel = (
+    currentLogZoom = pendingZoomLabelRef.current,
+  ) => {
     const nextLabel = formatZoomRangeLabel(currentLogZoom, getViewportWidth());
     startTransition(() => {
       setZoomRangeLabel((prev) => (prev !== nextLabel ? nextLabel : prev));
@@ -823,6 +862,22 @@ export const Timeline: React.FC = () => {
     }, ZOOM_UI_THROTTLE_MS);
   };
 
+  const flushZoomLayoutUpdate = () => {
+    updateVisibleBounds();
+    updateLayout();
+  };
+
+  const scheduleZoomLayoutUpdate = () => {
+    if (zoomLayoutTimeoutRef.current !== null) {
+      return;
+    }
+
+    zoomLayoutTimeoutRef.current = window.setTimeout(() => {
+      zoomLayoutTimeoutRef.current = null;
+      flushZoomLayoutUpdate();
+    }, ZOOM_LAYOUT_THROTTLE_MS);
+  };
+
   const scheduleZoomSettle = () => {
     if (zoomSettleTimeoutRef.current !== null) {
       window.clearTimeout(zoomSettleTimeoutRef.current);
@@ -835,6 +890,10 @@ export const Timeline: React.FC = () => {
         window.clearTimeout(zoomTickTimeoutRef.current);
         zoomTickTimeoutRef.current = null;
       }
+      if (zoomLayoutTimeoutRef.current !== null) {
+        window.clearTimeout(zoomLayoutTimeoutRef.current);
+        zoomLayoutTimeoutRef.current = null;
+      }
       if (zoomLabelTimeoutRef.current !== null) {
         window.clearTimeout(zoomLabelTimeoutRef.current);
         zoomLabelTimeoutRef.current = null;
@@ -842,7 +901,7 @@ export const Timeline: React.FC = () => {
 
       flushTickUpdate();
       flushZoomRangeLabel(logZoom.get());
-      updateLayout();
+      flushZoomLayoutUpdate();
     }, ZOOM_SETTLE_DELAY_MS);
   };
 
@@ -867,9 +926,27 @@ export const Timeline: React.FC = () => {
       Math.abs(val - prevLogZoom.current) < 1e-6
     )
       return;
+
+    const now = performance.now();
+    const prevZoomSample = prevZoomWarpSampleRef.current;
+    if (
+      prevZoomSample &&
+      prevZoomSample.time < now &&
+      !(isWarping && warpMode === "travel")
+    ) {
+      const delta = val - prevZoomSample.logZoom;
+      const speed = Math.abs(delta) / (now - prevZoomSample.time);
+
+      if (speed >= ZOOM_WARP_SPEED_THRESHOLD) {
+        triggerZoomWarp(delta > 0 ? "zoom-in" : "zoom-out", val);
+      }
+    }
+    prevZoomWarpSampleRef.current = { logZoom: val, time: now };
+
     prevLogZoom.current = val;
     scheduleZoomSettle();
     scheduleZoomTickUpdate();
+    scheduleZoomLayoutUpdate();
     scheduleZoomRangeLabelUpdate(val);
   });
 
@@ -918,6 +995,9 @@ export const Timeline: React.FC = () => {
       }
       if (zoomTickTimeoutRef.current !== null) {
         window.clearTimeout(zoomTickTimeoutRef.current);
+      }
+      if (zoomLayoutTimeoutRef.current !== null) {
+        window.clearTimeout(zoomLayoutTimeoutRef.current);
       }
       if (zoomLabelTimeoutRef.current !== null) {
         window.clearTimeout(zoomLabelTimeoutRef.current);
@@ -1055,6 +1135,7 @@ export const Timeline: React.FC = () => {
       const totalDuration = Math.min(1.2, 0.3 + pixelDist / 4000);
       const phase1Duration = totalDuration * 0.7;
 
+      setWarpMode("travel");
       setIsWarping(true);
       setWarpDirection(eventYear > currentYear ? -1 : 1);
 
@@ -1138,7 +1219,12 @@ export const Timeline: React.FC = () => {
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (zoomWarpTimeoutRef.current !== null) {
+        window.clearTimeout(zoomWarpTimeoutRef.current);
+      }
+    };
   }, []);
 
   const handleZoomDragStart = (e: React.PointerEvent) => {
@@ -1226,10 +1312,7 @@ export const Timeline: React.FC = () => {
 
     setCollectionEventsById((prev) => ({
       ...prev,
-      [targetCollectionId]: [
-        ...(prev[targetCollectionId] ?? []),
-        newEvent,
-      ],
+      [targetCollectionId]: [...(prev[targetCollectionId] ?? []), newEvent],
     }));
     addVisibleCollection(targetCollectionId);
     setAddingCollectionId(null);
@@ -1344,7 +1427,13 @@ export const Timeline: React.FC = () => {
       <AutoFitButton onClick={() => handleAutoFit()} />
 
       {/* Warp speed overlay — active during long-distance camera jumps */}
-      <WarpOverlay isWarping={isWarping} direction={warpDirection} />
+      <WarpOverlay
+        isWarping={isWarping}
+        mode={warpMode}
+        direction={warpDirection}
+        zoom={zoom}
+        zoomPivotX={focusPixel}
+      />
     </>
   );
 };
