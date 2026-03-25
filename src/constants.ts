@@ -116,8 +116,9 @@ export const EVENTS: Event[] = [
   {
     id: "first-stars",
     title: "First Stars",
-    description: "First generation of stars ignite, ending the cosmic dark ages.",
-    time: [-136000000000, null, null, null, null, null],
+    description:
+      "First generation of stars ignite, ending the cosmic dark ages.",
+    time: [-13600000000, null, null, null, null, null],
     emoji: "✨",
     groups: ["Cosmic History"],
     priority: 98,
@@ -125,7 +126,8 @@ export const EVENTS: Event[] = [
   {
     id: "milky-way-formed",
     title: "Milky Way Forms",
-    description: "Our galaxy begins to take shape from gas clouds and early mergers.",
+    description:
+      "Our galaxy begins to take shape from gas clouds and early mergers.",
     time: [-10600000000, null, null, null, null, null],
     emoji: "🌀",
     groups: ["Cosmic History"],
@@ -143,7 +145,8 @@ export const EVENTS: Event[] = [
   {
     id: "moon-formed",
     title: "Moon Forms",
-    description: "A Mars-sized body collides with Earth, ejecting debris that becomes the Moon.",
+    description:
+      "A Mars-sized body collides with Earth, ejecting debris that becomes the Moon.",
     time: [-4450000000, null, null, null, null, null],
     emoji: "🌙",
     groups: ["Cosmic History", "Earth History"],
@@ -170,7 +173,8 @@ export const EVENTS: Event[] = [
   {
     id: "eukaryotes",
     title: "Eukaryotes Appear",
-    description: "Complex cells with nuclei emerge, enabling multicellular life.",
+    description:
+      "Complex cells with nuclei emerge, enabling multicellular life.",
     time: [-2100000000, null, null, null, null, null],
     emoji: "🧬",
     groups: ["Earth History", "Biology"],
@@ -206,7 +210,8 @@ export const EVENTS: Event[] = [
   {
     id: "birds-evolve",
     title: "Birds Evolve",
-    description: "Dinosaurs evolve into birds — the only surviving dinosaur lineage.",
+    description:
+      "Dinosaurs evolve into birds — the only surviving dinosaur lineage.",
     time: [-160000000, null, null, null, null, null],
     emoji: "🐦",
     groups: ["Earth History", "Biology"],
@@ -215,7 +220,8 @@ export const EVENTS: Event[] = [
   {
     id: "himalayas-rise",
     title: "Himalayas Rise",
-    description: "India collides with Asia, building the world's tallest mountains.",
+    description:
+      "India collides with Asia, building the world's tallest mountains.",
     time: [-45000000, null, null, null, null, null],
     emoji: "🏔️",
     groups: ["Earth History"],
@@ -224,7 +230,8 @@ export const EVENTS: Event[] = [
   {
     id: "first-hominins",
     title: "First Hominins",
-    description: "Human lineage diverges from our common ancestor with chimpanzees.",
+    description:
+      "Human lineage diverges from our common ancestor with chimpanzees.",
     time: [-7000000, null, null, null, null, null],
     emoji: "🧍",
     groups: ["Human History", "Biology"],
@@ -296,7 +303,8 @@ export const EVENTS: Event[] = [
   {
     id: "alexander-empire",
     title: "Alexander's Empire",
-    description: "Alexander the Great creates one of history's largest empires.",
+    description:
+      "Alexander the Great creates one of history's largest empires.",
     time: [-336, null, null, null, null, null],
     emoji: "👑",
     groups: ["Human History", "Empires"],
@@ -305,7 +313,8 @@ export const EVENTS: Event[] = [
   {
     id: "gupta-empire",
     title: "Gupta Empire",
-    description: "Golden age of India — science, math, art, and literature flourish.",
+    description:
+      "Golden age of India — science, math, art, and literature flourish.",
     time: [320, null, null, null, null, null],
     emoji: "🪷",
     groups: ["Human History", "Empires"],
@@ -314,7 +323,8 @@ export const EVENTS: Event[] = [
   {
     id: "printing-press",
     title: "Printing Press",
-    description: "Gutenberg's press democratizes knowledge and sparks revolution.",
+    description:
+      "Gutenberg's press democratizes knowledge and sparks revolution.",
     time: [1440, null, null, null, null, null],
     emoji: "📖",
     groups: ["Human History", "Technology"],
@@ -332,7 +342,8 @@ export const EVENTS: Event[] = [
   {
     id: "electricity",
     title: "Electricity Harnessed",
-    description: "Practical electricity transforms every aspect of civilization.",
+    description:
+      "Practical electricity transforms every aspect of civilization.",
     time: [1882, null, null, null, null, null],
     emoji: "💡",
     groups: ["Human History", "Technology"],
@@ -350,7 +361,8 @@ export const EVENTS: Event[] = [
   {
     id: "world-war-2",
     title: "World War II",
-    description: "Deadliest conflict in human history — 70+ million lives lost.",
+    description:
+      "Deadliest conflict in human history — 70+ million lives lost.",
     time: [1939, null, null, null, null, null],
     emoji: "💣",
     groups: ["Human History", "Recent"],
@@ -359,7 +371,8 @@ export const EVENTS: Event[] = [
   {
     id: "dna-discovered",
     title: "DNA Discovered",
-    description: "Watson and Crick reveal the double helix — key to life's code.",
+    description:
+      "Watson and Crick reveal the double helix — key to life's code.",
     time: [1953, null, null, null, null, null],
     emoji: "🧪",
     groups: ["Human History", "Biology", "Technology"],
@@ -368,16 +381,18 @@ export const EVENTS: Event[] = [
   {
     id: "human-genome",
     title: "Human Genome Mapped",
-    description: "Complete human DNA sequence decoded — revolutionizing medicine.",
+    description:
+      "Complete human DNA sequence decoded — revolutionizing medicine.",
     time: [2003, null, null, null, null, null],
-    emoji: "�🧬",
+    emoji: "🧬",
     groups: ["Human History", "Biology", "Technology"],
     priority: 65,
   },
   {
     id: "social-media",
     title: "Social Media",
-    description: "Facebook launches — social networks reshape human communication.",
+    description:
+      "Facebook launches — social networks reshape human communication.",
     time: [2004, null, null, null, null, null],
     emoji: "📱",
     groups: ["Human History", "Technology", "Recent"],
@@ -386,7 +401,8 @@ export const EVENTS: Event[] = [
   {
     id: "gpt-released",
     title: "GPT Released",
-    description: "OpenAI releases GPT — the dawn of the large language model era.",
+    description:
+      "OpenAI releases GPT — the dawn of the large language model era.",
     time: [2018, null, null, null, null, null],
     emoji: "🤖",
     groups: ["Human History", "Technology", "Recent"],
@@ -395,7 +411,8 @@ export const EVENTS: Event[] = [
   {
     id: "chatgpt-launch",
     title: "ChatGPT Launches",
-    description: "Conversational AI goes mainstream, reaching 100M users in two months.",
+    description:
+      "Conversational AI goes mainstream, reaching 100M users in two months.",
     time: [2022, null, null, null, null, null],
     emoji: "💬",
     groups: ["Human History", "Technology", "Recent"],

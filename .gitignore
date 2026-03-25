@@ -30,3 +30,4 @@ dist-ssr
 .claude
 docs
 # plans
+.agents

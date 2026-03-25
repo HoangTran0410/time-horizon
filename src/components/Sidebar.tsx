@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Event } from "../types";
+import { Event, getEventTimelineYear } from "../types";
 import { Menu, X, Pencil } from "lucide-react";
+import { getEventDisplayLabel } from "../utils";
 
 interface SidebarProps {
   events: Event[];
@@ -27,15 +28,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const allGroups = Array.from(new Set(events.flatMap((e) => e.groups))).sort();
 
-  const filteredEvents = events.filter((e) => {
-    const matchesSearch =
-      e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesGroup =
-      selectedGroups.length === 0 ||
-      e.groups.some((g) => selectedGroups.includes(g));
-    return matchesSearch && matchesGroup;
-  });
+  const filteredEvents = [...events]
+    .filter((e) => {
+      const matchesSearch =
+        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesGroup =
+        selectedGroups.length === 0 ||
+        e.groups.some((g) => selectedGroups.includes(g));
+      return matchesSearch && matchesGroup;
+    })
+    .sort((a, b) => {
+      const yearDiff = getEventTimelineYear(a) - getEventTimelineYear(b);
+      if (Math.abs(yearDiff) > 1e-9) return yearDiff;
+      return a.title.localeCompare(b.title);
+    });
 
   return (
     <>
@@ -115,11 +122,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => onFocusEvent(event)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{event.emoji}</span>
-                      <span className="text-sm font-medium text-zinc-200">
-                        {event.title}
-                      </span>
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="text-xl mt-0.5">{event.emoji}</span>
+                      <div className="min-w-0">
+                        <span className="block text-sm font-medium text-zinc-200 truncate">
+                          {event.title}
+                        </span>
+                        <span className="block text-xs text-zinc-500 truncate">
+                          {getEventDisplayLabel(event)}
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={(e) => {

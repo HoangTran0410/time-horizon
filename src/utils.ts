@@ -212,3 +212,22 @@ export const formatTimelineTick = (
   absoluteYear: number,
   interval: number,
 ): string => formatTick(absoluteYear, interval);
+
+const isNearlyInteger = (value: number, tolerance = 1e-6): boolean =>
+  Math.abs(value - Math.round(value)) < tolerance;
+
+export const getTimelineHighlightStep = (interval: number): number => {
+  if (interval < 1) return 1;
+  return Math.max(100, 10 ** Math.round(Math.log10(interval)));
+};
+
+export const isHighlightedTimelineTick = (
+  absoluteYear: number,
+  highlightStep: number,
+): boolean => {
+  if (!isNearlyInteger(absoluteYear)) return false;
+
+  const roundedYear = Math.round(absoluteYear);
+  if (roundedYear === 0) return true;
+  return roundedYear % highlightStep === 0;
+};
