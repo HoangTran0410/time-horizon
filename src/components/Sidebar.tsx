@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Event } from "../types";
+import { Menu, X, Pencil } from "lucide-react";
 
 interface SidebarProps {
   events: Event[];
@@ -24,10 +25,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Get unique groups
   const allGroups = Array.from(new Set(events.flatMap((e) => e.groups))).sort();
 
-  // Filter events for the list
   const filteredEvents = events.filter((e) => {
     const matchesSearch =
       e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -42,25 +41,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Toggle Button */}
       <button
-        onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setIsOpen(!isOpen)}
         className="fixed top-4 left-4 z-50 bg-zinc-900 border border-zinc-700 text-white p-2 rounded-lg shadow-lg hover:bg-zinc-800 transition-colors"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
+        {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
       {/* Sidebar */}
@@ -72,7 +56,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         <div className="p-6 pt-20 flex-1 overflow-y-auto">
-          <h2 className="text-xl font-bold text-white mb-4">Timeline Events</h2>
+          <h2 className="text-xl font-bold text-white mb-4">
+            Timeline Events
+          </h2>
 
           <div className="mb-6">
             <button
@@ -142,19 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }}
                       className="p-1.5 -mr-1.5 rounded-md hover:bg-zinc-800 text-zinc-500 hover:text-emerald-500 transition-colors"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                      </svg>
+                      <Pencil size={16} />
                     </button>
                   </div>
                 </div>

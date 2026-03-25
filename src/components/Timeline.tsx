@@ -130,6 +130,62 @@ const BigBangMarker: React.FC<{
   );
 };
 
+// ── Warp Overlay ────────────────────────────────────────────────────────────
+// CSS-animated star-streak effect shown during long-distance camera jumps.
+// Direction: 1 = fly forward (left→right), -1 = fly backward (right→left).
+const WarpOverlay: React.FC<{ isWarping: boolean; direction: 1 | -1 }> = ({
+  isWarping,
+  direction,
+}) => (
+  <div
+    aria-hidden="true"
+    className="pointer-events-none fixed inset-0 z-[70] overflow-hidden"
+    style={{ display: isWarping ? "block" : "none" }}
+  >
+    {/* Speed lines */}
+    {Array.from({ length: 24 }).map((_, i) => {
+      const top = (i / 24) * 100;
+      const delay = (i * 0.041) % 1;
+      const short = i % 3 === 0;
+      return (
+        <div
+          key={i}
+          className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
+          style={{
+            top: `${top}%`,
+            left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
+            right: direction === -1 ? (short ? "-20%" : "-40%") : undefined,
+            width: short ? "30%" : "60%",
+            height: "1px",
+            animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
+            transform: direction === -1 ? "scaleX(-1)" : undefined,
+          }}
+        />
+      );
+    })}
+
+    {/* Central vanishing-point glow — fades as warp progresses */}
+    <div
+      className="absolute inset-0 flex items-center justify-center"
+      style={{
+        background:
+          direction === 1
+            ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.06) 0%, transparent 70%)"
+            : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.06) 0%, transparent 70%)",
+      }}
+    />
+
+    <style>{`
+      @keyframes warp-streak {
+        0%   { transform: translateX(0) scaleX(0.3); opacity: 0; }
+        10%  { opacity: 1; }
+        90%  { opacity: 1; }
+        100% { transform: translateX(${direction === 1 ? "100vw" : "-100vw"}) scaleX(1.5); opacity: 0; }
+      }
+    `}</style>
+  </div>
+);
+
 const TickMarker: React.FC<{
   tick: any;
   zoom: MotionValue<number>;
@@ -171,6 +227,8 @@ export const Timeline: React.FC = () => {
   );
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [isWarping, setIsWarping] = useState(false);
+  const [warpDirection, setWarpDirection] = useState<1 | -1>(1);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selecting, setSelecting] = useState(false);
@@ -525,33 +583,56 @@ export const Timeline: React.FC = () => {
     const width = container.clientWidth;
 
     const eventYear = getEventTimelineYear(event);
+    const currentZoom = Math.exp(logZoom.get());
+    const currentYear = focusYear.get();
 
-    animate(focusPixel, width / 2, {
-      type: "spring",
-      stiffness: 400,
-      damping: 40,
-    });
-    animate(focusYear, eventYear, {
-      type: "spring",
-      stiffness: 400,
-      damping: 40,
-    });
-
-    // If event has duration, auto-zoom to show neighborhood around that duration.
-    if (event.duration && event.duration > 0) {
-      // Rule of thumb: show ~20x duration around center, clamped to sane bounds.
+    // Determine target zoom. If event has a duration, zoom to show that neighborhood;
+    // otherwise keep current zoom.
+    const hasDuration = event.duration && event.duration > 0;
+    let targetZoom = currentZoom;
+    if (hasDuration) {
       const targetRangeYears = Math.min(
         Math.max(event.duration * 20, 1 / 365.25),
         1e9,
       );
-      const targetZoom = width / targetRangeYears;
-      const clampedZoom = Math.max(MIN_ZOOM, Math.min(targetZoom, MAX_ZOOM));
-      targetLogZoom.current = Math.log(clampedZoom);
-      animate(logZoom, targetLogZoom.current, {
-        type: "spring",
-        stiffness: 400,
-        damping: 40,
+      targetZoom = Math.max(MIN_ZOOM, Math.min(width / targetRangeYears, MAX_ZOOM));
+    }
+
+    // Calculate pixel distance at the *final* zoom level — this is what the camera
+    // actually needs to travel visually.
+    const pixelDist = Math.abs(eventYear - currentYear) * targetZoom;
+
+    // PIXEL_THRESHOLD: beyond ~2.5 screen widths of travel, activate warp overlay.
+    const PIXEL_THRESHOLD = width * 2.5;
+
+    if (pixelDist > PIXEL_THRESHOLD) {
+      // easeInOut: speed scales with pixel distance, capped at 1.2s.
+      const duration = Math.min(1.2, 0.25 + pixelDist / 3000);
+      const opt = { duration, ease: "easeInOut" as const };
+
+      // Activate warp overlay — direction tells streaks which way to fly.
+      // Camera pans LEFT when jumping forward in time (eventYear > currentYear),
+      // and RIGHT when jumping backward. Warp direction matches camera pan direction.
+      setIsWarping(true);
+      setWarpDirection(eventYear > currentYear ? -1 : 1);
+
+      if (hasDuration) {
+        targetLogZoom.current = Math.log(targetZoom);
+        animate(logZoom, targetLogZoom.current, opt);
+      }
+      animate(focusPixel, width / 2, opt);
+      animate(focusYear, eventYear, {
+        ...opt,
+        onComplete: () => setIsWarping(false),
       });
+    } else {
+      const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
+      if (hasDuration) {
+        targetLogZoom.current = Math.log(targetZoom);
+        animate(logZoom, targetLogZoom.current, opt);
+      }
+      animate(focusPixel, width / 2, opt);
+      animate(focusYear, eventYear, opt);
     }
   };
 
@@ -845,6 +926,9 @@ export const Timeline: React.FC = () => {
           onClose={() => setAddingEvent(false)}
         />
       )}
+
+      {/* Warp speed overlay — active during long-distance camera jumps */}
+      <WarpOverlay isWarping={isWarping} direction={warpDirection} />
     </div>
   );
 };

@@ -1,5 +1,9 @@
 import { Event, getEventTimelineYear } from "./types";
 
+// Cache: event time is immutable — label never changes.
+// WeakMap avoids memory leaks.
+const _displayLabelCache = new WeakMap<Event, string>();
+
 /** Strip trailing zeros from toFixed output, e.g. "100.0B" → "100B" */
 const stripTrailingZeros = (s: string): string =>
   s.replace(/\.0+(?=\s|[A-Z]|$)/, "");
@@ -103,38 +107,48 @@ export const formatYear = (absoluteYear: number): string => {
 };
 
 const formatEventTime = (event: Event): string => {
+  const cached = _displayLabelCache.get(event);
+  if (cached !== undefined) return cached;
+
   const [year, month, day, hour, minute, seconds] = event.time;
 
-  if (month === null) return formatYear(year);
+  let label: string;
 
-  // JavaScript Date formatting around BC years is unreliable for locale output.
-  // For BCE dates, fall back to decimal year formatting.
-  if (year <= 0) return formatYear(getEventTimelineYear(event));
+  if (month === null) {
+    label = formatYear(year);
+  } else if (year <= 0) {
+    // JavaScript Date formatting around BC years is unreliable for locale output.
+    // For BCE dates, fall back to decimal year formatting.
+    label = formatYear(getEventTimelineYear(event));
+  } else {
+    const d = new Date(
+      year,
+      month - 1,
+      day ?? 1,
+      hour ?? 0,
+      minute ?? 0,
+      seconds ?? 0,
+    );
 
-  const d = new Date(
-    year,
-    month - 1,
-    day ?? 1,
-    hour ?? 0,
-    minute ?? 0,
-    seconds ?? 0,
-  );
-
-  if (isNaN(d.getTime())) return formatYear(getEventTimelineYear(event));
-
-  if (day === null) {
-    return d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
+    if (isNaN(d.getTime())) {
+      label = formatYear(getEventTimelineYear(event));
+    } else if (day === null) {
+      label = d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
+    } else {
+      const hasTime = hour !== null || minute !== null || seconds !== null;
+      if (!hasTime) {
+        label = d.toLocaleDateString(undefined, FULL_DATE_FORMAT);
+      } else {
+        label = d.toLocaleString(undefined, {
+          ...DATE_TIME_FORMAT,
+          second: seconds !== null ? "2-digit" : undefined,
+        });
+      }
+    }
   }
 
-  const hasTime = hour !== null || minute !== null || seconds !== null;
-  if (!hasTime) {
-    return d.toLocaleDateString(undefined, FULL_DATE_FORMAT);
-  }
-
-  return d.toLocaleString(undefined, {
-    ...DATE_TIME_FORMAT,
-    second: seconds !== null ? "2-digit" : undefined,
-  });
+  _displayLabelCache.set(event, label);
+  return label;
 };
 
 export const getEventDisplayLabel = (event: Event): string =>

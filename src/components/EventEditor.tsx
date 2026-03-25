@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Event } from "../types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
+import { X, ChevronDown } from "lucide-react";
 
 interface EventEditorProps {
   event: Event;
@@ -190,20 +191,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             className="text-zinc-500 hover:text-white p-1 rounded-md hover:bg-zinc-800 transition-colors"
             aria-label="Close"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X width={20} height={20} />
           </button>
         </div>
 
@@ -236,20 +224,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   onClick={() => setShowEmojiPicker((v) => !v)}
                 >
                   <span className="text-lg">{editedEvent.emoji}</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-zinc-500"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  <ChevronDown width={14} height={14} className="text-zinc-500" />
                 </button>
                 {showEmojiPicker && (
                   <div className="emoji-trigger absolute z-10 mt-1">
@@ -293,20 +268,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                       (c) => c.value === (editedEvent.color ?? null),
                     )?.label ?? "None"}
                   </span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-zinc-500 ml-auto"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  <ChevronDown width={14} height={14} className="text-zinc-500 ml-auto" />
                 </button>
 
                 {/* Swatch popover */}
@@ -421,9 +383,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   title="Clear month and below"
                   className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
+                  <X width={14} height={14} />
                 </button>
               </div>
             )}
@@ -449,9 +409,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   title="Clear day and below"
                   className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
+                  <X width={14} height={14} />
                 </button>
               </div>
             )}
@@ -477,9 +435,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   title="Clear hour and below"
                   className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
+                  <X width={14} height={14} />
                 </button>
               </div>
             )}
@@ -505,9 +461,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   title="Clear minute and below"
                   className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
+                  <X width={14} height={14} />
                 </button>
               </div>
             )}
@@ -533,9 +487,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   title="Clear seconds"
                   className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
+                  <X width={14} height={14} />
                 </button>
               </div>
             )}
