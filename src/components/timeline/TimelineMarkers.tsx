@@ -44,9 +44,12 @@ const MIN_RING_COUNT = 3;
 const RING_INTERVAL_REFRESH_MS = 180;
 
 const formatRingTimespan = (years: number): string => {
-  if (years >= 1e9) return `${(years / 1e9).toFixed(years >= 1e10 ? 0 : 1)}B yrs`;
-  if (years >= 1e6) return `${(years / 1e6).toFixed(years >= 1e7 ? 0 : 1)}M yrs`;
-  if (years >= 1e3) return `${(years / 1e3).toFixed(years >= 1e4 ? 0 : 1)}K yrs`;
+  if (years >= 1e9)
+    return `${(years / 1e9).toFixed(years >= 1e10 ? 0 : 1)}B yrs`;
+  if (years >= 1e6)
+    return `${(years / 1e6).toFixed(years >= 1e7 ? 0 : 1)}M yrs`;
+  if (years >= 1e3)
+    return `${(years / 1e3).toFixed(years >= 1e4 ? 0 : 1)}K yrs`;
   if (years >= 1) return `${years.toFixed(years >= 10 ? 0 : 1)} yrs`;
   if (years >= 1 / 12) {
     const months = years * 12;
@@ -194,7 +197,7 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
         </div>
 
         <motion.div
-          className="absolute flex flex-col items-center opacity-70 group-hover:opacity-100 transition-opacity w-48 text-center"
+          className="absolute flex flex-col items-center opacity-70 group-hover:opacity-100 transition-opacity w-36 text-center"
           style={{ top: textTop, bottom: textBottom }}
         >
           <span
@@ -416,13 +419,10 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   zoom,
   zoomPivotX,
 }) => {
-  const maxVisibleDiameter = useMemo(
-    () => {
-      if (typeof window === "undefined") return 1280;
-      return Math.max(window.innerWidth, window.innerHeight);
-    },
-    [],
-  );
+  const maxVisibleDiameter = useMemo(() => {
+    if (typeof window === "undefined") return 1280;
+    return Math.max(window.innerWidth, window.innerHeight);
+  }, []);
   const [ringIntervals, setRingIntervals] = useState<number[]>(() =>
     getZoomReferenceIntervals(zoom.get(), maxVisibleDiameter),
   );
@@ -439,7 +439,10 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
 
     ringIntervalTimeoutRef.current = window.setTimeout(() => {
       ringIntervalTimeoutRef.current = null;
-      const nextIntervals = getZoomReferenceIntervals(value, maxVisibleDiameter);
+      const nextIntervals = getZoomReferenceIntervals(
+        value,
+        maxVisibleDiameter,
+      );
       setRingIntervals((prev) =>
         areIntervalsEqual(prev, nextIntervals) ? prev : nextIntervals,
       );
@@ -464,73 +467,74 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
         transition: "opacity 700ms ease-out",
       }}
     >
-    {mode === "travel" ? (
-      <>
-        {Array.from({ length: 24 }).map((_, i) => {
-          const top = (i / 24) * 100;
-          const delay = (i * 0.041) % 1;
-          const short = i % 3 === 0;
-          return (
-            <div
-              key={i}
-              className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
-              style={{
-                top: `${top}%`,
-                left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
-                right: direction === -1 ? (short ? "-20%" : "-40%") : undefined,
-                width: short ? "30%" : "60%",
-                height: "1px",
-                animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
-                transform: direction === -1 ? "scaleX(-1)" : undefined,
-              }}
-            />
-          );
-        })}
-
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{
-            background:
-              direction === 1
-                ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
-                : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)",
-          }}
-        />
-      </>
-    ) : mode !== "travel" ? (
-      <motion.div
-        className="absolute left-0 top-0 h-0 w-0"
-        style={{ x: zoomPivotX, top: "50%" }}
-      >
-        <div className="relative">
-          {ringIntervals.map((intervalYears, index) => (
-            <ZoomReferenceRing
-              key={intervalYears}
-              intervalYears={intervalYears}
-              zoom={zoom}
-              maxVisibleDiameter={maxVisibleDiameter}
-              mode={mode}
-              index={index}
-            />
-          ))}
+      {mode === "travel" ? (
+        <>
+          {Array.from({ length: 24 }).map((_, i) => {
+            const top = (i / 24) * 100;
+            const delay = (i * 0.041) % 1;
+            const short = i % 3 === 0;
+            return (
+              <div
+                key={i}
+                className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
+                style={{
+                  top: `${top}%`,
+                  left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
+                  right:
+                    direction === -1 ? (short ? "-20%" : "-40%") : undefined,
+                  width: short ? "30%" : "60%",
+                  height: "1px",
+                  animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
+                  transform: direction === -1 ? "scaleX(-1)" : undefined,
+                }}
+              />
+            );
+          })}
 
           <div
-            className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-100 ease-out"
+            className="absolute inset-0 flex items-center justify-center"
             style={{
-              width: "10px",
-              height: "10px",
-              opacity: mode === "zoom-in" ? 0.22 : 0.14,
               background:
-                mode === "zoom-in"
-                  ? "radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 55%, transparent 100%)"
-                  : "radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 72%)",
+                direction === 1
+                  ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                  : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)",
             }}
           />
-        </div>
-      </motion.div>
-    ) : null}
+        </>
+      ) : mode !== "travel" ? (
+        <motion.div
+          className="absolute left-0 top-0 h-0 w-0"
+          style={{ x: zoomPivotX, top: "50%" }}
+        >
+          <div className="relative">
+            {ringIntervals.map((intervalYears, index) => (
+              <ZoomReferenceRing
+                key={intervalYears}
+                intervalYears={intervalYears}
+                zoom={zoom}
+                maxVisibleDiameter={maxVisibleDiameter}
+                mode={mode}
+                index={index}
+              />
+            ))}
 
-    <style>{`
+            <div
+              className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-100 ease-out"
+              style={{
+                width: "10px",
+                height: "10px",
+                opacity: mode === "zoom-in" ? 0.22 : 0.14,
+                background:
+                  mode === "zoom-in"
+                    ? "radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 55%, transparent 100%)"
+                    : "radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 72%)",
+              }}
+            />
+          </div>
+        </motion.div>
+      ) : null}
+
+      <style>{`
       @keyframes warp-streak {
         0%   { transform: translateX(0) scaleX(0.3); opacity: 0; }
         10%  { opacity: 1; }
@@ -556,8 +560,7 @@ export const TickMarker: React.FC<TickMarkerProps> = ({
   zoom,
 }) => {
   const markerX = useTransform(() => {
-    const pos =
-      focusPixel.get() + (tick.year - focusYear.get()) * zoom.get();
+    const pos = focusPixel.get() + (tick.year - focusYear.get()) * zoom.get();
     if (pos < -100000) return -100000;
     if (pos > 100000) return 100000;
     return pos;

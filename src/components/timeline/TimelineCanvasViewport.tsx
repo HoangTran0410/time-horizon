@@ -28,6 +28,7 @@ interface TimelineCanvasViewportProps {
   eventLayouts: Record<string, EventLayoutState>;
   focusedEventId: string | null;
   eventAccentColors: Record<string, string | null>;
+  onRenderFrame: (now: number) => void;
   onWheel: (e: React.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
@@ -146,6 +147,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   eventLayouts,
   focusedEventId,
   eventAccentColors,
+  onRenderFrame,
   onWheel,
   onPointerDown,
   onPointerMove,
@@ -179,9 +181,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
   const requestRender = () => {
     if (renderFrameRef.current !== null) return;
-    renderFrameRef.current = requestAnimationFrame(() => {
+    renderFrameRef.current = requestAnimationFrame((now) => {
       renderFrameRef.current = null;
       renderCanvasRef.current();
+      onRenderFrame(now);
     });
   };
 

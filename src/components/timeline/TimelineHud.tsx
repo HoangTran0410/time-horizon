@@ -5,16 +5,22 @@ import { Event } from "../../types";
 import { getEventDisplayLabel } from "../../utils";
 
 interface FpsBadgeProps {
-  fps: number;
+  logicFps: number;
+  renderFps: number;
+  mode: "html" | "canvas";
 }
 
-export const FpsBadge: React.FC<FpsBadgeProps> = ({ fps }) => (
+export const FpsBadge: React.FC<FpsBadgeProps> = ({
+  logicFps,
+  renderFps,
+  mode,
+}) => (
   <div
     className="fixed top-4 right-4 z-40 rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300"
     onPointerDown={(e) => e.stopPropagation()}
     onWheel={(e) => e.stopPropagation()}
   >
-    FPS {fps}
+    Logic {logicFps} | {mode === "canvas" ? "Canvas" : "HTML"} {renderFps}
   </div>
 );
 

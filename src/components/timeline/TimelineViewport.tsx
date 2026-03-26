@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { MotionValue } from "motion/react";
 import { Event, getEventTimelineYear } from "../../types";
 import {
@@ -26,6 +26,7 @@ interface TimelineViewportProps {
   eventLayouts: Record<string, EventLayoutState>;
   focusedEventId: string | null;
   eventAccentColors: Record<string, string | null>;
+  onRenderFrame: (now: number) => void;
   getViewportWidth: () => number;
   onWheel: (e: React.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
@@ -48,6 +49,7 @@ export const TimelineViewport: React.FC<TimelineViewportProps> = ({
   eventLayouts,
   focusedEventId,
   eventAccentColors,
+  onRenderFrame,
   getViewportWidth,
   onWheel,
   onPointerDown,
@@ -56,76 +58,97 @@ export const TimelineViewport: React.FC<TimelineViewportProps> = ({
   onFocusBigBang,
   onFocusEvent,
   onFocusCollapsedGroup,
-}) => (
-  <div
-    ref={containerRef}
-    className="relative h-screen w-full cursor-grab overflow-hidden bg-zinc-950 text-white touch-none select-none active:cursor-grabbing"
-    onWheel={onWheel}
-    onPointerDown={onPointerDown}
-    onPointerMove={onPointerMove}
-    onPointerUp={onPointerUp}
-    onPointerCancel={onPointerUp}
-  >
-    <div className="absolute left-0 right-0 top-1/2 z-0 h-px -translate-y-1/2 bg-zinc-700" />
+}) => {
+  const onRenderFrameRef = useRef(onRenderFrame);
 
-    <div className="pointer-events-none absolute inset-0 z-10">
-      <BigBangMarker
-        zoom={zoom}
-        focusPixel={focusPixel}
-        focusYear={focusYear}
-        getViewportWidth={getViewportWidth}
-        onClick={onFocusBigBang}
-      />
+  useEffect(() => {
+    onRenderFrameRef.current = onRenderFrame;
+  }, [onRenderFrame]);
 
-      <div className="pointer-events-none absolute inset-0">
-        {ticks.map((tick) => (
-          <TickMarker
-            key={tick.year}
-            tick={tick}
-            focusPixel={focusPixel}
-            focusYear={focusYear}
-            zoom={zoom}
-          />
-        ))}
+  useEffect(() => {
+    let frameId = 0;
 
-        {collapsedGroups.map((group) => (
-          <CollapsedMarker
-            key={group.id}
-            group={group}
-            focusPixel={focusPixel}
-            focusYear={focusYear}
-            zoom={zoom}
-            onClick={onFocusCollapsedGroup}
-          />
-        ))}
+    const loop = (now: number) => {
+      onRenderFrameRef.current(now);
+      frameId = requestAnimationFrame(loop);
+    };
 
-        {timelineEvents
-          .filter((event) => {
-            if (event.id === focusedEventId) {
-              return true;
-            }
+    frameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
 
-            const year = getEventTimelineYear(event);
-            const margin = (visibleBounds.endYear - visibleBounds.startYear) * 0.3;
-            return (
-              year >= visibleBounds.startYear - margin &&
-              year <= visibleBounds.endYear + margin
-            );
-          })
-          .map((event) => (
-            <EventMarker
-              key={event.id}
-              event={event}
-              accentColor={eventAccentColors[event.id] ?? null}
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-screen w-full cursor-grab overflow-hidden bg-zinc-950 text-white touch-none select-none active:cursor-grabbing"
+      onWheel={onWheel}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      <div className="absolute left-0 right-0 top-1/2 z-0 h-px -translate-y-1/2 bg-zinc-700" />
+
+      <div className="pointer-events-none absolute inset-0 z-10">
+        <BigBangMarker
+          zoom={zoom}
+          focusPixel={focusPixel}
+          focusYear={focusYear}
+          getViewportWidth={getViewportWidth}
+          onClick={onFocusBigBang}
+        />
+
+        <div className="pointer-events-none absolute inset-0">
+          {ticks.map((tick) => (
+            <TickMarker
+              key={tick.year}
+              tick={tick}
               focusPixel={focusPixel}
               focusYear={focusYear}
               zoom={zoom}
-              layout={eventLayouts[event.id]}
-              isFocused={event.id === focusedEventId}
-              onClick={onFocusEvent}
             />
           ))}
+
+          {collapsedGroups.map((group) => (
+            <CollapsedMarker
+              key={group.id}
+              group={group}
+              focusPixel={focusPixel}
+              focusYear={focusYear}
+              zoom={zoom}
+              onClick={onFocusCollapsedGroup}
+            />
+          ))}
+
+          {timelineEvents
+            .filter((event) => {
+              if (event.id === focusedEventId) {
+                return true;
+              }
+
+              const year = getEventTimelineYear(event);
+              const margin =
+                (visibleBounds.endYear - visibleBounds.startYear) * 0.3;
+              return (
+                year >= visibleBounds.startYear - margin &&
+                year <= visibleBounds.endYear + margin
+              );
+            })
+            .map((event) => (
+              <EventMarker
+                key={event.id}
+                event={event}
+                accentColor={eventAccentColors[event.id] ?? null}
+                focusPixel={focusPixel}
+                focusYear={focusYear}
+                zoom={zoom}
+                layout={eventLayouts[event.id]}
+                isFocused={event.id === focusedEventId}
+                onClick={onFocusEvent}
+              />
+            ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};

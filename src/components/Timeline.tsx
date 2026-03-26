@@ -57,6 +57,8 @@ const ZOOM_LAYOUT_THROTTLE_MS = 1000;
 const ZOOM_SETTLE_DELAY_MS = 140;
 const ZOOM_WARP_HIDE_MS = 260;
 const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
+const FPS_SAMPLE_WINDOW_MS = 250;
+const RENDER_FPS_IDLE_RESET_MS = 500;
 type CollectionCache = {
   version: number;
   collections: Record<string, Event[]>;
@@ -65,6 +67,11 @@ type CollectionCache = {
 
 type StoppableAnimation = {
   stop: () => void;
+};
+
+type FpsSampleState = {
+  sampleStart: number;
+  frames: number;
 };
 
 const readCollectionCache = (): {
@@ -234,10 +241,20 @@ export const Timeline: React.FC = () => {
   const [collapsedGroups, setCollapsedGroups] = useState<CollapsedEventGroup[]>(
     [],
   );
-  const [fps, setFps] = useState(0);
+  const [logicFps, setLogicFps] = useState(0);
+  const [renderFps, setRenderFps] = useState(0);
   const [renderMode, setRenderMode] = useState<"html" | "canvas">(
     readTimelineRenderMode,
   );
+  const logicFpsSampleRef = useRef<FpsSampleState>({
+    sampleStart: 0,
+    frames: 0,
+  });
+  const renderFpsSampleRef = useRef<FpsSampleState>({
+    sampleStart: 0,
+    frames: 0,
+  });
+  const renderFpsIdleResetRef = useRef<number | null>(null);
 
   const addVisibleCollection = (collectionId: string) => {
     setVisibleCollectionIds((prev) =>
@@ -1118,18 +1135,20 @@ export const Timeline: React.FC = () => {
 
   useEffect(() => {
     let frameId = 0;
-    let sampleStart = performance.now();
-    let frames = 0;
 
     const loop = (now: number) => {
-      frames += 1;
+      const sample = logicFpsSampleRef.current;
+      if (sample.sampleStart === 0) {
+        sample.sampleStart = now;
+      }
+      sample.frames += 1;
 
-      if (now - sampleStart >= 250) {
-        const sampleDuration = now - sampleStart;
-        const nextFps = Math.round((frames * 1000) / sampleDuration);
-        setFps((prev) => (prev === nextFps ? prev : nextFps));
-        sampleStart = now;
-        frames = 0;
+      if (now - sample.sampleStart >= FPS_SAMPLE_WINDOW_MS) {
+        const sampleDuration = now - sample.sampleStart;
+        const nextFps = Math.round((sample.frames * 1000) / sampleDuration);
+        setLogicFps((prev) => (prev === nextFps ? prev : nextFps));
+        sample.sampleStart = now;
+        sample.frames = 0;
       }
 
       frameId = requestAnimationFrame(loop);
@@ -1138,6 +1157,41 @@ export const Timeline: React.FC = () => {
     frameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frameId);
   }, []);
+
+  const recordRenderFrame = (now: number) => {
+    const sample = renderFpsSampleRef.current;
+    if (sample.sampleStart === 0) {
+      sample.sampleStart = now;
+    }
+    sample.frames += 1;
+
+    if (now - sample.sampleStart >= FPS_SAMPLE_WINDOW_MS) {
+      const sampleDuration = now - sample.sampleStart;
+      const nextFps = Math.round((sample.frames * 1000) / sampleDuration);
+      setRenderFps((prev) => (prev === nextFps ? prev : nextFps));
+      sample.sampleStart = now;
+      sample.frames = 0;
+    }
+
+    if (renderFpsIdleResetRef.current !== null) {
+      window.clearTimeout(renderFpsIdleResetRef.current);
+    }
+    renderFpsIdleResetRef.current = window.setTimeout(() => {
+      renderFpsIdleResetRef.current = null;
+      renderFpsSampleRef.current = { sampleStart: 0, frames: 0 };
+      setRenderFps(0);
+    }, RENDER_FPS_IDLE_RESET_MS);
+  };
+
+  useEffect(() => {
+    renderFpsSampleRef.current = { sampleStart: 0, frames: 0 };
+    setRenderFps(0);
+
+    if (renderFpsIdleResetRef.current !== null) {
+      window.clearTimeout(renderFpsIdleResetRef.current);
+      renderFpsIdleResetRef.current = null;
+    }
+  }, [renderMode]);
 
   useEffect(() => {
     flushZoomRangeLabel(logZoom.get());
@@ -1157,6 +1211,9 @@ export const Timeline: React.FC = () => {
       }
       if (zoomSettleTimeoutRef.current !== null) {
         window.clearTimeout(zoomSettleTimeoutRef.current);
+      }
+      if (renderFpsIdleResetRef.current !== null) {
+        window.clearTimeout(renderFpsIdleResetRef.current);
       }
     };
   }, []);
@@ -1534,6 +1591,7 @@ export const Timeline: React.FC = () => {
           eventLayouts={eventLayouts.current}
           focusedEventId={selectedEventInfo?.id ?? null}
           eventAccentColors={eventAccentColors}
+          onRenderFrame={recordRenderFrame}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -1555,6 +1613,7 @@ export const Timeline: React.FC = () => {
           eventLayouts={eventLayouts.current}
           focusedEventId={selectedEventInfo?.id ?? null}
           eventAccentColors={eventAccentColors}
+          onRenderFrame={recordRenderFrame}
           getViewportWidth={getViewportWidth}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
@@ -1566,7 +1625,11 @@ export const Timeline: React.FC = () => {
         />
       )}
 
-      <FpsBadge fps={fps} />
+      <FpsBadge
+        logicFps={logicFps}
+        renderFps={renderFps}
+        mode={renderMode}
+      />
       <RenderModeToggle mode={renderMode} onChange={setRenderMode} />
 
       <ZoomController
