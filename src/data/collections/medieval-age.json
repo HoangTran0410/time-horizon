@@ -1,0 +1,50 @@
+[
+  {
+    "id": "rome-falls",
+    "title": "Fall of the Western Roman Empire",
+    "description": "The deposition of Romulus Augustulus traditionally marks the end of ancient Rome in the West.",
+    "time": [476, null, null, null, null, null],
+    "emoji": "🏛️",
+    "priority": 82
+  },
+  {
+    "id": "islam-begins",
+    "title": "Islam Begins",
+    "description": "Muhammad's first revelations mark the beginning of Islam in Arabia.",
+    "time": [610, null, null, null, null, null],
+    "emoji": "☪️",
+    "priority": 80
+  },
+  {
+    "id": "tang-dynasty",
+    "title": "Tang Dynasty Founded",
+    "description": "The Tang Dynasty begins one of the most influential eras in Chinese history.",
+    "time": [618, null, null, null, null, null],
+    "emoji": "🏯",
+    "priority": 74
+  },
+  {
+    "id": "mongol-empire",
+    "title": "Mongol Empire Begins",
+    "description": "Temujin becomes Genghis Khan and unites the Mongol tribes.",
+    "time": [1206, null, null, null, null, null],
+    "emoji": "🐎",
+    "priority": 78
+  },
+  {
+    "id": "black-death",
+    "title": "Black Death",
+    "description": "The plague devastates Afro-Eurasia and kills tens of millions of people.",
+    "time": [1347, null, null, null, null, null],
+    "emoji": "☠️",
+    "priority": 84
+  },
+  {
+    "id": "printing-press",
+    "title": "Printing Press",
+    "description": "Gutenberg's movable-type press accelerates the spread of books and ideas in Europe.",
+    "time": [1440, null, null, null, null, null],
+    "emoji": "📖",
+    "priority": 86
+  }
+]

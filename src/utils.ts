@@ -8,6 +8,29 @@ const _displayLabelCache = new WeakMap<Event, string>();
 const stripTrailingZeros = (s: string): string =>
   s.replace(/\.0+(?=\s|[A-Z]|$)/, "");
 
+export const withAlpha = (color: string, alpha: number): string => {
+  const normalized = color.trim();
+  const safeAlpha = Math.max(0, Math.min(1, alpha));
+
+  if (/^#([0-9a-f]{3}){1,2}$/i.test(normalized)) {
+    const hex = normalized.slice(1);
+    const fullHex =
+      hex.length === 3
+        ? hex
+            .split("")
+            .map((char) => char + char)
+            .join("")
+        : hex;
+    const int = Number.parseInt(fullHex, 16);
+    const r = (int >> 16) & 255;
+    const g = (int >> 8) & 255;
+    const b = int & 255;
+    return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
+  }
+
+  return normalized;
+};
+
 const NICE_INTERVALS: number[] = [
   1e10,
   5e9,
@@ -33,9 +56,6 @@ const NICE_INTERVALS: number[] = [
   1 / 12, // 1 month
   1 / 52, // 1 week
   1 / 365.25, // 1 day
-  1 / (365.25 * 24), // 1 hour
-  1 / (365.25 * 24 * 60), // 1 minute
-  1 / (365.25 * 24 * 3600), // 1 second
 ] as const;
 
 const MONTH_YEAR_FORMAT: Intl.DateTimeFormatOptions = {
@@ -43,9 +63,20 @@ const MONTH_YEAR_FORMAT: Intl.DateTimeFormatOptions = {
   year: "numeric",
 };
 
+const MONTH_YEAR_NUMERIC_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "numeric",
+  year: "numeric",
+};
+
 const MONTH_DAY_FORMAT: Intl.DateTimeFormatOptions = {
   month: "short",
   day: "numeric",
+};
+
+const DAY_MONTH_YEAR_NUMERIC_FORMAT: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
 };
 
 const FULL_DATE_FORMAT: Intl.DateTimeFormatOptions = {
@@ -77,8 +108,23 @@ const parseAbsoluteYearToDate = (absoluteYear: number): Date => {
   return new Date(start + frac * (end - start));
 };
 
+const dateToAbsoluteYear = (date: Date): number => {
+  const year = date.getFullYear();
+  const start = new Date(year, 0, 1).getTime();
+  const end = new Date(year + 1, 0, 1).getTime();
+  return year + (date.getTime() - start) / (end - start);
+};
+
 export const formatYear = (absoluteYear: number): string => {
   const absYear = Math.abs(absoluteYear);
+
+  if (absoluteYear >= 1e9) {
+    return `${stripTrailingZeros((absYear / 1e9).toFixed(2))} Billion AD`;
+  }
+
+  if (absoluteYear >= 1e6) {
+    return `${stripTrailingZeros((absYear / 1e6).toFixed(2))} Million AD`;
+  }
 
   if (absoluteYear <= -1e9) {
     return `${stripTrailingZeros((absYear / 1e9).toFixed(2))} Billion BC`;
@@ -195,17 +241,14 @@ export const formatTick = (absoluteYear: number, interval: number): string => {
   if (isNaN(d.getTime())) return formatAbsoluteYear(absoluteYear);
 
   if (interval >= 1 / 12) {
-    return d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
+    return d.toLocaleDateString(undefined, MONTH_YEAR_NUMERIC_FORMAT);
   }
 
   if (interval >= 1 / 365.25) {
-    return d.toLocaleDateString(undefined, MONTH_DAY_FORMAT);
+    return d.toLocaleDateString(undefined, DAY_MONTH_YEAR_NUMERIC_FORMAT);
   }
 
-  return d.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return d.toLocaleDateString(undefined, DAY_MONTH_YEAR_NUMERIC_FORMAT);
 };
 
 export const formatTimelineTick = (
@@ -213,18 +256,76 @@ export const formatTimelineTick = (
   interval: number,
 ): string => formatTick(absoluteYear, interval);
 
+export const generateCalendarTimelineTickYears = (
+  startYear: number,
+  endYear: number,
+  interval: number,
+): number[] | null => {
+  if (interval < 1 / 12 || interval >= 1) return null;
+  if (startYear <= 0 || endYear <= 0) return null;
+
+  const startDate = parseAbsoluteYearToDate(startYear);
+  const endDate = parseAbsoluteYearToDate(endYear);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+
+  let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  if (cursor.getTime() < startDate.getTime()) {
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+
+  const ticks: number[] = [];
+  while (cursor.getTime() <= endDate.getTime()) {
+    ticks.push(dateToAbsoluteYear(cursor));
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+
+  return ticks;
+};
+
 const isNearlyInteger = (value: number, tolerance = 1e-6): boolean =>
   Math.abs(value - Math.round(value)) < tolerance;
 
 export const getTimelineHighlightStep = (interval: number): number => {
   if (interval < 1) return 1;
-  return Math.max(100, 10 ** Math.round(Math.log10(interval)));
+
+  const magnitude = 10 ** Math.floor(Math.log10(interval));
+  const normalized = interval / magnitude;
+
+  if (normalized <= 1) return magnitude;
+  if (normalized <= 2) return 2 * magnitude;
+  if (normalized <= 5) return 5 * magnitude;
+  return 10 * magnitude;
 };
 
 export const isHighlightedTimelineTick = (
   absoluteYear: number,
   highlightStep: number,
+  interval: number,
 ): boolean => {
+  if (interval < 1) {
+    const d = parseAbsoluteYearToDate(absoluteYear);
+    if (isNaN(d.getTime())) return false;
+
+    const roundedMinutes = Math.round(d.getMinutes() / 15) * 15;
+    const normalized = new Date(d);
+    normalized.setMinutes(roundedMinutes, 0, 0);
+
+    if (interval >= 1 / 12) {
+      return normalized.getMonth() === 0;
+    }
+
+    const day = normalized.getDate();
+    if (interval >= 1 / 365.25) {
+      return day === 1;
+    }
+
+    return (
+      day === 1 &&
+      normalized.getHours() === 0 &&
+      normalized.getMinutes() === 0
+    );
+  }
+
   if (!isNearlyInteger(absoluteYear)) return false;
 
   const roundedYear = Math.round(absoluteYear);

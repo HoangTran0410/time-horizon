@@ -26,6 +26,7 @@ import {
   AutoFitButton,
   EventInfoPanel,
   FpsBadge,
+  RenderModeToggle,
   ZoomController,
 } from "./timeline/TimelineHud";
 import {
@@ -35,9 +36,11 @@ import {
   WarpOverlayMode,
   WarpOverlay,
 } from "./timeline/TimelineMarkers";
+import { TimelineCanvasViewport } from "./timeline/TimelineCanvasViewport";
 import { TimelineViewport } from "./timeline/TimelineViewport";
 import {
   formatTimelineTick,
+  generateCalendarTimelineTickYears,
   getNiceInterval,
   getTimelineHighlightStep,
   isHighlightedTimelineTick,
@@ -45,7 +48,10 @@ import {
 
 const tickLabelWidthEstimateCache = new Map<number, number>();
 const TICK_OVERSCAN_INTERVALS = 2;
-const COLLECTION_CACHE_KEY = "time-horizon:collection-cache:v1";
+const COLLECTION_CACHE_KEY = "time-horizon:collection-cache:v2";
+const COLLECTION_COLOR_PREFERENCES_KEY =
+  "time-horizon:collection-color-preferences:v1";
+const TIMELINE_RENDER_MODE_KEY = "time-horizon:timeline-render-mode:v1";
 const ZOOM_UI_THROTTLE_MS = 80;
 const ZOOM_LAYOUT_THROTTLE_MS = 1000;
 const ZOOM_SETTLE_DELAY_MS = 140;
@@ -55,6 +61,10 @@ type CollectionCache = {
   version: number;
   collections: Record<string, Event[]>;
   visibleCollectionIds?: string[];
+};
+
+type StoppableAnimation = {
+  stop: () => void;
 };
 
 const readCollectionCache = (): {
@@ -98,6 +108,35 @@ const readCollectionCache = (): {
   }
 };
 
+const readTimelineRenderMode = (): "html" | "canvas" => {
+  if (typeof window === "undefined") return "html";
+  return window.localStorage.getItem(TIMELINE_RENDER_MODE_KEY) === "canvas"
+    ? "canvas"
+    : "html";
+};
+
+const readCollectionColorPreferences = (): Record<string, string> => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(COLLECTION_COLOR_PREFERENCES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return {};
+
+    const entries = Object.entries(parsed).flatMap(([key, value]) =>
+      typeof value === "string" && value.trim().length > 0
+        ? ([[key, value]] as const)
+        : [],
+    );
+
+    return Object.fromEntries(entries) as Record<string, string>;
+  } catch (error) {
+    console.error("Failed to restore collection color preferences", error);
+    return {};
+  }
+};
+
 const getStableTickLabelWidthEstimate = (interval: number) => {
   const cached = tickLabelWidthEstimateCache.get(interval);
   if (cached !== undefined) return cached;
@@ -138,7 +177,7 @@ const formatZoomRangeLabel = (
   if (rangeInYears >= 1 / 365.25) {
     return `${(rangeInYears * 365.25).toFixed(0)} Days`;
   }
-  return `${(rangeInYears * 365.25 * 24).toFixed(0)} Hrs`;
+  return "1 Day";
 };
 
 const areCollapsedGroupsEqual = (
@@ -188,12 +227,17 @@ export const Timeline: React.FC = () => {
   const [downloadingCollectionIds, setDownloadingCollectionIds] = useState<
     string[]
   >([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [collectionColorPreferences, setCollectionColorPreferences] = useState<
+    Record<string, string>
+  >(readCollectionColorPreferences);
   const [ticks, setTicks] = useState<TimelineTick[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<CollapsedEventGroup[]>(
     [],
   );
   const [fps, setFps] = useState(0);
+  const [renderMode, setRenderMode] = useState<"html" | "canvas">(
+    readTimelineRenderMode,
+  );
 
   const addVisibleCollection = (collectionId: string) => {
     setVisibleCollectionIds((prev) =>
@@ -222,6 +266,16 @@ export const Timeline: React.FC = () => {
         : EVENT_COLLECTIONS,
     [collectionEventsById],
   );
+  const collectionColors = useMemo(
+    () =>
+      Object.fromEntries(
+        collections.map((collection) => [
+          collection.id,
+          collectionColorPreferences[collection.id] ?? collection.color ?? null,
+        ]),
+      ) as Record<string, string | null>,
+    [collectionColorPreferences, collections],
+  );
 
   const timelineEvents = useMemo(
     () =>
@@ -234,6 +288,20 @@ export const Timeline: React.FC = () => {
     () => new Map(timelineEvents.map((event, index) => [event.id, index])),
     [timelineEvents],
   );
+  const eventAccentColors = useMemo(() => {
+    const colors: Record<string, string | null> = {};
+
+    for (const [collectionId, events] of Object.entries(
+      collectionEventsById,
+    ) as Array<[string, Event[]]>) {
+      const collectionColor = collectionColors[collectionId];
+      for (const event of events) {
+        colors[event.id] = collectionColor ?? event.color ?? null;
+      }
+    }
+
+    return colors;
+  }, [collectionColors, collectionEventsById]);
 
   const singleVisibleCollectionId =
     visibleCollectionIds.length === 1 ? visibleCollectionIds[0] : null;
@@ -287,23 +355,25 @@ export const Timeline: React.FC = () => {
       const targetZoom = Math.min(Math.max(zoom.get() * 2, MIN_ZOOM), MAX_ZOOM);
 
       if (immediate) {
+        stopCameraAnimations();
         focusPixel.set(width / 2);
         focusYear.set(targetYear);
         targetLogZoom.current = Math.log(targetZoom);
         logZoom.set(targetLogZoom.current);
       } else {
-        animate(focusPixel, width / 2, {
+        stopCameraAnimations();
+        animateFocusPixel(width / 2, {
           type: "spring",
           stiffness: 300,
           damping: 30,
         });
-        animate(focusYear, targetYear, {
+        animateFocusYear(targetYear, {
           type: "spring",
           stiffness: 300,
           damping: 30,
         });
         targetLogZoom.current = Math.log(targetZoom);
-        animate(logZoom, targetLogZoom.current, {
+        animateLogZoom(targetLogZoom.current, {
           type: "spring",
           stiffness: 300,
           damping: 30,
@@ -320,29 +390,35 @@ export const Timeline: React.FC = () => {
     const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
 
     if (immediate) {
+      stopCameraAnimations();
       focusPixel.set(width / 2);
       focusYear.set(centerYear);
       targetLogZoom.current = Math.log(fitZoom);
       logZoom.set(targetLogZoom.current);
     } else if (pixelDist > width * 0.5) {
+      stopCameraAnimations();
       const duration = Math.min(1.0, 0.2 + pixelDist / 4000);
-      animate(focusPixel, width / 2, { duration, ease: "easeInOut" });
-      animate(focusYear, centerYear, { duration, ease: "easeInOut" });
+      animateFocusPixel(width / 2, { duration, ease: "easeInOut" });
+      animateFocusYear(centerYear, { duration, ease: "easeInOut" });
       targetLogZoom.current = Math.log(fitZoom);
-      animate(logZoom, targetLogZoom.current, { duration, ease: "easeInOut" });
+      animateLogZoom(targetLogZoom.current, {
+        duration,
+        ease: "easeInOut",
+      });
     } else {
-      animate(focusPixel, width / 2, {
+      stopCameraAnimations();
+      animateFocusPixel(width / 2, {
         type: "spring",
         stiffness: 300,
         damping: 30,
       });
-      animate(focusYear, centerYear, {
+      animateFocusYear(centerYear, {
         type: "spring",
         stiffness: 300,
         damping: 30,
       });
       targetLogZoom.current = Math.log(fitZoom);
-      animate(logZoom, targetLogZoom.current, {
+      animateLogZoom(targetLogZoom.current, {
         type: "spring",
         stiffness: 300,
         damping: 30,
@@ -376,6 +452,24 @@ export const Timeline: React.FC = () => {
     }
   }, [collectionEventsById, visibleCollectionIds]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(
+        COLLECTION_COLOR_PREFERENCES_KEY,
+        JSON.stringify(collectionColorPreferences),
+      );
+    } catch (error) {
+      console.error("Failed to persist collection color preferences", error);
+    }
+  }, [collectionColorPreferences]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(TIMELINE_RENDER_MODE_KEY, renderMode);
+  }, [renderMode]);
+
   // Ref version of the currently focused event — read inside updateLayout (rAF path)
   // so it sees the latest value without triggering React re-renders.
   const focusedEventIdRef = useRef<string | null>(null);
@@ -407,7 +501,57 @@ export const Timeline: React.FC = () => {
     (centerPixel - panX.get()) / zoom.get();
 
   const targetLogZoom = useRef(Math.log(2000 / 13.8e9));
+  const focusPixelAnimationRef = useRef<StoppableAnimation | null>(null);
+  const focusYearAnimationRef = useRef<StoppableAnimation | null>(null);
+  const logZoomAnimationRef = useRef<StoppableAnimation | null>(null);
   const hasBootstrappedRef = useRef(false);
+
+  const animateFocusPixel = (
+    target: number,
+    options: Record<string, unknown>,
+  ) => {
+    focusPixelAnimationRef.current?.stop();
+    focusPixelAnimationRef.current = animate(
+      focusPixel,
+      target,
+      options,
+    ) as unknown as StoppableAnimation;
+  };
+
+  const animateFocusYear = (
+    target: number,
+    options: Record<string, unknown>,
+  ) => {
+    focusYearAnimationRef.current?.stop();
+    focusYearAnimationRef.current = animate(
+      focusYear,
+      target,
+      options,
+    ) as unknown as StoppableAnimation;
+  };
+
+  const animateLogZoom = (
+    target: number,
+    options: Record<string, unknown>,
+  ) => {
+    logZoomAnimationRef.current?.stop();
+    logZoomAnimationRef.current = animate(
+      logZoom,
+      target,
+      options,
+    ) as unknown as StoppableAnimation;
+  };
+
+  const stopCameraAnimations = () => {
+    focusPixelAnimationRef.current?.stop();
+    focusYearAnimationRef.current?.stop();
+    logZoomAnimationRef.current?.stop();
+    focusPixelAnimationRef.current = null;
+    focusYearAnimationRef.current = null;
+    logZoomAnimationRef.current = null;
+    targetLogZoom.current = logZoom.get();
+    setIsWarping(false);
+  };
 
   // Visible year range — computed from camera state, kept in a ref so
   // updateLayout and the render filter can both read it without triggering
@@ -451,20 +595,13 @@ export const Timeline: React.FC = () => {
     const layoutEnd = endYear + margin;
 
     const focusedId = focusedEventIdRef.current;
-    const lowerSearchQuery = searchQuery.trim().toLowerCase();
-    const hasSearchQuery = lowerSearchQuery.length > 0;
-
-    // 1. Filter: visible + pass search/group. Always include focused event.
+    // 1. Filter: visible/group. Always include focused event.
     const visibleEvents = timelineEvents.filter((e) => {
       const ty = getEventTimelineYear(e);
       if (ty < BIG_BANG_YEAR) return false;
       if (e.id === focusedId) return true;
       if (ty < layoutStart || ty > layoutEnd) return false;
-      if (!hasSearchQuery) return true;
-      return (
-        e.title.toLowerCase().includes(lowerSearchQuery) ||
-        e.description.toLowerCase().includes(lowerSearchQuery)
-      );
+      return true;
     });
     const visibleEventIds = new Set(visibleEvents.map((event) => event.id));
 
@@ -619,36 +756,41 @@ export const Timeline: React.FC = () => {
     const maxTicks = Math.max(2, Math.floor(width / estimatedWidthPx));
     const idealInterval = visibleYears / maxTicks;
     const interval = getNiceInterval(idealInterval);
-    const baseHighlightStep = getTimelineHighlightStep(interval);
+    const targetHighlightedTicks = Math.max(
+      2,
+      Math.min(5, Math.round(width / 320)),
+    );
+    const highlightStep = getTimelineHighlightStep(
+      Math.max(interval, visibleYears / targetHighlightedTicks),
+    );
 
     // Generate tick years aligned to the interval so they remain stable across
     // consecutive panning frames — the same absolute years stay visible, they
     // just shift pixel position. Only zoom changes (which changes `interval`)
     // produce a new set of tick years.
-    const tickYears: number[] = [];
     const bufferedStartYear = startYear - interval * TICK_OVERSCAN_INTERVALS;
     const bufferedEndYear = endYear + interval * TICK_OVERSCAN_INTERVALS;
-    const firstTick = Math.floor(bufferedStartYear / interval) * interval;
-    for (let y = firstTick; y <= bufferedEndYear; y += interval) {
-      if (y >= BIG_BANG_YEAR) {
-        tickYears.push(y);
-      }
-    }
+    const calendarTickYears = generateCalendarTimelineTickYears(
+      bufferedStartYear,
+      bufferedEndYear,
+      interval,
+    );
+    const firstTick =
+      calendarTickYears && calendarTickYears.length > 0
+        ? calendarTickYears[0]
+        : Math.floor(bufferedStartYear / interval) * interval;
+    const tickYears =
+      calendarTickYears ??
+      (() => {
+        const generatedTickYears: number[] = [];
+        for (let y = firstTick; y <= bufferedEndYear; y += interval) {
+          if (y >= BIG_BANG_YEAR) {
+            generatedTickYears.push(y);
+          }
+        }
+        return generatedTickYears;
+      })();
 
-    const maxHighlightedTicks = Math.max(1, Math.floor(tickYears.length * 0.3));
-    const ticksPerBaseHighlight = Math.max(
-      1,
-      Math.round(baseHighlightStep / interval),
-    );
-    const desiredTicksPerHighlight = Math.max(
-      1,
-      Math.ceil(tickYears.length / maxHighlightedTicks),
-    );
-    const highlightMultiplier = Math.max(
-      1,
-      Math.ceil(desiredTicksPerHighlight / ticksPerBaseHighlight),
-    );
-    const highlightStep = baseHighlightStep * highlightMultiplier;
     const lastTick =
       tickYears.length > 0 ? tickYears[tickYears.length - 1] : firstTick;
     const prevTickState = tickStateRef.current;
@@ -673,7 +815,7 @@ export const Timeline: React.FC = () => {
     const newTicks: TimelineTick[] = tickYears.map((year) => ({
       year,
       interval,
-      isHighlighted: isHighlightedTimelineTick(year, highlightStep),
+      isHighlighted: isHighlightedTimelineTick(year, highlightStep, interval),
     }));
     startTransition(() => {
       setTicks(newTicks);
@@ -681,11 +823,15 @@ export const Timeline: React.FC = () => {
   };
 
   const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+
     // Stop inertia on scroll to prevent conflict
     if (inertiaFrame.current !== null) {
       cancelAnimationFrame(inertiaFrame.current);
       inertiaFrame.current = null;
     }
+
+    stopCameraAnimations();
 
     const container = containerRef.current;
     if (!container) return;
@@ -694,7 +840,13 @@ export const Timeline: React.FC = () => {
     const mouseX = e.clientX - rect.left;
 
     const currentZ = zoom.get();
-    const nextPanX = panX.get() - e.deltaX;
+    const hasZoomIntent = Math.abs(e.deltaY) > 0;
+    const shouldApplyHorizontalPan =
+      Math.abs(e.deltaX) > 0 &&
+      (!hasZoomIntent || Math.abs(e.deltaX) > Math.abs(e.deltaY) * 0.6);
+    const nextPanX = shouldApplyHorizontalPan
+      ? panX.get() - e.deltaX
+      : panX.get();
 
     // Keep the world position under the cursor stable while panning/zooming,
     // but never let the Big Bang marker drift right of the viewport center.
@@ -714,7 +866,7 @@ export const Timeline: React.FC = () => {
       newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
 
       targetLogZoom.current = Math.log(newZoom);
-      animate(logZoom, targetLogZoom.current, {
+      animateLogZoom(targetLogZoom.current, {
         type: "spring",
         stiffness: 400,
         damping: 40,
@@ -759,6 +911,7 @@ export const Timeline: React.FC = () => {
 
   const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
+    stopCameraAnimations();
     if (inertiaFrame.current !== null) {
       cancelAnimationFrame(inertiaFrame.current);
       inertiaFrame.current = null;
@@ -956,7 +1109,7 @@ export const Timeline: React.FC = () => {
     updateTicks();
     updateLayout(isBootstrapping);
     hasBootstrappedRef.current = true;
-  }, [timelineEvents, searchQuery]);
+  }, [timelineEvents]);
 
   useEffect(() => {
     updateVisibleBounds();
@@ -1011,13 +1164,9 @@ export const Timeline: React.FC = () => {
   // Animates camera to fit all currently-visible events with padding.
   // Call this any time you want to frame the visible event set.
   const handleAutoFit = (immediate = false) => {
-    const visible = timelineEvents.filter((e) => {
-      if (getEventTimelineYear(e) < BIG_BANG_YEAR) return false;
-      return (
-        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    });
+    const visible = timelineEvents.filter(
+      (e) => getEventTimelineYear(e) >= BIG_BANG_YEAR,
+    );
     animateCameraToEvents(visible, immediate);
   };
 
@@ -1130,6 +1279,7 @@ export const Timeline: React.FC = () => {
     const PIXEL_THRESHOLD = width * 2.5;
 
     if (pixelDist > PIXEL_THRESHOLD) {
+      stopCameraAnimations();
       // Two-phase: Phase 1 — easeInOut to bring event to ~25% from left edge.
       // Phase 2 — spring from edge into center for a satisfying "arrival" feel.
       const totalDuration = Math.min(1.2, 0.3 + pixelDist / 4000);
@@ -1144,17 +1294,17 @@ export const Timeline: React.FC = () => {
       // Warp RIGHT (eventYear < currentYear): arriving from the left edge.
       const isWarpingLeft = eventYear > currentYear;
       const phase1Target = isWarpingLeft ? width * 0.88 : width * 0.12;
-      animate(focusPixel, phase1Target, {
+      animateFocusPixel(phase1Target, {
         duration: phase1Duration,
         ease: "easeInOut",
       });
-      animate(focusYear, eventYear, {
+      animateFocusYear(eventYear, {
         duration: phase1Duration,
         ease: "easeInOut",
         onComplete: () => {
           setIsWarping(false);
           // Phase 2: spring the final leg into screen center.
-          animate(focusPixel, width / 2, {
+          animateFocusPixel(width / 2, {
             type: "spring",
             stiffness: 300,
             damping: 30,
@@ -1164,19 +1314,20 @@ export const Timeline: React.FC = () => {
 
       if (hasDuration) {
         targetLogZoom.current = Math.log(targetZoom);
-        animate(logZoom, targetLogZoom.current, {
+        animateLogZoom(targetLogZoom.current, {
           duration: phase1Duration,
           ease: "easeInOut",
         });
       }
     } else {
+      stopCameraAnimations();
       const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
       if (hasDuration) {
         targetLogZoom.current = Math.log(targetZoom);
-        animate(logZoom, targetLogZoom.current, opt);
+        animateLogZoom(targetLogZoom.current, opt);
       }
-      animate(focusPixel, width / 2, opt);
-      animate(focusYear, eventYear, opt);
+      animateFocusPixel(width / 2, opt);
+      animateFocusYear(eventYear, opt);
     }
   };
 
@@ -1193,8 +1344,9 @@ export const Timeline: React.FC = () => {
     if (!container) return;
     const width = container.clientWidth;
     const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
-    animate(focusPixel, width / 2, opt);
-    animate(focusYear, BIG_BANG_YEAR, opt);
+    stopCameraAnimations();
+    animateFocusPixel(width / 2, opt);
+    animateFocusYear(BIG_BANG_YEAR, opt);
   };
 
   const zoomTrackRef = useRef<HTMLDivElement>(null);
@@ -1228,6 +1380,7 @@ export const Timeline: React.FC = () => {
   }, []);
 
   const handleZoomDragStart = (e: React.PointerEvent) => {
+    stopCameraAnimations();
     isZoomDragging.current = true;
     zoomTrackRef.current?.setPointerCapture(e.pointerId);
 
@@ -1253,6 +1406,7 @@ export const Timeline: React.FC = () => {
 
   const handleQuickZoom = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!e.target.value || e.target.value === "current") return;
+    stopCameraAnimations();
     const rangeInYears = parseFloat(e.target.value);
     const targetZoom = getViewportWidth() / rangeInYears;
     const newLogZoom = Math.max(
@@ -1266,7 +1420,7 @@ export const Timeline: React.FC = () => {
     focusYear.set(centerYear);
 
     targetLogZoom.current = newLogZoom;
-    animate(logZoom, targetLogZoom.current, {
+    animateLogZoom(targetLogZoom.current, {
       type: "spring",
       stiffness: 400,
       damping: 40,
@@ -1333,7 +1487,6 @@ export const Timeline: React.FC = () => {
     description: "",
     emoji: "📅",
     time: [new Date().getFullYear(), null, null, null, null, null],
-    groups: [],
     priority: 50,
   });
 
@@ -1348,35 +1501,73 @@ export const Timeline: React.FC = () => {
         onSetCollectionVisibility={handleSetCollectionVisibility}
         downloadingCollectionIds={downloadingCollectionIds}
         collectionEventsById={collectionEventsById}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        collectionColors={collectionColors}
+        collectionColorPreferences={collectionColorPreferences}
+        onSetCollectionColor={(collectionId, color) =>
+          setCollectionColorPreferences((prev) => ({
+            ...prev,
+            [collectionId]: color,
+          }))
+        }
+        onResetCollectionColor={(collectionId) =>
+          setCollectionColorPreferences((prev) => {
+            const next = { ...prev };
+            delete next[collectionId];
+            return next;
+          })
+        }
         onFocusEvent={handleFocusEvent}
         onEditEvent={setEditingEvent}
         onAddEvent={handleStartAddEvent}
       />
 
-      <TimelineViewport
-        containerRef={containerRef}
-        focusPixel={focusPixel}
-        focusYear={focusYear}
-        zoom={zoom}
-        ticks={ticks}
-        timelineEvents={timelineEvents}
-        collapsedGroups={collapsedGroups}
-        visibleBounds={visibleBoundsRef.current}
-        eventLayouts={eventLayouts.current}
-        focusedEventId={selectedEventInfo?.id ?? null}
-        getViewportWidth={getViewportWidth}
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onFocusBigBang={handleFocusBigBang}
-        onFocusEvent={handleFocusEvent}
-        onFocusCollapsedGroup={handleFocusCollapsedGroup}
-      />
+      {renderMode === "canvas" ? (
+        <TimelineCanvasViewport
+          containerRef={containerRef}
+          focusPixel={focusPixel}
+          focusYear={focusYear}
+          zoom={zoom}
+          ticks={ticks}
+          timelineEvents={timelineEvents}
+          collapsedGroups={collapsedGroups}
+          visibleBounds={visibleBoundsRef.current}
+          eventLayouts={eventLayouts.current}
+          focusedEventId={selectedEventInfo?.id ?? null}
+          eventAccentColors={eventAccentColors}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onFocusBigBang={handleFocusBigBang}
+          onFocusEvent={handleFocusEvent}
+          onFocusCollapsedGroup={handleFocusCollapsedGroup}
+        />
+      ) : (
+        <TimelineViewport
+          containerRef={containerRef}
+          focusPixel={focusPixel}
+          focusYear={focusYear}
+          zoom={zoom}
+          ticks={ticks}
+          timelineEvents={timelineEvents}
+          collapsedGroups={collapsedGroups}
+          visibleBounds={visibleBoundsRef.current}
+          eventLayouts={eventLayouts.current}
+          focusedEventId={selectedEventInfo?.id ?? null}
+          eventAccentColors={eventAccentColors}
+          getViewportWidth={getViewportWidth}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onFocusBigBang={handleFocusBigBang}
+          onFocusEvent={handleFocusEvent}
+          onFocusCollapsedGroup={handleFocusCollapsedGroup}
+        />
+      )}
 
       <FpsBadge fps={fps} />
+      <RenderModeToggle mode={renderMode} onChange={setRenderMode} />
 
       <ZoomController
         zoomRangeLabel={zoomRangeLabel}

@@ -23,7 +23,6 @@ export interface Event {
   emoji: string;
   /** Optional accent color as a hex string, e.g. "#ef4444". */
   color?: string | null;
-  groups: string[];
   priority: number; // Higher number = higher priority (shown when zoomed out)
 }
 
@@ -84,4 +83,6 @@ export interface EventCollectionMeta {
   description: string;
   author: string;
   createdAt: string;
+  /** Optional default accent color for the collection. */
+  color?: string | null;
 }

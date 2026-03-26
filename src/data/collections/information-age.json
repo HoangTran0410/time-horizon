@@ -1,0 +1,58 @@
+[
+  {
+    "id": "internet",
+    "title": "Internet Standardized",
+    "description": "ARPANET switches to TCP/IP, marking the modern Internet's foundation.",
+    "time": [1983, null, null, null, null, null],
+    "emoji": "🌐",
+    "priority": 84
+  },
+  {
+    "id": "world-wide-web",
+    "title": "World Wide Web Released",
+    "description": "Tim Berners-Lee releases WWW software in 1991 and announces it on Internet newsgroups.",
+    "time": [1991, null, null, null, null, null],
+    "emoji": "🕸️",
+    "priority": 82
+  },
+  {
+    "id": "human-genome",
+    "title": "Human Genome Project Completed",
+    "description": "The first essentially complete human genome sequence is announced.",
+    "time": [2003, null, null, null, null, null],
+    "emoji": "🧬",
+    "priority": 76
+  },
+  {
+    "id": "social-media",
+    "title": "Social Media Scales",
+    "description": "Facebook launches as social networks begin reshaping online communication.",
+    "time": [2004, null, null, null, null, null],
+    "emoji": "📱",
+    "priority": 72
+  },
+  {
+    "id": "smartphone",
+    "title": "Modern Smartphone Era",
+    "description": "The iPhone popularizes the modern touchscreen smartphone.",
+    "time": [2007, null, null, null, null, null],
+    "emoji": "📲",
+    "priority": 80
+  },
+  {
+    "id": "gpt-released",
+    "title": "GPT Released",
+    "description": "OpenAI releases GPT, helping launch the modern large language model era.",
+    "time": [2018, null, null, null, null, null],
+    "emoji": "🤖",
+    "priority": 78
+  },
+  {
+    "id": "chatgpt-launch",
+    "title": "ChatGPT Launches",
+    "description": "Conversational AI reaches a mass audience after ChatGPT launches in late 2022.",
+    "time": [2022, null, null, null, null, null],
+    "emoji": "💬",
+    "priority": 86
+  }
+]

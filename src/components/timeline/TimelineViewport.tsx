@@ -25,6 +25,7 @@ interface TimelineViewportProps {
   };
   eventLayouts: Record<string, EventLayoutState>;
   focusedEventId: string | null;
+  eventAccentColors: Record<string, string | null>;
   getViewportWidth: () => number;
   onWheel: (e: React.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
@@ -46,6 +47,7 @@ export const TimelineViewport: React.FC<TimelineViewportProps> = ({
   visibleBounds,
   eventLayouts,
   focusedEventId,
+  eventAccentColors,
   getViewportWidth,
   onWheel,
   onPointerDown,
@@ -114,6 +116,7 @@ export const TimelineViewport: React.FC<TimelineViewportProps> = ({
             <EventMarker
               key={event.id}
               event={event}
+              accentColor={eventAccentColors[event.id] ?? null}
               focusPixel={focusPixel}
               focusYear={focusYear}
               zoom={zoom}

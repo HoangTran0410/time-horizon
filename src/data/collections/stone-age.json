@@ -1,0 +1,50 @@
+[
+  {
+    "id": "oldest-stone-tools",
+    "title": "Oldest Known Stone Tools",
+    "description": "The earliest known stone tools date to about 3.3 million years ago.",
+    "time": [-3300000, null, null, null, null, null],
+    "emoji": "🪨",
+    "priority": 86
+  },
+  {
+    "id": "homo-erectus",
+    "title": "Homo erectus Appears",
+    "description": "Homo erectus emerges and later spreads widely beyond Africa.",
+    "time": [-1900000, null, null, null, null, null],
+    "emoji": "🚶",
+    "priority": 80
+  },
+  {
+    "id": "fire-mastered",
+    "title": "Fire Mastered",
+    "description": "Evidence for the controlled use of fire appears during the early Stone Age.",
+    "time": [-1000000, null, null, null, null, null],
+    "emoji": "🔥",
+    "priority": 82
+  },
+  {
+    "id": "neanderthals",
+    "title": "Neanderthals Appear",
+    "description": "Neanderthals emerge in Eurasia and become one of the best-known human relatives.",
+    "time": [-400000, null, null, null, null, null],
+    "emoji": "🦴",
+    "priority": 74
+  },
+  {
+    "id": "chauvet-cave",
+    "title": "Chauvet Cave Art",
+    "description": "Some of the world's most famous figurative cave paintings are created in France.",
+    "time": [-36000, null, null, null, null, null],
+    "emoji": "🎨",
+    "priority": 72
+  },
+  {
+    "id": "agriculture",
+    "title": "Agriculture",
+    "description": "Humans begin farming and settling in multiple regions near the end of the Stone Age.",
+    "time": [-12000, null, null, null, null, null],
+    "emoji": "🌾",
+    "priority": 90
+  }
+]

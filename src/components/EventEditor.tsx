@@ -35,27 +35,34 @@ const parseDatetimeLocal = (
   const [datePart, timePart] = value.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [h = 0, min = 0] = (timePart ?? "00:00").split(":").map(Number);
-  return [y ?? prev[0], m ?? prev[1], d ?? prev[2], h ?? prev[3], min ?? prev[4], prev[5]];
+  return [
+    y ?? prev[0],
+    m ?? prev[1],
+    d ?? prev[2],
+    h ?? prev[3],
+    min ?? prev[4],
+    prev[5],
+  ];
 };
 
 // Default accent colors for event color swatches.
 const COLOR_SWATCHES = [
-  { label: "None",     value: null },
-  { label: "Red",      value: "#ef4444" },
-  { label: "Orange",   value: "#f97316" },
-  { label: "Amber",    value: "#f59e0b" },
-  { label: "Green",    value: "#22c55e" },
-  { label: "Emerald",  value: "#10b981" },
-  { label: "Teal",     value: "#14b8a6" },
-  { label: "Sky",      value: "#0ea5e9" },
-  { label: "Blue",     value: "#3b82f6" },
-  { label: "Indigo",   value: "#6366f1" },
-  { label: "Violet",   value: "#8b5cf6" },
-  { label: "Purple",   value: "#a855f7" },
-  { label: "Fuchsia",  value: "#d946ef" },
-  { label: "Pink",     value: "#ec4899" },
-  { label: "Rose",     value: "#f43f5e" },
-  { label: "Zinc",     value: "#71717a" },
+  { label: "None", value: null },
+  { label: "Red", value: "#ef4444" },
+  { label: "Orange", value: "#f97316" },
+  { label: "Amber", value: "#f59e0b" },
+  { label: "Green", value: "#22c55e" },
+  { label: "Emerald", value: "#10b981" },
+  { label: "Teal", value: "#14b8a6" },
+  { label: "Sky", value: "#0ea5e9" },
+  { label: "Blue", value: "#3b82f6" },
+  { label: "Indigo", value: "#6366f1" },
+  { label: "Violet", value: "#8b5cf6" },
+  { label: "Purple", value: "#a855f7" },
+  { label: "Fuchsia", value: "#d946ef" },
+  { label: "Pink", value: "#ec4899" },
+  { label: "Rose", value: "#f43f5e" },
+  { label: "Zinc", value: "#71717a" },
 ];
 
 export const EventEditor: React.FC<EventEditorProps> = ({
@@ -74,8 +81,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
   const hasMonth = month !== null;
   const hasDay = day !== null;
-  const hasHour = day !== null;     // hour shows once day is set
-  const hasMinute = hour !== null;   // minute shows once hour is set
+  const hasHour = day !== null; // hour shows once day is set
+  const hasMinute = hour !== null; // minute shows once hour is set
   const hasSeconds = minute !== null;
 
   const validateDate = (): boolean => {
@@ -104,13 +111,13 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     }));
   };
 
-  const handleGroupsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const groups = e.target.value
-      .split(",")
-      .map((g) => g.trim())
-      .filter((g) => g);
-    setEditedEvent((prev) => ({ ...prev, groups }));
-  };
+  // const handleGroupsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const groups = e.target.value
+  //     .split(",")
+  //     .map((g) => g.trim())
+  //     .filter((g) => g);
+  //   setEditedEvent((prev) => ({ ...prev, groups }));
+  // };
 
   const handleTimeChange = (index: 1 | 2 | 3 | 4 | 5, raw: string) => {
     if (raw !== "" && isNaN(Number(raw))) return;
@@ -224,7 +231,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   onClick={() => setShowEmojiPicker((v) => !v)}
                 >
                   <span className="text-lg">{editedEvent.emoji}</span>
-                  <ChevronDown width={14} height={14} className="text-zinc-500" />
+                  <ChevronDown
+                    width={14}
+                    height={14}
+                    className="text-zinc-500"
+                  />
                 </button>
                 {showEmojiPicker && (
                   <div className="emoji-trigger absolute z-10 mt-1">
@@ -259,8 +270,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   <span
                     className="w-5 h-5 rounded border border-zinc-600 shrink-0"
                     style={{
-                      backgroundColor:
-                        editedEvent.color ?? "transparent",
+                      backgroundColor: editedEvent.color ?? "transparent",
                     }}
                   />
                   <span className="text-sm text-zinc-300">
@@ -268,7 +278,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                       (c) => c.value === (editedEvent.color ?? null),
                     )?.label ?? "None"}
                   </span>
-                  <ChevronDown width={14} height={14} className="text-zinc-500 ml-auto" />
+                  <ChevronDown
+                    width={14}
+                    height={14}
+                    className="text-zinc-500 ml-auto"
+                  />
                 </button>
 
                 {/* Swatch popover */}
@@ -291,8 +305,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                               : "border-zinc-600"
                           }`}
                           style={{
-                            backgroundColor:
-                              swatch.value ?? "transparent",
+                            backgroundColor: swatch.value ?? "transparent",
                             backgroundImage:
                               swatch.value === null
                                 ? "linear-gradient(135deg, #fff 45%, transparent 45%, transparent 55%, #fff 55%)"
@@ -392,7 +405,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             {hasMonth && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">Day</label>
+                  <label className="block text-xs text-zinc-500 mb-1">
+                    Day
+                  </label>
                   <input
                     type="number"
                     min={1}
@@ -418,7 +433,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             {hasDay && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">Hour</label>
+                  <label className="block text-xs text-zinc-500 mb-1">
+                    Hour
+                  </label>
                   <input
                     type="number"
                     min={0}
@@ -444,7 +461,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             {hasMinute && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">Minute</label>
+                  <label className="block text-xs text-zinc-500 mb-1">
+                    Minute
+                  </label>
                   <input
                     type="number"
                     min={0}
@@ -470,7 +489,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             {hasSeconds && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">Seconds</label>
+                  <label className="block text-xs text-zinc-500 mb-1">
+                    Seconds
+                  </label>
                   <input
                     type="number"
                     min={0}
@@ -525,7 +546,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </div>
 
           {/* Groups */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">
               Groups (comma separated)
             </label>
@@ -535,7 +556,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               onChange={handleGroupsChange}
               className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
             />
-          </div>
+          </div> */}
 
           {/* Priority */}
           <div>

@@ -13,6 +13,7 @@ import {
   getEventDisplayLabel,
   formatTimelineTick,
   getNiceInterval,
+  withAlpha,
 } from "../../utils";
 
 export type TimelineTick = {
@@ -85,6 +86,7 @@ const getZoomReferenceIntervals = (
 
 interface EventMarkerProps {
   event: Event;
+  accentColor: string | null;
   focusPixel: MotionValue<number>;
   focusYear: MotionValue<number>;
   zoom: MotionValue<number>;
@@ -95,6 +97,7 @@ interface EventMarkerProps {
 
 export const EventMarker: React.FC<EventMarkerProps> = ({
   event,
+  accentColor,
   focusPixel,
   focusYear,
   zoom,
@@ -135,6 +138,10 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
   const scale = useTransform(opacity, (v: number) =>
     isFocused ? Math.max(v, 1) : v,
   );
+  const activeAccentColor = accentColor ?? "#10b981";
+  const idleBorderColor = accentColor ?? "#52525b";
+  const idleLineColor = accentColor ? withAlpha(accentColor, 0.55) : "#3f3f46";
+  const activeLineColor = accentColor ?? "#10b981";
 
   return (
     <motion.div
@@ -156,7 +163,7 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
             height: lineHeight,
             top: lineTop,
             left: "50%",
-            backgroundColor: isFocused ? "#10b981" : undefined,
+            backgroundColor: isFocused ? activeLineColor : idleLineColor,
           }}
         />
 
@@ -179,6 +186,9 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
                 : "border-zinc-700 group-hover:border-emerald-500"
             }
           `}
+          style={{
+            borderColor: isFocused ? activeAccentColor : idleBorderColor,
+          }}
         >
           {event.emoji}
         </div>
@@ -191,6 +201,7 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
             className={`text-sm font-medium ${
               isFocused ? "text-emerald-400" : "text-zinc-200"
             }`}
+            style={{ color: isFocused ? activeAccentColor : undefined }}
           >
             {event.title}
           </span>
@@ -198,6 +209,7 @@ export const EventMarker: React.FC<EventMarkerProps> = ({
             className={`text-xs ${
               isFocused ? "text-emerald-500" : "text-zinc-500"
             }`}
+            style={{ color: isFocused ? activeAccentColor : undefined }}
           >
             {getEventDisplayLabel(event)}
           </span>

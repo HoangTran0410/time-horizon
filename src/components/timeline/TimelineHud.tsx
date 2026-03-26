@@ -18,6 +18,43 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({ fps }) => (
   </div>
 );
 
+interface RenderModeToggleProps {
+  mode: "html" | "canvas";
+  onChange: (mode: "html" | "canvas") => void;
+}
+
+export const RenderModeToggle: React.FC<RenderModeToggleProps> = ({
+  mode,
+  onChange,
+}) => (
+  <div
+    className="fixed right-4 top-14 z-40 flex overflow-hidden rounded-full border border-zinc-700 bg-zinc-950"
+    onPointerDown={(e) => e.stopPropagation()}
+    onWheel={(e) => e.stopPropagation()}
+  >
+    <button
+      onClick={() => onChange("html")}
+      className={`px-3 py-1.5 text-[11px] font-mono transition-colors ${
+        mode === "html"
+          ? "bg-zinc-700 text-white"
+          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+      }`}
+    >
+      HTML
+    </button>
+    <button
+      onClick={() => onChange("canvas")}
+      className={`px-3 py-1.5 text-[11px] font-mono transition-colors ${
+        mode === "canvas"
+          ? "bg-zinc-700 text-white"
+          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+      }`}
+    >
+      Canvas
+    </button>
+  </div>
+);
+
 interface ZoomControllerProps {
   zoomRangeLabel: string;
   onQuickZoom: (e: React.ChangeEvent<HTMLSelectElement>) => void;

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "christianity-ministry-of-jesus",
+    "title": "Ministry of Jesus",
+    "description": "Jesus of Nazareth begins the public ministry that stands at the center of Christian faith.",
+    "time": [27, null, null, null, null, null],
+    "emoji": "🕊️",
+    "priority": 90
+  },
+  {
+    "id": "christianity-crucifixion",
+    "title": "Crucifixion of Jesus",
+    "description": "Jesus is crucified under Roman authority in Jerusalem, traditionally dated around 30 CE.",
+    "time": [30, null, null, null, null, null],
+    "emoji": "✝️",
+    "priority": 95
+  },
+  {
+    "id": "christianity-pentecost",
+    "title": "Pentecost",
+    "description": "Christian tradition marks Pentecost as the dramatic beginning of the church's public mission.",
+    "time": [30, null, null, null, null, null],
+    "emoji": "🔥",
+    "priority": 88
+  },
+  {
+    "id": "christianity-conversion-of-paul",
+    "title": "Conversion of Paul",
+    "description": "Paul's conversion becomes one of the defining turning points in early Christian expansion.",
+    "time": [34, null, null, null, null, null],
+    "emoji": "🛣️",
+    "priority": 84
+  },
+  {
+    "id": "christianity-council-of-jerusalem",
+    "title": "Council of Jerusalem",
+    "description": "Early church leaders decide that Gentile converts need not fully adopt Jewish law.",
+    "time": [49, null, null, null, null, null],
+    "emoji": "🏛️",
+    "priority": 82
+  },
+  {
+    "id": "christianity-mark-gospel",
+    "title": "Earliest Gospel Written",
+    "description": "The Gospel of Mark is commonly dated to around 70 CE.",
+    "time": [70, null, null, null, null, null],
+    "emoji": "📖",
+    "priority": 74
+  },
+  {
+    "id": "christianity-constantine",
+    "title": "Constantine's Conversion",
+    "description": "Constantine's conversion transforms Christianity's political standing in the Roman world.",
+    "time": [312, null, null, null, null, null],
+    "emoji": "👑",
+    "priority": 86
+  },
+  {
+    "id": "christianity-edict-of-milan",
+    "title": "Edict of Milan",
+    "description": "In 313 Christianity becomes legally tolerated in the Roman Empire.",
+    "time": [313, null, null, null, null, null],
+    "emoji": "📜",
+    "priority": 88
+  },
+  {
+    "id": "christianity-nicaea",
+    "title": "Council of Nicaea",
+    "description": "The first ecumenical council in 325 defines key Christian doctrine against Arianism.",
+    "time": [325, null, null, null, null, null],
+    "emoji": "🕯️",
+    "priority": 92
+  },
+  {
+    "id": "christianity-state-religion",
+    "title": "Christianity Becomes Imperial Religion",
+    "description": "By the end of the 4th century, Christianity becomes the dominant religion of the Roman Empire.",
+    "time": [380, null, null, null, null, null],
+    "emoji": "🏰",
+    "priority": 84
+  },
+  {
+    "id": "christianity-augustine",
+    "title": "Augustine's Influence",
+    "description": "In the late 4th and early 5th centuries, Augustine becomes one of the most influential Christian theologians.",
+    "time": [400, null, null, null, null, null],
+    "emoji": "🧠",
+    "priority": 72
+  },
+  {
+    "id": "christianity-great-schism",
+    "title": "Great Schism",
+    "description": "In 1054 the split between the Latin West and Greek East becomes formalized.",
+    "time": [1054, null, null, null, null, null],
+    "emoji": "⚡",
+    "priority": 90
+  },
+  {
+    "id": "christianity-first-crusade",
+    "title": "First Crusade",
+    "description": "Pope Urban II calls the First Crusade in 1095, reshaping medieval Christianity and the eastern Mediterranean.",
+    "time": [1095, null, null, null, null, null],
+    "emoji": "🛡️",
+    "priority": 76
+  },
+  {
+    "id": "christianity-franciscan-order",
+    "title": "Franciscan Order Founded",
+    "description": "The Franciscan movement emerges in the early 13th century and becomes central to medieval Catholic life.",
+    "time": [1209, null, null, null, null, null],
+    "emoji": "🤲",
+    "priority": 66
+  },
+  {
+    "id": "christianity-protestant-reformation",
+    "title": "Protestant Reformation",
+    "description": "Martin Luther's 1517 challenge to indulgences sparks the Protestant Reformation.",
+    "time": [1517, null, null, null, null, null],
+    "emoji": "📌",
+    "priority": 94
+  },
+  {
+    "id": "christianity-council-of-trent",
+    "title": "Council of Trent",
+    "description": "The Catholic Church responds to the Reformation through the Council of Trent.",
+    "time": [1545, null, null, null, null, null],
+    "emoji": "⛪",
+    "priority": 80
+  },
+  {
+    "id": "christianity-great-awakening",
+    "title": "Great Awakening",
+    "description": "18th-century revival movements reshape Protestant Christianity in the Atlantic world.",
+    "time": [1730, null, null, null, null, null],
+    "emoji": "✨",
+    "priority": 68
+  },
+  {
+    "id": "christianity-missionary-expansion",
+    "title": "Global Missionary Expansion",
+    "description": "In the 19th century, Christian missionary activity expands rapidly across Africa, Asia, and the Pacific.",
+    "time": [1800, null, null, null, null, null],
+    "emoji": "🌍",
+    "priority": 72
+  },
+  {
+    "id": "christianity-ecumenical-movement",
+    "title": "Modern Ecumenical Movement",
+    "description": "In the 20th century, many Christians begin new efforts toward cooperation across denominational lines.",
+    "time": [1910, null, null, null, null, null],
+    "emoji": "🤝",
+    "priority": 64
+  },
+  {
+    "id": "christianity-vatican-ii",
+    "title": "Second Vatican Council",
+    "description": "Vatican II begins in 1962 and reshapes Catholic worship, governance, and relations with the modern world.",
+    "time": [1962, null, null, null, null, null],
+    "emoji": "🕊️",
+    "priority": 86
+  }
+]

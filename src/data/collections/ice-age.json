@@ -1,0 +1,42 @@
+[
+  {
+    "id": "quaternary-begins",
+    "title": "Quaternary Begins",
+    "description": "Long glacial-interglacial cycles intensify at the start of the Quaternary Period.",
+    "time": [-2580000, null, null, null, null, null],
+    "emoji": "🧊",
+    "priority": 82
+  },
+  {
+    "id": "homo-sapiens",
+    "title": "Homo sapiens Appears",
+    "description": "Our species emerges in Africa during the late Pleistocene.",
+    "time": [-300000, null, null, null, null, null],
+    "emoji": "🧍",
+    "priority": 88
+  },
+  {
+    "id": "last-glacial-maximum",
+    "title": "Last Glacial Maximum",
+    "description": "Ice sheets reach their greatest extent during the last glacial period.",
+    "time": [-26500, null, null, null, null, null],
+    "emoji": "🧊",
+    "priority": 84
+  },
+  {
+    "id": "younger-dryas",
+    "title": "Younger Dryas Begins",
+    "description": "A sudden return to colder conditions interrupts the end of the last Ice Age.",
+    "time": [-10900, null, null, null, null, null],
+    "emoji": "🥶",
+    "priority": 76
+  },
+  {
+    "id": "holocene-begins",
+    "title": "Holocene Begins",
+    "description": "The current warm interglacial epoch begins about 11,700 years ago.",
+    "time": [-9700, null, null, null, null, null],
+    "emoji": "🌤️",
+    "priority": 86
+  }
+]
