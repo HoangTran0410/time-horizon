@@ -1,0 +1,250 @@
+[
+  {
+    "id": "buddha-life-birth-lumbini",
+    "title": "Born at Lumbini",
+    "description": "Tradition places the birth of Siddhartha Gautama at Lumbini, near Kapilavastu, in the 6th or 5th century BCE.",
+    "time": [-563, null, null, null, null, null],
+    "emoji": "👶",
+    "priority": 88
+  },
+  {
+    "id": "buddha-life-shakya-prince",
+    "title": "Raised as a Shakya Prince",
+    "description": "Buddhist tradition describes Siddhartha as the son of Shuddhodana of the Shakya clan.",
+    "time": [-550, null, null, null, null, null],
+    "emoji": "👑",
+    "priority": 72
+  },
+  {
+    "id": "buddha-life-prophecy",
+    "title": "Prophecy of Two Paths",
+    "description": "Traditional biographies say sages predicted he would become either a universal ruler or a great spiritual teacher.",
+    "time": [-563, null, null, null, null, null],
+    "emoji": "🔮",
+    "priority": 64
+  },
+  {
+    "id": "buddha-life-sheltered-youth",
+    "title": "Sheltered Youth",
+    "description": "Later Buddhist biographies portray Siddhartha's youth as protected from suffering and death.",
+    "time": [-545, null, null, null, null, null],
+    "emoji": "🏯",
+    "priority": 60
+  },
+  {
+    "id": "buddha-life-marriage",
+    "title": "Marries Yasodhara",
+    "description": "Tradition identifies Yasodhara as Siddhartha's wife before his renunciation.",
+    "time": [-547, null, null, null, null, null],
+    "emoji": "💍",
+    "priority": 66
+  },
+  {
+    "id": "buddha-life-rahula-born",
+    "title": "Rahula Is Born",
+    "description": "Traditional sources say Siddhartha's son Rahula is born shortly before or around the time of the Great Renunciation.",
+    "time": [-534, null, null, null, null, null],
+    "emoji": "🧒",
+    "priority": 62
+  },
+  {
+    "id": "buddha-life-four-sights",
+    "title": "Encounters the Four Sights",
+    "description": "Buddhist tradition says he sees an old man, a sick person, a corpse, and an ascetic, awakening his religious quest.",
+    "time": [-534, null, null, null, null, null],
+    "emoji": "👁️",
+    "priority": 84
+  },
+  {
+    "id": "buddha-life-great-renunciation",
+    "title": "Great Renunciation",
+    "description": "Siddhartha leaves his home life to seek liberation from suffering.",
+    "time": [-534, null, null, null, null, null],
+    "emoji": "🌙",
+    "priority": 92
+  },
+  {
+    "id": "buddha-life-studies-alara",
+    "title": "Studies with Alara Kalama",
+    "description": "Early Buddhist sources say Siddhartha studies meditative practices under the teacher Alara Kalama.",
+    "time": [-533, null, null, null, null, null],
+    "emoji": "🧘",
+    "priority": 68
+  },
+  {
+    "id": "buddha-life-studies-uddaka",
+    "title": "Studies with Uddaka Ramaputta",
+    "description": "He continues his search under another teacher, Uddaka Ramaputta, but remains unsatisfied.",
+    "time": [-532, null, null, null, null, null],
+    "emoji": "📿",
+    "priority": 66
+  },
+  {
+    "id": "buddha-life-asceticism",
+    "title": "Practices Extreme Asceticism",
+    "description": "Tradition says Siddhartha spends years in severe austerities with a group of ascetics.",
+    "time": [-531, null, null, null, null, null],
+    "emoji": "🌾",
+    "priority": 82
+  },
+  {
+    "id": "buddha-life-middle-way",
+    "title": "Rejects Extreme Asceticism",
+    "description": "He abandons severe self-mortification and turns toward the middle way.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "⚖️",
+    "priority": 88
+  },
+  {
+    "id": "buddha-life-sujata-meal",
+    "title": "Receives Sujata's Offering",
+    "description": "Traditional accounts say Sujata offers him food before his final meditation at Bodh Gaya.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "🥣",
+    "priority": 64
+  },
+  {
+    "id": "buddha-life-enlightenment",
+    "title": "Enlightenment under the Bodhi Tree",
+    "description": "At Bodh Gaya, Siddhartha attains awakening and becomes the Buddha.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "🌳",
+    "priority": 97
+  },
+  {
+    "id": "buddha-life-mara-temptation",
+    "title": "Defeats Mara",
+    "description": "Buddhist tradition recounts the Buddha's victory over Mara's temptations on the night of enlightenment.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "⚡",
+    "priority": 76
+  },
+  {
+    "id": "buddha-life-seven-weeks",
+    "title": "Seven Weeks near the Bodhi Tree",
+    "description": "Tradition says the newly awakened Buddha remains near Bodh Gaya for several weeks after enlightenment.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "🪷",
+    "priority": 70
+  },
+  {
+    "id": "buddha-life-first-sermon",
+    "title": "First Sermon at Sarnath",
+    "description": "At Deer Park in Sarnath, the Buddha teaches the Four Noble Truths and the Noble Eightfold Path.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "☸️",
+    "priority": 96
+  },
+  {
+    "id": "buddha-life-first-disciples",
+    "title": "First Five Disciples",
+    "description": "The five ascetics who had known Siddhartha become the Buddha's first disciples.",
+    "time": [-528, null, null, null, null, null],
+    "emoji": "👥",
+    "priority": 84
+  },
+  {
+    "id": "buddha-life-sangha-founded",
+    "title": "Sangha Founded",
+    "description": "The monastic community begins to form around the Buddha and his earliest followers.",
+    "time": [-527, null, null, null, null, null],
+    "emoji": "🏛️",
+    "priority": 88
+  },
+  {
+    "id": "buddha-life-yasa-conversion",
+    "title": "Yasa and Other Early Converts",
+    "description": "Early narratives describe the conversion of Yasa and other early lay and monastic followers.",
+    "time": [-527, null, null, null, null, null],
+    "emoji": "✨",
+    "priority": 68
+  },
+  {
+    "id": "buddha-life-sariputta-moggallana",
+    "title": "Sariputta and Moggallana Join",
+    "description": "Two of the Buddha's most important disciples, Sariputta and Moggallana, join the sangha.",
+    "time": [-525, null, null, null, null, null],
+    "emoji": "🧠",
+    "priority": 82
+  },
+  {
+    "id": "buddha-life-bimbisara-patronage",
+    "title": "Supported by King Bimbisara",
+    "description": "Tradition recounts royal support from Bimbisara of Magadha, helping stabilize the early community.",
+    "time": [-525, null, null, null, null, null],
+    "emoji": "🏰",
+    "priority": 74
+  },
+  {
+    "id": "buddha-life-kapilavastu-return",
+    "title": "Returns to Kapilavastu",
+    "description": "Traditional biographies say the Buddha returns to his home region and teaches members of his family.",
+    "time": [-524, null, null, null, null, null],
+    "emoji": "🏠",
+    "priority": 74
+  },
+  {
+    "id": "buddha-life-rahula-ordained",
+    "title": "Rahula Ordained",
+    "description": "The Buddha's son Rahula is ordained and becomes one of the best-known figures in the early sangha.",
+    "time": [-524, null, null, null, null, null],
+    "emoji": "🧒",
+    "priority": 70
+  },
+  {
+    "id": "buddha-life-mahapajapati",
+    "title": "Order of Nuns Established",
+    "description": "Tradition says Mahapajapati Gotami becomes the first Buddhist nun after the Buddha permits an order of nuns.",
+    "time": [-520, null, null, null, null, null],
+    "emoji": "🙏",
+    "priority": 82
+  },
+  {
+    "id": "buddha-life-jetavana",
+    "title": "Long Residence at Jetavana",
+    "description": "The Buddha spends many rainy seasons teaching at Jetavana monastery near Shravasti.",
+    "time": [-500, null, null, null, null, null],
+    "emoji": "🌿",
+    "priority": 72
+  },
+  {
+    "id": "buddha-life-devadatta-schism",
+    "title": "Devadatta's Challenge",
+    "description": "Tradition tells of a major dispute when Devadatta challenges the Buddha and attempts to create a schism.",
+    "time": [-495, null, null, null, null, null],
+    "emoji": "⚔️",
+    "priority": 68
+  },
+  {
+    "id": "buddha-life-vaishali-last-journey",
+    "title": "Begins Final Journey",
+    "description": "In the final phase of his life, the Buddha travels through Vaishali and other places before reaching Kushinagar.",
+    "time": [-484, null, null, null, null, null],
+    "emoji": "🚶",
+    "priority": 76
+  },
+  {
+    "id": "buddha-life-last-meal",
+    "title": "The Last Meal",
+    "description": "Traditional sources recount a final meal at Pava shortly before the Buddha's death.",
+    "time": [-483, null, null, null, null, null],
+    "emoji": "🍽️",
+    "priority": 64
+  },
+  {
+    "id": "buddha-life-parinirvana",
+    "title": "Parinirvana at Kushinagar",
+    "description": "The Buddha dies at Kushinagar and enters final nirvana; traditional chronologies often place this in the 5th century BCE.",
+    "time": [-483, null, null, null, null, null],
+    "emoji": "🕯️",
+    "priority": 95
+  },
+  {
+    "id": "buddha-life-cremation-relics",
+    "title": "Cremation and Distribution of Relics",
+    "description": "After the Buddha's death, his body is cremated and his relics are distributed among different communities.",
+    "time": [-483, null, null, null, null, null],
+    "emoji": "🪦",
+    "priority": 80
+  }
+]

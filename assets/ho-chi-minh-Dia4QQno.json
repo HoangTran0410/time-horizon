@@ -1,0 +1,215 @@
+[
+  {
+    "id": "hochi-birth",
+    "title": "Born in Nghe An",
+    "description": "Ho Chi Minh is born as Nguyen Sinh Cung on May 19, 1890, in Hoang Tru, Nghe An.",
+    "time": [1890, 5, 19, null, null, null],
+    "duration": 0.01,
+    "emoji": "👶",
+    "priority": 72
+  },
+  {
+    "id": "hochi-leaves-vietnam",
+    "title": "Leaves Vietnam",
+    "description": "In 1911 he leaves Vietnam as a young seaman and begins years of travel abroad.",
+    "time": [1911, null, null, null, null, null],
+    "emoji": "🚢",
+    "priority": 72
+  },
+  {
+    "id": "hochi-london-years",
+    "title": "Lives in London",
+    "description": "From 1915 to 1917 he lives in London before moving on to France.",
+    "time": [1915, null, null, null, null, null],
+    "emoji": "🇬🇧",
+    "priority": 60
+  },
+  {
+    "id": "hochi-moves-france",
+    "title": "Moves to France",
+    "description": "In 1917 he settles in France and becomes active in anticolonial politics.",
+    "time": [1917, null, null, null, null, null],
+    "emoji": "🇫🇷",
+    "priority": 68
+  },
+  {
+    "id": "hochi-versailles-petition",
+    "title": "Petitions Versailles Conference",
+    "description": "In 1919 he submits an eight-point petition calling for rights for the people of Indochina.",
+    "time": [1919, null, null, null, null, null],
+    "emoji": "📜",
+    "priority": 80
+  },
+  {
+    "id": "hochi-french-communist-party",
+    "title": "Joins French Communists",
+    "description": "In December 1920 he joins the French Communists as the French Socialist movement splits.",
+    "time": [1920, 12, null, null, null, null],
+    "emoji": "📕",
+    "priority": 82
+  },
+  {
+    "id": "hochi-moscow",
+    "title": "Travels to Moscow",
+    "description": "At the end of 1923 he travels to Moscow and deepens his ties to the Communist International.",
+    "time": [1923, null, null, null, null, null],
+    "emoji": "🚆",
+    "priority": 74
+  },
+  {
+    "id": "hochi-fifth-comintern",
+    "title": "Attends Fifth Comintern Congress",
+    "description": "In 1924 he takes part in the Fifth Congress of the Communist International.",
+    "time": [1924, null, null, null, null, null],
+    "emoji": "🌍",
+    "priority": 70
+  },
+  {
+    "id": "hochi-canton",
+    "title": "Moves to Canton",
+    "description": "In late 1924 he goes to Canton in China and begins organizing Vietnamese exiles there.",
+    "time": [1924, 12, null, null, null, null],
+    "emoji": "🇨🇳",
+    "priority": 74
+  },
+  {
+    "id": "hochi-youth-league",
+    "title": "Founds Revolutionary Youth League",
+    "description": "In 1925 he founds the Revolutionary Youth League, a key predecessor to the Indochinese Communist Party.",
+    "time": [1925, null, null, null, null, null],
+    "emoji": "🌱",
+    "priority": 78
+  },
+  {
+    "id": "hochi-communist-party-1930",
+    "title": "Presides Over Party Founding",
+    "description": "On February 3, 1930, he presides over the founding of the Vietnamese Communist Party, later renamed the Indochinese Communist Party.",
+    "time": [1930, 2, 3, null, null, null],
+    "duration": 0.01,
+    "emoji": "🟥",
+    "priority": 86
+  },
+  {
+    "id": "hochi-condemned-in-absentia",
+    "title": "Condemned in Absentia",
+    "description": "In 1930 French colonial authorities condemn him in absentia to death as a revolutionary.",
+    "time": [1930, null, null, null, null, null],
+    "emoji": "⚖️",
+    "priority": 64
+  },
+  {
+    "id": "hochi-hong-kong-escape",
+    "title": "Escapes Hong Kong Extradition",
+    "description": "After seeking refuge in Hong Kong, he avoids French extradition and escapes back toward Moscow.",
+    "time": [1931, null, null, null, null, null],
+    "emoji": "🏃",
+    "priority": 66
+  },
+  {
+    "id": "hochi-seventh-comintern",
+    "title": "Seventh Comintern Congress",
+    "description": "In 1935 he attends the Seventh Congress of the Communist International in Moscow.",
+    "time": [1935, null, null, null, null, null],
+    "emoji": "🗣️",
+    "priority": 62
+  },
+  {
+    "id": "hochi-returns-china-1938",
+    "title": "Returns to China",
+    "description": "In 1938 he returns to China and spends time with Chinese Communist forces.",
+    "time": [1938, null, null, null, null, null],
+    "emoji": "🧭",
+    "priority": 62
+  },
+  {
+    "id": "hochi-adopts-name",
+    "title": "Uses the Name Ho Chi Minh",
+    "description": "Around 1940 he begins using the name Ho Chi Minh while preparing to return to Vietnam.",
+    "time": [1940, null, null, null, null, null],
+    "emoji": "✍️",
+    "priority": 68
+  },
+  {
+    "id": "hochi-returns-vietnam-1941",
+    "title": "Returns to Vietnam",
+    "description": "In January 1941 he crosses back into Vietnam after decades abroad.",
+    "time": [1941, 1, null, null, null, null],
+    "emoji": "🏞️",
+    "priority": 82
+  },
+  {
+    "id": "hochi-vietminh",
+    "title": "Viet Minh Founded",
+    "description": "In May 1941 he helps organize the Viet Minh, the League for the Independence of Vietnam.",
+    "time": [1941, 5, null, null, null, null],
+    "emoji": "🌿",
+    "priority": 88
+  },
+  {
+    "id": "hochi-imprisoned-china",
+    "title": "Imprisoned in China",
+    "description": "In 1942 Chiang Kai-shek's authorities imprison him in China for about 18 months.",
+    "time": [1942, null, null, null, null, null],
+    "emoji": "⛓️",
+    "priority": 72
+  },
+  {
+    "id": "hochi-notebook-from-prison",
+    "title": "Writes Notebook from Prison",
+    "description": "During imprisonment in China, he writes the poems later known as Notebook from Prison.",
+    "time": [1943, null, null, null, null, null],
+    "emoji": "📘",
+    "priority": 66
+  },
+  {
+    "id": "hochi-august-revolution",
+    "title": "August Revolution",
+    "description": "In August 1945 Viet Minh forces move to seize power as Japanese rule collapses.",
+    "time": [1945, 8, null, null, null, null],
+    "emoji": "🔥",
+    "priority": 88
+  },
+  {
+    "id": "hochi-independence",
+    "title": "Declares Vietnamese Independence",
+    "description": "On September 2, 1945, Ho Chi Minh proclaims the independence of the Democratic Republic of Vietnam in Hanoi.",
+    "time": [1945, 9, 2, null, null, null],
+    "duration": 0.01,
+    "emoji": "🇻🇳",
+    "priority": 95
+  },
+  {
+    "id": "hochi-first-indochina-war",
+    "title": "First Indochina War Begins",
+    "description": "In 1946 full-scale war breaks out between Ho Chi Minh's forces and the French.",
+    "time": [1946, null, null, null, null, null],
+    "emoji": "⚔️",
+    "priority": 84
+  },
+  {
+    "id": "hochi-dien-bien-phu",
+    "title": "French Defeated at Dien Bien Phu",
+    "description": "On May 7, 1954, the Viet Minh defeat the French at Dien Bien Phu.",
+    "time": [1954, 5, 7, null, null, null],
+    "duration": 0.01,
+    "emoji": "🏔️",
+    "priority": 92
+  },
+  {
+    "id": "hochi-geneva-accords",
+    "title": "Geneva Accords Divide Vietnam",
+    "description": "In July 1954 the Geneva Accords temporarily divide Vietnam into North and South.",
+    "time": [1954, 7, null, null, null, null],
+    "emoji": "🗺️",
+    "priority": 86
+  },
+  {
+    "id": "hochi-death",
+    "title": "Dies in Hanoi",
+    "description": "Ho Chi Minh dies in Hanoi on September 2, 1969, during the Vietnam War.",
+    "time": [1969, 9, 2, null, null, null],
+    "duration": 0.01,
+    "emoji": "🕯️",
+    "priority": 76
+  }
+]
