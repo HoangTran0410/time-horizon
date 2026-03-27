@@ -3,6 +3,7 @@ import { MotionValue } from "motion/react";
 import { Event, getEventTimelineYear } from "../../types";
 import { BIG_BANG_YEAR } from "../../constants";
 import {
+  formatElapsedTimelineTime,
   getEventDisplayLabel,
   formatTimelineTick,
   withAlpha,
@@ -27,6 +28,7 @@ interface TimelineCanvasViewportProps {
   };
   eventLayouts: Record<string, EventLayoutState>;
   focusedEventId: string | null;
+  rulerEvent: Event | null;
   eventAccentColors: Record<string, string | null>;
   onRenderFrame: (now: number) => void;
   onWheel: (e: React.WheelEvent) => void;
@@ -146,6 +148,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   visibleBounds,
   eventLayouts,
   focusedEventId,
+  rulerEvent,
   eventAccentColors,
   onRenderFrame,
   onWheel,
@@ -165,6 +168,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     visibleEvents: [] as VisibleCanvasEvent[],
     eventLayouts,
     focusedEventId,
+    rulerEvent,
     eventAccentColors,
   });
   const sizeRef = useRef({ width: 0, height: 0, dpr: 1 });
@@ -178,6 +182,15 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   const renderFrameRef = useRef<number | null>(null);
   const renderCanvasRef = useRef<() => void>(() => {});
   const cursorRef = useRef<"grab" | "grabbing" | "pointer">("grab");
+  const rulerPointerRef = useRef<{
+    x: number;
+    y: number;
+    isVisible: boolean;
+  }>({
+    x: 0,
+    y: 0,
+    isVisible: false,
+  });
 
   const requestRender = () => {
     if (renderFrameRef.current !== null) return;
@@ -237,6 +250,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       visibleEvents: nextVisibleEvents,
       eventLayouts,
       focusedEventId,
+      rulerEvent,
       eventAccentColors,
     };
   }, [
@@ -246,6 +260,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     visibleBounds,
     eventLayouts,
     focusedEventId,
+    rulerEvent,
     eventAccentColors,
   ]);
 
@@ -258,6 +273,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     visibleBounds,
     eventLayouts,
     focusedEventId,
+    rulerEvent,
     eventAccentColors,
   ]);
 
@@ -288,17 +304,28 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   const getScreenX = (year: number) =>
     focusPixel.get() + (year - focusYear.get()) * zoom.get();
 
-  const findHitTarget = (
-    clientX: number,
-    clientY: number,
-  ): HitTarget | null => {
+  const getPointerPosition = (clientX: number, clientY: number) => {
     const container = containerRef.current;
     if (!container) return null;
 
     const rect = container.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const centerY = rect.height / 2;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const findHitTarget = (
+    clientX: number,
+    clientY: number,
+  ): HitTarget | null => {
+    const pointer = getPointerPosition(clientX, clientY);
+    if (!pointer) return null;
+
+    const { x, y, width, height } = pointer;
+    const centerY = height / 2;
     const {
       visibleEvents: currentVisibleEvents,
       collapsedGroups: currentCollapsedGroups,
@@ -325,12 +352,12 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     }
 
     const bigBangX = getScreenX(BIG_BANG_YEAR);
-    if (bigBangX >= 0 && bigBangX <= rect.width) {
+    if (bigBangX >= 0 && bigBangX <= width) {
       if (Math.abs(x - bigBangX) <= 24 && Math.abs(y - centerY) <= 28) {
         return { type: "bigbang" };
       }
     } else {
-      const pinnedX = rect.width - 78;
+      const pinnedX = width - 78;
       if (Math.abs(x - pinnedX) <= 54 && Math.abs(y - centerY) <= 24) {
         return { type: "bigbang" };
       }
@@ -355,6 +382,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         collapsedGroups: currentCollapsedGroups,
         eventLayouts: currentEventLayouts,
         focusedEventId: currentFocusedEventId,
+        rulerEvent: currentRulerEvent,
         eventAccentColors: currentEventAccentColors,
       } = latestRef.current;
       const hoveredTarget = hoveredRef.current;
@@ -373,6 +401,16 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       ctx.moveTo(0, snap(centerY));
       ctx.lineTo(width, snap(centerY));
       ctx.stroke();
+
+      const yearZeroX = getScreenX(0);
+      if (yearZeroX >= 0 && yearZeroX <= width) {
+        const snappedYearZeroX = snap(yearZeroX);
+        ctx.strokeStyle = "rgba(161,161,170,0.28)";
+        ctx.beginPath();
+        ctx.moveTo(snappedYearZeroX, 0);
+        ctx.lineTo(snappedYearZeroX, height);
+        ctx.stroke();
+      }
 
       for (const { tick, label } of currentTicks) {
         const x = getScreenX(tick.year);
@@ -535,6 +573,99 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.restore();
       }
 
+      if (currentRulerEvent && rulerPointerRef.current.isVisible) {
+        const originLayout = currentEventLayouts[currentRulerEvent.id];
+        if (originLayout && originLayout.opacity.get() > 0.02) {
+          const originYear = getEventTimelineYear(currentRulerEvent);
+          const originX = getScreenX(originYear);
+          const originY = centerY + originLayout.y.get();
+          let targetX = rulerPointerRef.current.x;
+          let targetY = rulerPointerRef.current.y;
+          let targetYear = originYear + (targetX - originX) / zoom.get();
+          const hoveredEvent =
+            hoveredTarget.type === "event" &&
+            hoveredTarget.id !== currentRulerEvent.id
+              ? currentVisibleEvents.find(
+                  (visibleEvent) => visibleEvent.event.id === hoveredTarget.id,
+                )
+              : null;
+
+          if (hoveredEvent) {
+            const hoveredLayout = currentEventLayouts[hoveredEvent.event.id];
+            if (hoveredLayout && hoveredLayout.opacity.get() > 0.02) {
+              targetYear = hoveredEvent.year;
+              targetX = getScreenX(targetYear);
+              targetY = centerY + hoveredLayout.y.get();
+            }
+          }
+
+          const originAccent =
+            currentEventAccentColors[currentRulerEvent.id] ?? "#f59e0b";
+          const deltaYears = targetYear - originYear;
+          const rulerLabel = formatElapsedTimelineTime(deltaYears);
+          const lineLength = Math.hypot(targetX - originX, targetY - originY);
+
+          if (lineLength >= 8) {
+            const snappedOriginX = snap(originX);
+            const snappedOriginY = snap(originY);
+            const snappedPointerX = snap(targetX);
+            const snappedPointerY = snap(targetY);
+            const normalX = -(targetY - originY) / lineLength;
+            const normalY = (targetX - originX) / lineLength;
+            const labelX = snap(targetX + normalX * 22);
+            const labelY = snap(targetY + normalY * 22);
+            const labelPaddingX = 10;
+            const labelHeight = 24;
+
+            ctx.save();
+            ctx.setLineDash([8, 8]);
+            ctx.strokeStyle = withAlpha(originAccent, 0.95);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(snappedOriginX, snappedOriginY);
+            ctx.lineTo(snappedPointerX, snappedPointerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = withAlpha(originAccent, 0.12);
+            ctx.beginPath();
+            ctx.arc(snappedOriginX, snappedOriginY, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = originAccent;
+            ctx.beginPath();
+            ctx.arc(snappedPointerX, snappedPointerY, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(snappedOriginX, snappedOriginY, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.font = "600 11px ui-monospace, monospace";
+            const labelWidth =
+              ctx.measureText(rulerLabel).width + labelPaddingX * 2;
+            ctx.fillStyle = "rgba(9,9,11,0.92)";
+            ctx.strokeStyle = withAlpha(originAccent, 0.65);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(
+              snap(labelX - labelWidth / 2),
+              snap(labelY - labelHeight / 2),
+              labelWidth,
+              labelHeight,
+              12,
+            );
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#fef3c7";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(rulerLabel, labelX, labelY);
+            ctx.restore();
+          }
+        }
+      }
+
       const bigBangX = getScreenX(BIG_BANG_YEAR);
       if (bigBangX >= 0 && bigBangX <= width) {
         const snappedBigBangX = snap(bigBangX);
@@ -598,10 +729,25 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   }, [containerRef, focusPixel, focusYear, zoom]);
 
   useEffect(() => {
+    // Continuous RAF loop — needed because canvas has no native animation mechanism.
+    // layout.y / layout.opacity MotionValues are animated by Motion during
+    // collapse/uncollapse, but canvas won't redraw unless explicitly told to.
+    // requestRender() has its own RAF coalescing so multiple calls per frame
+    // produce exactly one render.
+    let frameId = 0;
+    const loop = () => {
+      requestRender();
+      frameId = requestAnimationFrame(loop);
+    };
+    frameId = requestAnimationFrame(loop);
+
+    // Also re-render immediately on camera changes (not just on next RAF cycle).
     const unsubscribeFocusPixel = focusPixel.on("change", requestRender);
     const unsubscribeFocusYear = focusYear.on("change", requestRender);
     const unsubscribeZoom = zoom.on("change", requestRender);
+
     return () => {
+      cancelAnimationFrame(frameId);
       unsubscribeFocusPixel();
       unsubscribeFocusYear();
       unsubscribeZoom();
@@ -609,6 +755,15 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   }, [focusPixel, focusYear, zoom]);
 
   const handleCanvasPointerMove = (e: React.PointerEvent) => {
+    const pointer = getPointerPosition(e.clientX, e.clientY);
+    if (pointer) {
+      rulerPointerRef.current = {
+        x: pointer.x,
+        y: pointer.y,
+        isVisible: latestRef.current.rulerEvent !== null,
+      };
+    }
+
     const target = findHitTarget(e.clientX, e.clientY);
     hoveredRef.current =
       target?.type === "event"
@@ -629,6 +784,15 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   };
 
   const handleCanvasPointerUp = (e: React.PointerEvent) => {
+    const pointer = getPointerPosition(e.clientX, e.clientY);
+    if (pointer) {
+      rulerPointerRef.current = {
+        x: pointer.x,
+        y: pointer.y,
+        isVisible: latestRef.current.rulerEvent !== null,
+      };
+    }
+
     const target = findHitTarget(e.clientX, e.clientY);
     updateCursor(target ? "pointer" : "grab");
     requestRender();
@@ -666,12 +830,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       onPointerUp={handleCanvasPointerUp}
       onPointerCancel={(e) => {
         hoveredRef.current = { type: null, id: null };
+        rulerPointerRef.current = {
+          ...rulerPointerRef.current,
+          isVisible: false,
+        };
         updateCursor("grab");
         requestRender();
         onPointerUp(e);
       }}
       onPointerLeave={() => {
         hoveredRef.current = { type: null, id: null };
+        rulerPointerRef.current = {
+          ...rulerPointerRef.current,
+          isVisible: false,
+        };
         updateCursor("grab");
         requestRender();
       }}

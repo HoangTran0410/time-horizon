@@ -1,51 +1,88 @@
-import React, { useState } from "react";
-import { Event } from "../types";
+import React, { useEffect, useRef, useState } from "react";
+import { Event, EventCollectionMeta } from "../types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
-import { X, ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 interface EventEditorProps {
   event: Event;
   mode: "create" | "edit";
-  onSave: (event: Event) => void;
+  onSave: (event: Event, collectionId?: string | null) => void;
   onClose: () => void;
+  availableCollections?: EventCollectionMeta[];
+  initialCollectionId?: string | null;
+  onAddCollection?: () => void;
 }
 
-// Returns the last valid day of the given year+month.
-const getMaxDay = (year: number, month: number): number =>
-  new Date(year, month, 0).getDate();
-
-// Converts Event.time tuple to a datetime-local <input> value string.
-// Only produced when year, month, day are all non-null.
-const toDatetimeLocal = (time: Event["time"]): string => {
-  const [year, month, day, hour, minute, seconds] = time;
-  if (year === null || month === null || day === null) return "";
-  const pad = (n: number, len = 2) => String(n).padStart(len, "0");
-  return (
-    `${year}-${pad(month)}-${pad(day)}` +
-    `T${hour !== null ? pad(hour) : "00"}:${minute !== null ? pad(minute) : "00"}`
-  );
+const getMaxDay = (year: number, month: number): number => {
+  const date = new Date(Date.UTC(0, month, 0));
+  date.setUTCFullYear(year, month, 0);
+  return date.getUTCDate();
 };
 
-// Parses a datetime-local value back into the time tuple.
-const parseDatetimeLocal = (
+const supportsDateInputYear = (year: number): boolean =>
+  Number.isInteger(year) && year >= 0 && year <= 9999;
+
+const normalizeEventTime = (time: Event["time"]): Event["time"] => {
+  const nextTime = [...time] as Event["time"];
+  const [year, month, day, hour, minute] = nextTime;
+
+  if (month === null) {
+    nextTime[2] = null;
+    nextTime[3] = null;
+    nextTime[4] = null;
+    nextTime[5] = null;
+    return nextTime;
+  }
+
+  if (day === null) {
+    nextTime[3] = null;
+    nextTime[4] = null;
+    nextTime[5] = null;
+    return nextTime;
+  }
+
+  nextTime[2] = Math.min(day, getMaxDay(year, month));
+
+  if (hour === null) {
+    nextTime[4] = null;
+    nextTime[5] = null;
+    return nextTime;
+  }
+
+  if (minute === null) {
+    nextTime[5] = null;
+  }
+
+  return nextTime;
+};
+
+const toDateInputValue = (time: Event["time"]): string => {
+  const [year, month, day] = normalizeEventTime(time);
+  if (!supportsDateInputYear(year) || month === null || day === null) {
+    return "";
+  }
+
+  const pad = (n: number, len = 2) => String(n).padStart(len, "0");
+  const padYear = (n: number) => String(n).padStart(4, "0");
+  return `${padYear(year)}-${pad(month)}-${pad(day)}`;
+};
+
+const parseDateInputValue = (
   value: string,
   prev: Event["time"],
 ): Event["time"] => {
   if (!value) return prev;
-  const [datePart, timePart] = value.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [h = 0, min = 0] = (timePart ?? "00:00").split(":").map(Number);
-  return [
+  const [y, m, d] = value.split("-").map(Number);
+  return normalizeEventTime([
     y ?? prev[0],
     m ?? prev[1],
     d ?? prev[2],
-    h ?? prev[3],
-    min ?? prev[4],
+    prev[3],
+    prev[4],
     prev[5],
-  ];
+  ]);
 };
 
-// Default accent colors for event color swatches.
 const COLOR_SWATCHES = [
   { label: "None", value: null },
   { label: "Red", value: "#ef4444" },
@@ -70,37 +107,54 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   mode,
   onSave,
   onClose,
+  availableCollections = [],
+  initialCollectionId = null,
+  onAddCollection,
 }) => {
-  const [editedEvent, setEditedEvent] = useState<Event>({ ...event });
+  const closeTimeoutRef = useRef<number | null>(null);
+  const shouldCloseOnPointerUpRef = useRef(false);
+  const [editedEvent, setEditedEvent] = useState<Event>({
+    ...event,
+    time: [...event.time] as Event["time"],
+  });
+  const [selectedCollectionId, setSelectedCollectionId] = useState(
+    initialCollectionId ?? availableCollections[0]?.id ?? "",
+  );
   const [dateError, setDateError] = useState<string | null>(null);
+  const [collectionError, setCollectionError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (mode !== "create") return;
+    const fallbackCollectionId = availableCollections[0]?.id ?? "";
+    const nextCollectionId = initialCollectionId ?? fallbackCollectionId;
+    setSelectedCollectionId((prev) =>
+      prev === nextCollectionId ? prev : nextCollectionId,
+    );
+  }, [availableCollections, initialCollectionId, mode]);
+
   const [year, month, day, hour, minute, seconds] = editedEvent.time;
-
   const hasMonth = month !== null;
   const hasDay = day !== null;
-  const hasHour = day !== null; // hour shows once day is set
-  const hasMinute = hour !== null; // minute shows once hour is set
-  const hasSeconds = minute !== null;
+  const hasHour = hour !== null;
+  const hasMinute = minute !== null;
+  const canUseDateInput = supportsDateInputYear(year);
 
   const validateDate = (): boolean => {
     setDateError(null);
     if (month === null || day === null) return true;
-    if (year) {
-      const maxDay = getMaxDay(year, month);
-      if (day > maxDay) {
-        setDateError(
-          `Invalid date: ${month}/${day} exceeds ${maxDay} days in month ${month} of ${year}.`,
-        );
-        return false;
-      }
+    const maxDay = getMaxDay(year, month);
+    if (day > maxDay) {
+      setDateError(
+        `Invalid date: ${month}/${day} exceeds ${maxDay} days in month ${month} of ${year}.`,
+      );
+      return false;
     }
     return true;
   };
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -111,58 +165,73 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     }));
   };
 
-  // const handleGroupsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const groups = e.target.value
-  //     .split(",")
-  //     .map((g) => g.trim())
-  //     .filter((g) => g);
-  //   setEditedEvent((prev) => ({ ...prev, groups }));
-  // };
-
   const handleTimeChange = (index: 1 | 2 | 3 | 4 | 5, raw: string) => {
     if (raw !== "" && isNaN(Number(raw))) return;
-    const v = raw === "" ? null : Number(raw);
-    if (v !== null) {
-      if (index === 1 && (v < 1 || v > 12)) return;
-      if (index === 2 && (v < 1 || v > 31)) return;
-      if (index === 3 && (v < 0 || v > 23)) return;
-      if (index === 4 && (v < 0 || v > 59)) return;
-      if (index === 5 && (v < 0 || v > 59)) return;
+    const value = raw === "" ? null : Number(raw);
+
+    if (value !== null) {
+      if (index === 1 && (value < 1 || value > 12)) return;
+      if (index === 2 && (value < 1 || value > 31)) return;
+      if (index === 3 && (value < 0 || value > 23)) return;
+      if (index === 4 && (value < 0 || value > 59)) return;
+      if (index === 5 && (value < 0 || value > 59)) return;
     }
+
     setEditedEvent((prev) => {
       const nextTime = [...prev.time] as Event["time"];
-      nextTime[index] = v;
-      return { ...prev, time: nextTime };
+      if (value === null) {
+        for (let i = index; i <= 5; i += 1) nextTime[i] = null;
+      } else {
+        nextTime[index] = value;
+      }
+      return { ...prev, time: normalizeEventTime(nextTime) };
     });
     setDateError(null);
   };
 
-  const handleDatetimeLocal = (value: string) => {
+  const handleDateInputChange = (value: string) => {
     setEditedEvent((prev) => ({
       ...prev,
-      time: parseDatetimeLocal(value, prev.time),
+      time: parseDateInputValue(value, prev.time),
     }));
     setDateError(null);
   };
 
-  // Close emoji/color pickers when clicking outside.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!showEmojiPicker && !showColorPicker) return;
+
     const handler = (e: MouseEvent) => {
-      const el = e.target as HTMLElement;
-      if (!el.closest(".emoji-trigger")) setShowEmojiPicker(false);
-      if (!el.closest(".color-trigger")) setShowColorPicker(false);
+      const element = e.target as HTMLElement;
+      if (!element.closest(".emoji-trigger")) setShowEmojiPicker(false);
+      if (!element.closest(".color-trigger")) setShowColorPicker(false);
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showEmojiPicker, showColorPicker]);
+  }, [showColorPicker, showEmojiPicker]);
 
-  // Clears this field and all finer-grained fields after it.
+  useEffect(
+    () => () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  const requestClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    closeTimeoutRef.current = window.setTimeout(() => {
+      onClose();
+    }, 180);
+  };
+
   const handleClearTimeField = (index: 1 | 2 | 3 | 4 | 5) => {
     setEditedEvent((prev) => {
       const nextTime = [...prev.time] as Event["time"];
-      for (let i = index; i <= 5; i++) nextTime[i] = null;
-      return { ...prev, time: nextTime };
+      for (let i = index; i <= 5; i += 1) nextTime[i] = null;
+      return { ...prev, time: normalizeEventTime(nextTime) };
     });
     setDateError(null);
   };
@@ -173,39 +242,101 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
   const handleSave = () => {
     if (!validateDate()) return;
+
+    if (mode === "create" && availableCollections.length > 0) {
+      if (!selectedCollectionId) {
+        setCollectionError("Choose a destination collection.");
+        return;
+      }
+      onSave(editedEvent, selectedCollectionId);
+      return;
+    }
+
     onSave(editedEvent);
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const handleBackdropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    shouldCloseOnPointerUpRef.current = e.target === e.currentTarget;
+  };
+
+  const handleBackdropPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (shouldCloseOnPointerUpRef.current && e.target === e.currentTarget) {
+      requestClose();
+    }
+
+    shouldCloseOnPointerUpRef.current = false;
+  };
+
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-      onClick={onClose}
-      onPointerDown={(e) => e.stopPropagation()}
+      className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      data-ui-state={isClosing ? "closing" : "open"}
+      onPointerDown={handleBackdropPointerDown}
+      onPointerUp={handleBackdropPointerUp}
+      onPointerCancel={() => {
+        shouldCloseOnPointerUpRef.current = false;
+      }}
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="bg-zinc-900 p-8 rounded-2xl border border-zinc-800 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+        className={`ui-modal-surface max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900 md:p-8 p-4 shadow-2xl max-w-md`}
+        data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
       >
-        {/* Header with close button */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">
             {mode === "create" ? "Add Event" : "Edit Event"}
           </h2>
           <button
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white p-1 rounded-md hover:bg-zinc-800 transition-colors"
+            onClick={requestClose}
+            className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
             aria-label="Close"
           >
             <X width={20} height={20} />
           </button>
         </div>
 
+        {mode === "create" && (
+          <div className="mb-6">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-sm font-medium text-zinc-400">
+                Save To Collection
+              </label>
+              {onAddCollection && (
+                <button
+                  type="button"
+                  onClick={onAddCollection}
+                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+                >
+                  + New Collection
+                </button>
+              )}
+            </div>
+            <select
+              value={selectedCollectionId}
+              onChange={(e) => {
+                setSelectedCollectionId(e.target.value);
+                setCollectionError(null);
+              }}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+            >
+              {availableCollections.map((collection) => (
+                <option key={collection.id} value={collection.id}>
+                  {collection.emoji} {collection.name}
+                </option>
+              ))}
+            </select>
+            {collectionError && (
+              <p className="mt-2 text-xs text-red-400">{collectionError}</p>
+            )}
+          </div>
+        )}
+
         <div className="space-y-4">
-          {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-400">
               Title
             </label>
             <input
@@ -213,22 +344,20 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               name="title"
               value={editedEvent.title}
               onChange={handleChange}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
             />
           </div>
 
-          {/* Emoji + color row */}
           <div className="flex gap-4">
-            {/* Emoji */}
             <div className="flex-1">
-              <label className="block text-sm font-medium text-zinc-400 mb-1">
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
                 Emoji
               </label>
               <div className="relative">
                 <button
                   type="button"
-                  className="emoji-trigger w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white text-left flex items-center justify-between hover:border-zinc-600 transition-colors"
-                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  className="emoji-trigger flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
+                  onClick={() => setShowEmojiPicker((value) => !value)}
                 >
                   <span className="text-lg">{editedEvent.emoji}</span>
                   <ChevronDown
@@ -248,7 +377,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                         }));
                         setShowEmojiPicker(false);
                       }}
-                      height={350}
+                      height={400}
                       width={320}
                     />
                   </div>
@@ -256,38 +385,36 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               </div>
             </div>
 
-            {/* Color */}
             <div className="flex-1">
-              <label className="block text-sm font-medium text-zinc-400 mb-1">
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
                 Color
               </label>
               <div className="relative">
                 <button
                   type="button"
-                  className="color-trigger w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white text-left flex items-center gap-2 hover:border-zinc-600 transition-colors"
-                  onClick={() => setShowColorPicker((v) => !v)}
+                  className="color-trigger flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
+                  onClick={() => setShowColorPicker((value) => !value)}
                 >
                   <span
-                    className="w-5 h-5 rounded border border-zinc-600 shrink-0"
+                    className="h-5 w-5 shrink-0 rounded border border-zinc-600"
                     style={{
                       backgroundColor: editedEvent.color ?? "transparent",
                     }}
                   />
                   <span className="text-sm text-zinc-300">
                     {COLOR_SWATCHES.find(
-                      (c) => c.value === (editedEvent.color ?? null),
+                      (swatch) => swatch.value === (editedEvent.color ?? null),
                     )?.label ?? "None"}
                   </span>
                   <ChevronDown
                     width={14}
                     height={14}
-                    className="text-zinc-500 ml-auto"
+                    className="ml-auto text-zinc-500"
                   />
                 </button>
 
-                {/* Swatch popover */}
                 {showColorPicker && (
-                  <div className="color-trigger absolute z-10 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl p-3 shadow-xl">
+                  <div className="color-trigger absolute z-10 mt-1 rounded-xl border border-zinc-700 bg-zinc-800 p-3 shadow-xl">
                     <div className="grid grid-cols-4 gap-2">
                       {COLOR_SWATCHES.map((swatch) => (
                         <button
@@ -298,10 +425,10 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                             handleColorChange(swatch.value);
                             setShowColorPicker(false);
                           }}
-                          className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                          className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
                             (swatch.value ?? null) ===
                             (editedEvent.color ?? null)
-                              ? "border-white scale-110"
+                              ? "scale-110 border-white"
                               : "border-zinc-600"
                           }`}
                           style={{
@@ -320,9 +447,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             </div>
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-400">
               Description
             </label>
             <textarea
@@ -330,54 +456,51 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               value={editedEvent.description}
               onChange={handleChange}
               rows={3}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
             />
           </div>
 
-          {/* Time */}
-          <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 space-y-3">
-            <div className="flex items-center justify-between mb-1">
+          <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
+            <div className="mb-1 flex items-center justify-between">
               <label className="text-sm font-medium text-zinc-400">Time</label>
-              {/* Quick picker — shown whenever year is set */}
-              {year && (
+              {canUseDateInput && (
                 <input
-                  type="datetime-local"
-                  value={toDatetimeLocal(editedEvent.time)}
-                  onChange={(e) => handleDatetimeLocal(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  type="date"
+                  value={toDateInputValue(editedEvent.time)}
+                  onChange={(e) => handleDateInputChange(e.target.value)}
+                  className="cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               )}
             </div>
 
-            {/* Year — always visible */}
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Year *</label>
+              <label className="mb-1 block text-xs text-zinc-500">Year *</label>
               <input
                 type="number"
                 value={year}
                 onChange={(e) => {
-                  const v = Number(e.target.value);
+                  const value = Number(e.target.value);
                   setEditedEvent((prev) => ({
                     ...prev,
-                    time: [
-                      v,
+                    time: normalizeEventTime([
+                      value,
                       prev.time[1],
                       prev.time[2],
                       prev.time[3],
                       prev.time[4],
                       prev.time[5],
-                    ],
+                    ]),
                   }));
+                  setDateError(null);
                 }}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
               />
             </div>
 
-            {/* Month */}
-            {year && (
+            {year !== null && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Month
                   </label>
                   <input
@@ -386,7 +509,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                     max={12}
                     value={month ?? ""}
                     onChange={(e) => handleTimeChange(1, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                     placeholder="null"
                   />
                 </div>
@@ -394,18 +517,17 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(1)}
                   title="Clear month and below"
-                  className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
               </div>
             )}
 
-            {/* Day */}
             {hasMonth && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Day
                   </label>
                   <input
@@ -414,7 +536,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                     max={31}
                     value={day ?? ""}
                     onChange={(e) => handleTimeChange(2, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                     placeholder="null"
                   />
                 </div>
@@ -422,18 +544,17 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(2)}
                   title="Clear day and below"
-                  className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
               </div>
             )}
 
-            {/* Hour */}
             {hasDay && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Hour
                   </label>
                   <input
@@ -442,7 +563,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                     max={23}
                     value={hour ?? ""}
                     onChange={(e) => handleTimeChange(3, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                     placeholder="null"
                   />
                 </div>
@@ -450,18 +571,17 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(3)}
                   title="Clear hour and below"
-                  className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
               </div>
             )}
 
-            {/* Minute */}
-            {hasMinute && (
+            {hasHour && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Minute
                   </label>
                   <input
@@ -470,7 +590,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                     max={59}
                     value={minute ?? ""}
                     onChange={(e) => handleTimeChange(4, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                     placeholder="null"
                   />
                 </div>
@@ -478,18 +598,17 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(4)}
                   title="Clear minute and below"
-                  className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
               </div>
             )}
 
-            {/* Seconds */}
-            {hasSeconds && (
+            {hasMinute && (
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Seconds
                   </label>
                   <input
@@ -498,7 +617,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                     max={59}
                     value={seconds ?? ""}
                     onChange={(e) => handleTimeChange(5, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                     placeholder="null"
                   />
                 </div>
@@ -506,24 +625,22 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(5)}
                   title="Clear seconds"
-                  className="mt-5 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
               </div>
             )}
 
-            {/* Date validation error */}
             {dateError && (
-              <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+              <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-400">
                 {dateError}
               </p>
             )}
           </div>
 
-          {/* Duration */}
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-400">
               Duration (years, optional)
             </label>
             <input
@@ -537,30 +654,16 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   duration: raw === "" ? undefined : Number(raw),
                 }));
               }}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
               placeholder="e.g. 1"
             />
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="mt-1 text-xs text-zinc-500">
               Used for auto-zoom when focusing this event.
             </p>
           </div>
 
-          {/* Groups */}
-          {/* <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">
-              Groups (comma separated)
-            </label>
-            <input
-              type="text"
-              value={editedEvent.groups.join(", ")}
-              onChange={handleGroupsChange}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div> */}
-
-          {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-400">
               Priority (Higher = more visible)
             </label>
             <input
@@ -568,22 +671,21 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               name="priority"
               value={editedEvent.priority}
               onChange={handleChange}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-8 flex justify-end gap-3">
           <button
-            onClick={onClose}
-            className="bg-zinc-800 text-white px-6 py-2 rounded-full hover:bg-zinc-700 transition-colors text-sm font-medium"
+            onClick={requestClose}
+            className="rounded-full bg-zinc-800 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="bg-emerald-500 text-white px-6 py-2 rounded-full hover:bg-emerald-600 transition-colors text-sm font-medium"
+            className="rounded-full bg-emerald-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
           >
             {mode === "create" ? "Add Event" : "Save"}
           </button>

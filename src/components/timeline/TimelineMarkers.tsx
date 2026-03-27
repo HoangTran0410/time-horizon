@@ -3,18 +3,11 @@ import {
   motion,
   MotionValue,
   useTransform,
-  useMotionValue,
   useMotionValueEvent,
+  useMotionValue,
+  animate,
 } from "motion/react";
-import { ArrowRight } from "lucide-react";
-import { Event, getEventTimelineYear } from "../../types";
-import { BIG_BANG_YEAR } from "../../constants";
-import {
-  getEventDisplayLabel,
-  formatTimelineTick,
-  getNiceInterval,
-  withAlpha,
-} from "../../utils";
+import { getNiceInterval } from "../../utils";
 
 export type TimelineTick = {
   year: number;
@@ -50,14 +43,14 @@ const formatRingTimespan = (years: number): string => {
     return `${(years / 1e6).toFixed(years >= 1e7 ? 0 : 1)}M yrs`;
   if (years >= 1e3)
     return `${(years / 1e3).toFixed(years >= 1e4 ? 0 : 1)}K yrs`;
-  if (years >= 1) return `${years.toFixed(years >= 10 ? 0 : 1)} yrs`;
+  if (years >= 1) return `${years.toFixed(0)} yrs`;
   if (years >= 1 / 12) {
     const months = years * 12;
-    return `${months.toFixed(months >= 10 ? 0 : 1)} mo`;
+    return `${months.toFixed(0)} mo`;
   }
   const days = years * 365.25;
-  if (days >= 1) return `${days.toFixed(days >= 10 ? 0 : 1)} d`;
-  return `${(days * 24).toFixed(1)} h`;
+  if (days >= 1) return `${days.toFixed(0)} d`;
+  return `${(days * 24).toFixed(0)} h`;
 };
 
 const areIntervalsEqual = (prev: number[], next: number[]) =>
@@ -87,283 +80,6 @@ const getZoomReferenceIntervals = (
   return Array.from(intervals).sort((a, b) => a - b);
 };
 
-interface EventMarkerProps {
-  event: Event;
-  accentColor: string | null;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-  zoom: MotionValue<number>;
-  layout: EventLayoutState;
-  isFocused: boolean;
-  onClick: (event: Event) => void;
-}
-
-export const EventMarker: React.FC<EventMarkerProps> = ({
-  event,
-  accentColor,
-  focusPixel,
-  focusYear,
-  zoom,
-  layout,
-  isFocused,
-  onClick,
-}) => {
-  const timelineYear = getEventTimelineYear(event);
-  const yearMV = useMotionValue(timelineYear);
-
-  useEffect(() => {
-    yearMV.set(timelineYear);
-  }, [timelineYear, yearMV]);
-
-  const markerX = useTransform(() => {
-    const pos =
-      focusPixel.get() + (yearMV.get() - focusYear.get()) * zoom.get();
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
-  });
-
-  const yOffset = layout.y;
-  const opacity = layout.opacity;
-  const pointerEvents = useTransform(opacity, (v: number) =>
-    v > 0.5 ? "auto" : "none",
-  );
-  const lineTop = useTransform(yOffset, (y: number) => (y < 0 ? 48 : -y + 24));
-  const lineHeight = useTransform(yOffset, (y: number) =>
-    Math.max(0, Math.abs(y) - 24),
-  );
-  const textTop = useTransform(yOffset, (y: number) =>
-    y < 0 ? "auto" : "56px",
-  );
-  const textBottom = useTransform(yOffset, (y: number) =>
-    y < 0 ? "56px" : "auto",
-  );
-  const scale = useTransform(opacity, (v: number) =>
-    isFocused ? Math.max(v, 1) : v,
-  );
-  const activeAccentColor = accentColor ?? "#10b981";
-  const idleBorderColor = accentColor ?? "#52525b";
-  const idleLineColor = accentColor ? withAlpha(accentColor, 0.55) : "#3f3f46";
-  const activeLineColor = accentColor ?? "#10b981";
-
-  return (
-    <motion.div
-      className="absolute top-1/2 z-10 pointer-events-none"
-      style={{
-        x: markerX,
-        y: yOffset,
-        translateY: "-50%",
-        opacity,
-        pointerEvents: pointerEvents as any,
-        scale,
-        zIndex: isFocused ? 30 : 10,
-      }}
-    >
-      <div className="flex flex-col items-center -translate-x-1/2 group">
-        <motion.div
-          className="absolute w-px bg-zinc-700 group-hover:bg-emerald-500 transition-colors z-0"
-          style={{
-            height: lineHeight,
-            top: lineTop,
-            left: "50%",
-            backgroundColor: isFocused ? activeLineColor : idleLineColor,
-          }}
-        />
-
-        <div
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick(event);
-          }}
-          className={`
-            w-12 h-12 bg-zinc-900 border-2 rounded-full flex items-center
-            justify-center text-2xl group-hover:scale-125 transition-all
-            cursor-pointer z-10 relative
-            ${
-              isFocused
-                ? "border-emerald-500"
-                : "border-zinc-700 group-hover:border-emerald-500"
-            }
-          `}
-          style={{
-            borderColor: isFocused ? activeAccentColor : idleBorderColor,
-          }}
-        >
-          {event.emoji}
-        </div>
-
-        <motion.div
-          className="absolute flex flex-col items-center opacity-70 group-hover:opacity-100 transition-opacity w-36 text-center"
-          style={{ top: textTop, bottom: textBottom }}
-        >
-          <span
-            className={`text-sm font-medium ${
-              isFocused ? "text-emerald-400" : "text-zinc-200"
-            }`}
-            style={{ color: isFocused ? activeAccentColor : undefined }}
-          >
-            {event.title}
-          </span>
-          <span
-            className={`text-xs ${
-              isFocused ? "text-emerald-500" : "text-zinc-500"
-            }`}
-            style={{ color: isFocused ? activeAccentColor : undefined }}
-          >
-            {getEventDisplayLabel(event)}
-          </span>
-        </motion.div>
-      </div>
-    </motion.div>
-  );
-};
-
-interface CollapsedMarkerProps {
-  group: CollapsedEventGroup;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-  zoom: MotionValue<number>;
-  onClick: (group: CollapsedEventGroup) => void;
-}
-
-export const CollapsedMarker: React.FC<CollapsedMarkerProps> = ({
-  group,
-  focusPixel,
-  focusYear,
-  zoom,
-  onClick,
-}) => {
-  const markerX = useTransform(() => {
-    const pos = focusPixel.get() + (group.year - focusYear.get()) * zoom.get();
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
-  });
-
-  const yOffset = group.side * 320;
-  const lineTop = yOffset < 0 ? 48 : -yOffset + 24;
-  const lineHeight = Math.max(0, Math.abs(yOffset) - 24);
-  const countLabel = group.count > 99 ? "99+" : `${group.count}`;
-
-  return (
-    <motion.div
-      className="absolute top-1/2 z-20 pointer-events-none"
-      style={{
-        x: markerX,
-        y: yOffset,
-        translateY: "-50%",
-      }}
-    >
-      <div className="group flex -translate-x-1/2 flex-col items-center">
-        <div
-          className="absolute left-1/2 z-0 w-px bg-amber-500/40 transition-colors group-hover:bg-amber-400/70"
-          style={{
-            height: lineHeight,
-            top: lineTop,
-          }}
-        />
-
-        <button
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick(group);
-          }}
-          title={`Zoom to ${group.count} hidden events`}
-          className="pointer-events-auto relative z-10 flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full border border-amber-500/50 bg-zinc-900 px-3 text-xs font-semibold text-amber-300 transition-all group-hover:scale-110 group-hover:border-amber-400 group-hover:text-amber-200"
-        >
-          +{countLabel}
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-interface BigBangMarkerProps {
-  zoom: MotionValue<number>;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-  getViewportWidth: () => number;
-  onClick: () => void;
-}
-
-export const BigBangMarker: React.FC<BigBangMarkerProps> = ({
-  zoom,
-  focusPixel,
-  focusYear,
-  getViewportWidth,
-  onClick,
-}) => {
-  const getRawMarkerX = () =>
-    focusPixel.get() + (BIG_BANG_YEAR - focusYear.get()) * zoom.get();
-
-  const markerX = useTransform(() => {
-    const pos = getRawMarkerX();
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
-  });
-  const pinnedOpacity = useTransform(() =>
-    getRawMarkerX() > getViewportWidth() ? 1 : 0,
-  );
-  const normalOpacity = useTransform(pinnedOpacity, (v) => 1 - v);
-  const pinnedPointerEvents = useTransform(pinnedOpacity, (v) =>
-    v > 0.5 ? "auto" : "none",
-  );
-  const normalPointerEvents = useTransform(normalOpacity, (v) =>
-    v > 0.5 ? "auto" : "none",
-  );
-
-  return (
-    <>
-      <motion.div
-        className="absolute top-0 bottom-0 flex flex-col items-center pointer-events-none"
-        style={{
-          x: markerX,
-          opacity: normalOpacity,
-          pointerEvents: normalPointerEvents as any,
-        }}
-      >
-        <div className="w-1 h-full bg-gradient-to-b from-transparent via-amber-500/50 to-transparent" />
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-2 bg-zinc-900 border border-amber-500/30 rounded-full text-amber-500 font-bold text-sm tracking-widest uppercase hover:border-amber-400/60 hover:bg-zinc-900 transition-colors"
-        >
-          Big Bang
-        </button>
-      </motion.div>
-
-      <motion.button
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-amber-500/40 rounded-full text-amber-400 font-bold text-sm uppercase tracking-widest hover:border-amber-300/70 hover:bg-zinc-900 transition-colors"
-        style={{
-          opacity: pinnedOpacity,
-          pointerEvents: pinnedPointerEvents as any,
-        }}
-        title="Jump back to the Big Bang"
-      >
-        <span>Big Bang</span>
-        <ArrowRight width={16} height={16} />
-      </motion.button>
-    </>
-  );
-};
-
 interface WarpOverlayProps {
   isWarping: boolean;
   mode: WarpOverlayMode;
@@ -391,7 +107,7 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
   const opacity = useTransform(() => {
     const nextDiameter = intervalYears * zoom.get();
     if (nextDiameter < 56 || nextDiameter > maxVisibleDiameter) return 0;
-    return Math.max(0.2, 0.42 - index * 0.045);
+    return Math.max(0.4, 0.6 - index * 0.15);
   });
   return (
     <motion.div
@@ -402,10 +118,7 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
         opacity,
       }}
     >
-      <motion.div
-        className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-500/90 bg-zinc-950 px-2 py-0.5 text-[10px] font-mono text-zinc-100"
-        style={{ opacity }}
-      >
+      <motion.div className="absolute left-1/2 top-0 w-max whitespace-nowrap -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-500/90 bg-zinc-950 px-2 py-0.5 text-[10px] font-mono text-zinc-100">
         {formatRingTimespan(intervalYears)}
       </motion.div>
     </motion.div>
@@ -427,6 +140,20 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
     getZoomReferenceIntervals(zoom.get(), maxVisibleDiameter),
   );
   const ringIntervalTimeoutRef = useRef<number | null>(null);
+  // Smooth pivot: spring-animates to zoomPivotX so rings glide, not snap.
+  // useMotionValueEvent gives us the new value directly (not stale like .get() in useEffect).
+  const pivotX = useMotionValue(zoomPivotX.get());
+
+  useMotionValueEvent(zoomPivotX, "change", (newX: number) => {
+    // Only animate when not in travel mode.
+    if (mode === "travel") return;
+    const controls = animate(pivotX, newX, {
+      type: "spring",
+      stiffness: 350,
+      damping: 35,
+    });
+    return controls.stop;
+  });
 
   useEffect(() => {
     if (mode === "travel") return;
@@ -461,10 +188,13 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[70] overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-70 overflow-hidden"
       style={{
         opacity: isWarping ? 1 : 0,
-        transition: "opacity 700ms ease-out",
+        transition:
+          mode === "travel"
+            ? "opacity 700ms ease-out"
+            : "opacity 400ms ease-out",
       }}
     >
       {mode === "travel" ? (
@@ -476,7 +206,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             return (
               <div
                 key={i}
-                className="absolute bg-gradient-to-r from-white/20 via-white/60 to-transparent"
+                className="absolute bg-linear-to-r from-white/20 via-white/60 to-transparent"
                 style={{
                   top: `${top}%`,
                   left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
@@ -504,7 +234,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
       ) : mode !== "travel" ? (
         <motion.div
           className="absolute left-0 top-0 h-0 w-0"
-          style={{ x: zoomPivotX, top: "50%" }}
+          style={{ x: pivotX, top: "50%" }}
         >
           <div className="relative">
             {ringIntervals.map((intervalYears, index) => (
@@ -543,50 +273,5 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
       }
     `}</style>
     </div>
-  );
-};
-
-interface TickMarkerProps {
-  tick: TimelineTick;
-  focusPixel: MotionValue<number>;
-  focusYear: MotionValue<number>;
-  zoom: MotionValue<number>;
-}
-
-export const TickMarker: React.FC<TickMarkerProps> = ({
-  tick,
-  focusPixel,
-  focusYear,
-  zoom,
-}) => {
-  const markerX = useTransform(() => {
-    const pos = focusPixel.get() + (tick.year - focusYear.get()) * zoom.get();
-    if (pos < -100000) return -100000;
-    if (pos > 100000) return 100000;
-    return pos;
-  });
-
-  return (
-    <motion.div
-      className="absolute top-1/2 pointer-events-none"
-      style={{ x: markerX }}
-    >
-      <div className="flex flex-col items-center -translate-x-1/2">
-        <div
-          className={`w-px -mt-1.5 ${
-            tick.isHighlighted ? "h-5 bg-white/80" : "h-3 bg-zinc-600"
-          }`}
-        />
-        <span
-          className={`mt-2 font-mono select-none whitespace-nowrap ${
-            tick.isHighlighted
-              ? "text-[11px] text-white/90 font-semibold"
-              : "text-[10px] text-zinc-500"
-          }`}
-        >
-          {formatTimelineTick(tick.year, tick.interval)}
-        </span>
-      </div>
-    </motion.div>
   );
 };

@@ -29,3 +29,112 @@
 *::-webkit-scrollbar-corner {
   background: #18181b;
 }
+
+@keyframes ui-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-surface-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+.ui-modal-overlay[data-ui-state="open"] {
+  animation: ui-overlay-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ui-modal-overlay[data-ui-state="closing"] {
+  animation: ui-overlay-out 160ms ease both;
+}
+
+.ui-modal-surface[data-ui-state="open"] {
+  animation: ui-surface-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 50% 50%;
+}
+
+.ui-modal-surface[data-ui-state="closing"] {
+  animation: ui-surface-out 170ms ease both;
+  transform-origin: 50% 50%;
+}
+
+.ui-disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+.ui-disclosure[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.ui-disclosure-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ui-popover {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-8px) scale(0.985);
+  transform-origin: top right;
+  pointer-events: none;
+  transition:
+    max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-popover[data-open="true"] {
+  max-height: 24rem;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal-overlay[data-ui-state],
+  .ui-modal-surface[data-ui-state] {
+    animation: none;
+  }
+
+  .ui-disclosure,
+  .ui-popover {
+    transition: none;
+  }
+}

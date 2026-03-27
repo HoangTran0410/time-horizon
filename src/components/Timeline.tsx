@@ -12,7 +12,7 @@ import {
   animate,
   MotionValue,
 } from "motion/react";
-import { Event, getEventTimelineYear } from "../types";
+import { Event, EventCollectionMeta, getEventTimelineYear } from "../types";
 import { BIG_BANG_YEAR } from "../constants";
 import {
   EVENT_COLLECTIONS,
@@ -21,12 +21,13 @@ import {
   loadEventCollection,
 } from "../data/collections";
 import { Sidebar } from "./Sidebar";
+import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
 import {
   AutoFitButton,
+  DateJumpTarget,
   EventInfoPanel,
   FpsBadge,
-  RenderModeToggle,
   ZoomController,
 } from "./timeline/TimelineHud";
 import {
@@ -37,7 +38,6 @@ import {
   WarpOverlay,
 } from "./timeline/TimelineMarkers";
 import { TimelineCanvasViewport } from "./timeline/TimelineCanvasViewport";
-import { TimelineViewport } from "./timeline/TimelineViewport";
 import {
   formatTimelineTick,
   generateCalendarTimelineTickYears,
@@ -51,18 +51,17 @@ const TICK_OVERSCAN_INTERVALS = 2;
 const COLLECTION_CACHE_KEY = "time-horizon:collection-cache:v2";
 const COLLECTION_COLOR_PREFERENCES_KEY =
   "time-horizon:collection-color-preferences:v1";
-const TIMELINE_RENDER_MODE_KEY = "time-horizon:timeline-render-mode:v1";
 const ZOOM_UI_THROTTLE_MS = 80;
 const ZOOM_LAYOUT_THROTTLE_MS = 1000;
 const ZOOM_SETTLE_DELAY_MS = 140;
 const ZOOM_WARP_HIDE_MS = 260;
 const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
 const FPS_SAMPLE_WINDOW_MS = 250;
-const RENDER_FPS_IDLE_RESET_MS = 500;
 type CollectionCache = {
   version: number;
   collections: Record<string, Event[]>;
   visibleCollectionIds?: string[];
+  customCollections?: EventCollectionMeta[];
 };
 
 type StoppableAnimation = {
@@ -74,29 +73,142 @@ type FpsSampleState = {
   frames: number;
 };
 
+type CollectionCreationInput = Pick<
+  EventCollectionMeta,
+  "emoji" | "name" | "description"
+>;
+
+const BUILT_IN_COLLECTION_IDS = new Set(
+  [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION].map(
+    (collection) => collection.id,
+  ),
+);
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+
+const getAbsoluteYearFromDateJump = ({
+  year,
+  month,
+  day,
+}: DateJumpTarget): number => {
+  if (month === null) return year;
+
+  const normalizedDay = day ?? 1;
+  const date = new Date(Date.UTC(0, month - 1, normalizedDay, 12));
+  date.setUTCFullYear(year, month - 1, normalizedDay);
+
+  const actualYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(0, 0, 1));
+  yearStart.setUTCFullYear(actualYear, 0, 1);
+  const nextYearStart = new Date(Date.UTC(0, 0, 1));
+  nextYearStart.setUTCFullYear(actualYear + 1, 0, 1);
+
+  return (
+    actualYear +
+    (date.getTime() - yearStart.getTime()) /
+      (nextYearStart.getTime() - yearStart.getTime())
+  );
+};
+
+const sanitizeCustomCollections = (
+  customCollections: unknown,
+): EventCollectionMeta[] => {
+  if (!Array.isArray(customCollections)) return [];
+
+  const seen = new Set<string>();
+
+  return customCollections.flatMap((collection) => {
+    if (!collection || typeof collection !== "object") return [];
+
+    const candidate = collection as Partial<EventCollectionMeta>;
+    if (
+      !isNonEmptyString(candidate.id) ||
+      !isNonEmptyString(candidate.name) ||
+      !isNonEmptyString(candidate.emoji) ||
+      !isNonEmptyString(candidate.description) ||
+      !isNonEmptyString(candidate.author) ||
+      !isNonEmptyString(candidate.createdAt)
+    ) {
+      return [];
+    }
+
+    const id = candidate.id.trim();
+    if (BUILT_IN_COLLECTION_IDS.has(id) || seen.has(id)) {
+      return [];
+    }
+
+    seen.add(id);
+
+    return [
+      {
+        id,
+        name: candidate.name.trim(),
+        emoji: candidate.emoji.trim(),
+        description: candidate.description.trim(),
+        author: candidate.author.trim(),
+        createdAt: candidate.createdAt.trim(),
+        color: typeof candidate.color === "string" ? candidate.color : null,
+      },
+    ];
+  });
+};
+
+const slugifyCollectionId = (value: string): string => {
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const slug = normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+  return slug || "collection";
+};
+
+const createLocalDateStamp = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const readCollectionCache = (): {
   collections: Record<string, Event[]>;
   visibleCollectionIds: string[];
+  customCollections: EventCollectionMeta[];
 } => {
   if (typeof window === "undefined") {
-    return { collections: {}, visibleCollectionIds: [] };
+    return { collections: {}, visibleCollectionIds: [], customCollections: [] };
   }
 
   try {
     const raw = window.localStorage.getItem(COLLECTION_CACHE_KEY);
     if (!raw) {
-      return { collections: {}, visibleCollectionIds: [] };
+      return {
+        collections: {},
+        visibleCollectionIds: [],
+        customCollections: [],
+      };
     }
 
     const parsed = JSON.parse(raw) as CollectionCache;
     if (!parsed || !parsed.collections) {
-      return { collections: {}, visibleCollectionIds: [] };
+      return {
+        collections: {},
+        visibleCollectionIds: [],
+        customCollections: [],
+      };
     }
 
     const fallbackVisibleCollectionIds = Object.keys(parsed.collections);
     const nextVisibleCollectionIds = Array.isArray(parsed.visibleCollectionIds)
       ? parsed.visibleCollectionIds
       : fallbackVisibleCollectionIds;
+    const customCollections = sanitizeCustomCollections(
+      parsed.customCollections,
+    );
 
     return {
       collections: parsed.collections,
@@ -108,18 +220,12 @@ const readCollectionCache = (): {
             collectionId,
           ),
       ),
+      customCollections,
     };
   } catch (error) {
     console.error("Failed to restore cached collections", error);
-    return { collections: {}, visibleCollectionIds: [] };
+    return { collections: {}, visibleCollectionIds: [], customCollections: [] };
   }
-};
-
-const readTimelineRenderMode = (): "html" | "canvas" => {
-  if (typeof window === "undefined") return "html";
-  return window.localStorage.getItem(TIMELINE_RENDER_MODE_KEY) === "canvas"
-    ? "canvas"
-    : "html";
 };
 
 const readCollectionColorPreferences = (): Record<string, string> => {
@@ -214,17 +320,22 @@ export const Timeline: React.FC = () => {
   const initialCacheRef = useRef(readCollectionCache());
 
   // App State
+  const [customCollections, setCustomCollections] = useState<
+    EventCollectionMeta[]
+  >(initialCacheRef.current.customCollections);
   const [collectionEventsById, setCollectionEventsById] = useState<
     Record<string, Event[]>
   >(initialCacheRef.current.collections);
   const [selectedEventInfo, setSelectedEventInfo] = useState<Event | null>(
     null,
   );
+  const [isRulerActive, setIsRulerActive] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [addingEvent, setAddingEvent] = useState(false);
   const [addingCollectionId, setAddingCollectionId] = useState<string | null>(
     null,
   );
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
   const [isWarping, setIsWarping] = useState(false);
   const [warpMode, setWarpMode] = useState<WarpOverlayMode>("travel");
   const [warpDirection, setWarpDirection] = useState<1 | -1>(1);
@@ -243,9 +354,6 @@ export const Timeline: React.FC = () => {
   );
   const [logicFps, setLogicFps] = useState(0);
   const [renderFps, setRenderFps] = useState(0);
-  const [renderMode, setRenderMode] = useState<"html" | "canvas">(
-    readTimelineRenderMode,
-  );
   const logicFpsSampleRef = useRef<FpsSampleState>({
     sampleStart: 0,
     frames: 0,
@@ -254,7 +362,6 @@ export const Timeline: React.FC = () => {
     sampleStart: 0,
     frames: 0,
   });
-  const renderFpsIdleResetRef = useRef<number | null>(null);
 
   const addVisibleCollection = (collectionId: string) => {
     setVisibleCollectionIds((prev) =>
@@ -279,9 +386,19 @@ export const Timeline: React.FC = () => {
         collectionEventsById,
         PLAYGROUND_COLLECTION.id,
       )
-        ? [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION]
-        : EVENT_COLLECTIONS,
-    [collectionEventsById],
+        ? [...EVENT_COLLECTIONS, ...customCollections, PLAYGROUND_COLLECTION]
+        : [...EVENT_COLLECTIONS, ...customCollections],
+    [collectionEventsById, customCollections],
+  );
+  const writableCollections = useMemo(
+    () =>
+      collections.filter((collection) =>
+        Object.prototype.hasOwnProperty.call(
+          collectionEventsById,
+          collection.id,
+        ),
+      ),
+    [collectionEventsById, collections],
   );
   const collectionColors = useMemo(
     () =>
@@ -459,15 +576,16 @@ export const Timeline: React.FC = () => {
       window.localStorage.setItem(
         COLLECTION_CACHE_KEY,
         JSON.stringify({
-          version: 2,
+          version: 3,
           collections: collectionEventsById,
           visibleCollectionIds: persistedVisibleCollectionIds,
+          customCollections,
         }),
       );
     } catch (error) {
       console.error("Failed to persist collection cache", error);
     }
-  }, [collectionEventsById, visibleCollectionIds]);
+  }, [collectionEventsById, customCollections, visibleCollectionIds]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -481,11 +599,6 @@ export const Timeline: React.FC = () => {
       console.error("Failed to persist collection color preferences", error);
     }
   }, [collectionColorPreferences]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(TIMELINE_RENDER_MODE_KEY, renderMode);
-  }, [renderMode]);
 
   // Ref version of the currently focused event — read inside updateLayout (rAF path)
   // so it sees the latest value without triggering React re-renders.
@@ -547,10 +660,7 @@ export const Timeline: React.FC = () => {
     ) as unknown as StoppableAnimation;
   };
 
-  const animateLogZoom = (
-    target: number,
-    options: Record<string, unknown>,
-  ) => {
+  const animateLogZoom = (target: number, options: Record<string, unknown>) => {
     logZoomAnimationRef.current?.stop();
     logZoomAnimationRef.current = animate(
       logZoom,
@@ -666,13 +776,16 @@ export const Timeline: React.FC = () => {
           if (immediate) {
             layout.y.set(targetY);
           } else {
+            // Only restart the spring if the target actually changed —
+            // otherwise Motion fights itself with competing animations.
             animate(layout.y, targetY, {
               type: "spring",
-              stiffness: 400,
-              damping: 40,
+              stiffness: 600,
+              damping: 32,
             });
           }
         }
+        // Animate opacity only when transitioning between 0 and 1.
         if (layout.targetOpacity !== 1) {
           layout.targetOpacity = 1;
           if (immediate) {
@@ -1172,26 +1285,7 @@ export const Timeline: React.FC = () => {
       sample.sampleStart = now;
       sample.frames = 0;
     }
-
-    if (renderFpsIdleResetRef.current !== null) {
-      window.clearTimeout(renderFpsIdleResetRef.current);
-    }
-    renderFpsIdleResetRef.current = window.setTimeout(() => {
-      renderFpsIdleResetRef.current = null;
-      renderFpsSampleRef.current = { sampleStart: 0, frames: 0 };
-      setRenderFps(0);
-    }, RENDER_FPS_IDLE_RESET_MS);
   };
-
-  useEffect(() => {
-    renderFpsSampleRef.current = { sampleStart: 0, frames: 0 };
-    setRenderFps(0);
-
-    if (renderFpsIdleResetRef.current !== null) {
-      window.clearTimeout(renderFpsIdleResetRef.current);
-      renderFpsIdleResetRef.current = null;
-    }
-  }, [renderMode]);
 
   useEffect(() => {
     flushZoomRangeLabel(logZoom.get());
@@ -1211,9 +1305,6 @@ export const Timeline: React.FC = () => {
       }
       if (zoomSettleTimeoutRef.current !== null) {
         window.clearTimeout(zoomSettleTimeoutRef.current);
-      }
-      if (renderFpsIdleResetRef.current !== null) {
-        window.clearTimeout(renderFpsIdleResetRef.current);
       }
     };
   }, []);
@@ -1302,6 +1393,57 @@ export const Timeline: React.FC = () => {
     addVisibleCollection(collectionId);
   };
 
+  const handleDeleteCollection = (collection: EventCollectionMeta) => {
+    setCustomCollections((prev) =>
+      prev.filter((item) => item.id !== collection.id),
+    );
+    setCollectionEventsById((prev) => {
+      if (!Object.prototype.hasOwnProperty.call(prev, collection.id)) {
+        return prev;
+      }
+
+      const next = { ...prev };
+      delete next[collection.id];
+      return next;
+    });
+    setVisibleCollectionIds((prev) =>
+      prev.filter((id) => id !== collection.id),
+    );
+    setDownloadingCollectionIds((prev) =>
+      prev.filter((id) => id !== collection.id),
+    );
+    setCollectionColorPreferences((prev) => {
+      if (!Object.prototype.hasOwnProperty.call(prev, collection.id)) {
+        return prev;
+      }
+
+      const next = { ...prev };
+      delete next[collection.id];
+      return next;
+    });
+
+    if (
+      selectedEventInfo &&
+      findEventCollectionId(selectedEventInfo.id) === collection.id
+    ) {
+      setSelectedEventInfo(null);
+      setIsRulerActive(false);
+      focusedEventIdRef.current = null;
+    }
+
+    if (
+      editingEvent &&
+      findEventCollectionId(editingEvent.id) === collection.id
+    ) {
+      setEditingEvent(null);
+    }
+
+    if (addingCollectionId === collection.id) {
+      setAddingCollectionId(null);
+      setAddingEvent(false);
+    }
+  };
+
   const handleFocusEvent = (event: Event) => {
     setSelectedEventInfo(event);
     focusedEventIdRef.current = event.id;
@@ -1332,60 +1474,47 @@ export const Timeline: React.FC = () => {
     // actually needs to travel visually.
     const pixelDist = Math.abs(eventYear - currentYear) * targetZoom;
 
-    // PIXEL_THRESHOLD: beyond ~2.5 screen widths of travel, activate warp overlay.
     const PIXEL_THRESHOLD = width * 2.5;
+    const isLongTravel = pixelDist > PIXEL_THRESHOLD;
 
-    if (pixelDist > PIXEL_THRESHOLD) {
-      stopCameraAnimations();
-      // Two-phase: Phase 1 — easeInOut to bring event to ~25% from left edge.
-      // Phase 2 — spring from edge into center for a satisfying "arrival" feel.
-      const totalDuration = Math.min(1.2, 0.3 + pixelDist / 4000);
-      const phase1Duration = totalDuration * 0.7;
+    stopCameraAnimations();
 
+    if (isLongTravel) {
+      const duration = Math.min(1.2, 0.3 + pixelDist / 4000);
       setWarpMode("travel");
       setIsWarping(true);
       setWarpDirection(eventYear > currentYear ? -1 : 1);
 
-      // Phase 1: event appears just inside the screen edge we are approaching from.
-      // Warp LEFT (eventYear > currentYear): arriving from the right edge.
-      // Warp RIGHT (eventYear < currentYear): arriving from the left edge.
-      const isWarpingLeft = eventYear > currentYear;
-      const phase1Target = isWarpingLeft ? width * 0.88 : width * 0.12;
-      animateFocusPixel(phase1Target, {
-        duration: phase1Duration,
+      const travelOptions = {
+        duration,
         ease: "easeInOut",
-      });
+      } as const;
+
+      animateFocusPixel(width / 2, travelOptions);
       animateFocusYear(eventYear, {
-        duration: phase1Duration,
-        ease: "easeInOut",
+        ...travelOptions,
         onComplete: () => {
           setIsWarping(false);
-          // Phase 2: spring the final leg into screen center.
-          animateFocusPixel(width / 2, {
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-          });
         },
       });
 
       if (hasDuration) {
         targetLogZoom.current = Math.log(targetZoom);
         animateLogZoom(targetLogZoom.current, {
-          duration: phase1Duration,
-          ease: "easeInOut",
+          ...travelOptions,
         });
       }
-    } else {
-      stopCameraAnimations();
-      const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
-      if (hasDuration) {
-        targetLogZoom.current = Math.log(targetZoom);
-        animateLogZoom(targetLogZoom.current, opt);
-      }
-      animateFocusPixel(width / 2, opt);
-      animateFocusYear(eventYear, opt);
+
+      return;
     }
+
+    const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
+    if (hasDuration) {
+      targetLogZoom.current = Math.log(targetZoom);
+      animateLogZoom(targetLogZoom.current, opt);
+    }
+    animateFocusPixel(width / 2, opt);
+    animateFocusYear(eventYear, opt);
   };
 
   const handleFocusBigBang = () => {
@@ -1484,6 +1613,50 @@ export const Timeline: React.FC = () => {
     });
   };
 
+  const handleJumpToDate = (target: DateJumpTarget) => {
+    const targetYear = getAbsoluteYearFromDateJump(target);
+    const width = getViewportWidth();
+    const currentZoom = Math.exp(logZoom.get());
+    const pixelDist = Math.abs(targetYear - focusYear.get()) * currentZoom;
+
+    setSelectedEventInfo(null);
+    setIsRulerActive(false);
+    focusedEventIdRef.current = null;
+    stopCameraAnimations();
+
+    if (pixelDist > width * 2.5) {
+      const duration = Math.min(1.2, 0.3 + pixelDist / 4000);
+      const phase1Duration = duration * 0.7;
+      const isWarpingLeft = targetYear > focusYear.get();
+
+      setWarpMode("travel");
+      setIsWarping(true);
+      setWarpDirection(isWarpingLeft ? -1 : 1);
+
+      animateFocusPixel(isWarpingLeft ? width * 0.88 : width * 0.12, {
+        duration: phase1Duration,
+        ease: "easeInOut",
+      });
+      animateFocusYear(targetYear, {
+        duration: phase1Duration,
+        ease: "easeInOut",
+        onComplete: () => {
+          setIsWarping(false);
+          animateFocusPixel(width / 2, {
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+          });
+        },
+      });
+      return;
+    }
+
+    const opt = { type: "spring" as const, stiffness: 400, damping: 40 };
+    animateFocusPixel(width / 2, opt);
+    animateFocusYear(targetYear, opt);
+  };
+
   const handleSaveEvent = (updatedEvent: Event) => {
     const ownerCollectionId = findEventCollectionId(updatedEvent.id);
     if (!ownerCollectionId) return;
@@ -1498,36 +1671,86 @@ export const Timeline: React.FC = () => {
     setAddingEvent(false);
   };
 
-  const handleStartAddEvent = () => {
-    const targetCollectionId =
-      visibleCollectionIds.length === 1 &&
+  useEffect(() => {
+    if (selectedEventInfo !== null) return;
+    setIsRulerActive(false);
+  }, [selectedEventInfo]);
+
+  const handleStartAddEvent = (targetCollectionId?: string) => {
+    const resolvedTargetCollectionId =
+      targetCollectionId ??
+      (visibleCollectionIds.length === 1 &&
       Object.prototype.hasOwnProperty.call(
         collectionEventsById,
         visibleCollectionIds[0],
       )
         ? visibleCollectionIds[0]
-        : PLAYGROUND_COLLECTION.id;
+        : PLAYGROUND_COLLECTION.id);
 
-    if (targetCollectionId === PLAYGROUND_COLLECTION.id) {
+    if (resolvedTargetCollectionId === PLAYGROUND_COLLECTION.id) {
       ensurePlaygroundCollection();
       addVisibleCollection(PLAYGROUND_COLLECTION.id);
     }
 
-    setAddingCollectionId(targetCollectionId);
+    setAddingCollectionId(resolvedTargetCollectionId);
     setAddingEvent(true);
   };
 
-  const handleAddEvent = (newEvent: Event) => {
-    const targetCollectionId = addingCollectionId ?? singleVisibleCollectionId;
-    if (!targetCollectionId) return;
+  const handleAddEvent = (
+    newEvent: Event,
+    targetCollectionId?: string | null,
+  ) => {
+    const resolvedTargetCollectionId =
+      targetCollectionId ?? addingCollectionId ?? singleVisibleCollectionId;
+    if (!resolvedTargetCollectionId) return;
 
-    setCollectionEventsById((prev) => ({
-      ...prev,
-      [targetCollectionId]: [...(prev[targetCollectionId] ?? []), newEvent],
-    }));
-    addVisibleCollection(targetCollectionId);
+    setCollectionEventsById((prev) => {
+      const existingEvents = prev[resolvedTargetCollectionId] ?? [];
+
+      return {
+        ...prev,
+        [resolvedTargetCollectionId]: [...existingEvents, newEvent],
+      };
+    });
+    addVisibleCollection(resolvedTargetCollectionId);
     setAddingCollectionId(null);
     setAddingEvent(false);
+  };
+
+  const handleCreateCollection = (collection: CollectionCreationInput) => {
+    const existingIds = new Set(
+      [...EVENT_COLLECTIONS, ...customCollections, PLAYGROUND_COLLECTION].map(
+        (item) => item.id,
+      ),
+    );
+    const baseId = slugifyCollectionId(collection.name);
+    let nextId = baseId;
+    let suffix = 2;
+
+    while (existingIds.has(nextId)) {
+      nextId = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+
+    const nextCollection: EventCollectionMeta = {
+      id: nextId,
+      emoji: collection.emoji,
+      name: collection.name,
+      description: collection.description,
+      author: "You",
+      createdAt: createLocalDateStamp(),
+    };
+
+    setCustomCollections((prev) => [...prev, nextCollection]);
+    setCollectionEventsById((prev) => ({
+      ...prev,
+      [nextCollection.id]: [],
+    }));
+    addVisibleCollection(nextCollection.id);
+    // Keep Add Event modal open and auto-select the new collection.
+    setAddingCollectionId(nextCollection.id);
+    setAddingEvent(true);
+    setIsCreatingCollection(false);
   };
 
   const handleCloseAddEvent = () => {
@@ -1573,68 +1796,42 @@ export const Timeline: React.FC = () => {
             return next;
           })
         }
+        onDeleteCollection={handleDeleteCollection}
         onFocusEvent={handleFocusEvent}
         onEditEvent={setEditingEvent}
         onAddEvent={handleStartAddEvent}
+        onAddCollection={() => setIsCreatingCollection(true)}
       />
 
-      {renderMode === "canvas" ? (
-        <TimelineCanvasViewport
-          containerRef={containerRef}
-          focusPixel={focusPixel}
-          focusYear={focusYear}
-          zoom={zoom}
-          ticks={ticks}
-          timelineEvents={timelineEvents}
-          collapsedGroups={collapsedGroups}
-          visibleBounds={visibleBoundsRef.current}
-          eventLayouts={eventLayouts.current}
-          focusedEventId={selectedEventInfo?.id ?? null}
-          eventAccentColors={eventAccentColors}
-          onRenderFrame={recordRenderFrame}
-          onWheel={handleWheel}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onFocusBigBang={handleFocusBigBang}
-          onFocusEvent={handleFocusEvent}
-          onFocusCollapsedGroup={handleFocusCollapsedGroup}
-        />
-      ) : (
-        <TimelineViewport
-          containerRef={containerRef}
-          focusPixel={focusPixel}
-          focusYear={focusYear}
-          zoom={zoom}
-          ticks={ticks}
-          timelineEvents={timelineEvents}
-          collapsedGroups={collapsedGroups}
-          visibleBounds={visibleBoundsRef.current}
-          eventLayouts={eventLayouts.current}
-          focusedEventId={selectedEventInfo?.id ?? null}
-          eventAccentColors={eventAccentColors}
-          onRenderFrame={recordRenderFrame}
-          getViewportWidth={getViewportWidth}
-          onWheel={handleWheel}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onFocusBigBang={handleFocusBigBang}
-          onFocusEvent={handleFocusEvent}
-          onFocusCollapsedGroup={handleFocusCollapsedGroup}
-        />
-      )}
-
-      <FpsBadge
-        logicFps={logicFps}
-        renderFps={renderFps}
-        mode={renderMode}
+      <TimelineCanvasViewport
+        containerRef={containerRef}
+        focusPixel={focusPixel}
+        focusYear={focusYear}
+        zoom={zoom}
+        ticks={ticks}
+        timelineEvents={timelineEvents}
+        collapsedGroups={collapsedGroups}
+        visibleBounds={visibleBoundsRef.current}
+        eventLayouts={eventLayouts.current}
+        focusedEventId={selectedEventInfo?.id ?? null}
+        rulerEvent={isRulerActive ? selectedEventInfo : null}
+        eventAccentColors={eventAccentColors}
+        onRenderFrame={recordRenderFrame}
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onFocusBigBang={handleFocusBigBang}
+        onFocusEvent={handleFocusEvent}
+        onFocusCollapsedGroup={handleFocusCollapsedGroup}
       />
-      <RenderModeToggle mode={renderMode} onChange={setRenderMode} />
+
+      <FpsBadge logicFps={logicFps} renderFps={renderFps} />
 
       <ZoomController
         zoomRangeLabel={zoomRangeLabel}
         onQuickZoom={handleQuickZoom}
+        onJumpToDate={handleJumpToDate}
         zoomTrackRef={zoomTrackRef}
         zoomThumbY={zoomThumbY}
         onZoomDragStart={handleZoomDragStart}
@@ -1645,16 +1842,22 @@ export const Timeline: React.FC = () => {
       {selectedEventInfo && (
         <EventInfoPanel
           event={selectedEventInfo}
+          isRulerActive={isRulerActive}
           onFocus={() => {
             handleFocusEvent(selectedEventInfo);
           }}
           onEdit={() => {
             setEditingEvent(selectedEventInfo);
             setSelectedEventInfo(null);
+            setIsRulerActive(false);
             focusedEventIdRef.current = null;
+          }}
+          onToggleRuler={() => {
+            setIsRulerActive((prev) => !prev);
           }}
           onClose={() => {
             setSelectedEventInfo(null);
+            setIsRulerActive(false);
             focusedEventIdRef.current = null;
           }}
         />
@@ -1673,8 +1876,18 @@ export const Timeline: React.FC = () => {
         <EventEditor
           mode="create"
           event={createNewEvent()}
+          availableCollections={writableCollections}
+          initialCollectionId={addingCollectionId}
+          onAddCollection={() => setIsCreatingCollection(true)}
           onSave={handleAddEvent}
           onClose={handleCloseAddEvent}
+        />
+      )}
+
+      {isCreatingCollection && (
+        <CollectionEditor
+          onCreate={handleCreateCollection}
+          onClose={() => setIsCreatingCollection(false)}
         />
       )}
 

@@ -8,6 +8,26 @@ const _displayLabelCache = new WeakMap<Event, string>();
 const stripTrailingZeros = (s: string): string =>
   s.replace(/\.0+(?=\s|[A-Z]|$)/, "");
 
+const formatCount = (value: number, maximumFractionDigits = 0): string =>
+  value.toLocaleString(undefined, {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  });
+
+const formatDurationUnit = (
+  value: number,
+  singular: string,
+  plural: string,
+  maximumFractionDigits = 0,
+): string => {
+  const roundedValue =
+    maximumFractionDigits > 0
+      ? Number(value.toFixed(maximumFractionDigits))
+      : Math.round(value);
+  const label = Math.abs(roundedValue) === 1 ? singular : plural;
+  return `${formatCount(roundedValue, maximumFractionDigits)} ${label}`;
+};
+
 export const withAlpha = (color: string, alpha: number): string => {
   const normalized = color.trim();
   const safeAlpha = Math.max(0, Math.min(1, alpha));
@@ -93,10 +113,17 @@ const DATE_TIME_FORMAT: Intl.DateTimeFormatOptions = {
   minute: "2-digit",
 };
 
+const YEAR_ZERO_TOLERANCE = 1e-9;
+
+const isYearZero = (year: number): boolean =>
+  Math.abs(year) < YEAR_ZERO_TOLERANCE;
+
 const formatAbsoluteYear = (year: number): string => {
+  if (isYearZero(year)) return "0";
+
   const rounded = Math.round(year);
   if (rounded > 0) return `${rounded}`;
-  if (rounded === 0) return "1 BC";
+  if (rounded === 0) return year < 0 ? "1 BC" : "0";
   return `${Math.abs(rounded)} BC`;
 };
 
@@ -200,6 +227,59 @@ const formatEventTime = (event: Event): string => {
 export const getEventDisplayLabel = (event: Event): string =>
   formatEventTime(event);
 
+export const formatElapsedTimelineTime = (years: number): string => {
+  const absoluteYears = Math.abs(years);
+
+  if (absoluteYears >= 1e9) {
+    return formatDurationUnit(
+      absoluteYears / 1e9,
+      "billion year",
+      "billion years",
+      absoluteYears >= 1e10 ? 0 : 1,
+    );
+  }
+
+  if (absoluteYears >= 1e6) {
+    return formatDurationUnit(
+      absoluteYears / 1e6,
+      "million year",
+      "million years",
+      absoluteYears >= 1e7 ? 0 : 1,
+    );
+  }
+
+  if (absoluteYears >= 1) {
+    return formatDurationUnit(absoluteYears, "year", "years");
+  }
+
+  const months = absoluteYears * 12;
+  if (months >= 1) {
+    return formatDurationUnit(months, "month", "months");
+  }
+
+  const days = absoluteYears * 365.25;
+  if (days >= 1) {
+    return formatDurationUnit(days, "day", "days");
+  }
+
+  const hours = days * 24;
+  if (hours >= 1) {
+    return formatDurationUnit(hours, "hour", "hours");
+  }
+
+  const minutes = hours * 60;
+  if (minutes >= 1) {
+    return formatDurationUnit(minutes, "minute", "minutes");
+  }
+
+  const seconds = Math.max(minutes * 60, 0);
+  if (seconds < 1) {
+    return "under 1 second";
+  }
+
+  return formatDurationUnit(seconds, "second", "seconds");
+};
+
 export const getNiceInterval = (ideal: number): number => {
   const logIdeal = Math.log10(ideal);
   let best = NICE_INTERVALS[0];
@@ -218,6 +298,8 @@ export const getNiceInterval = (ideal: number): number => {
 };
 
 export const formatTick = (absoluteYear: number, interval: number): string => {
+  if (isYearZero(absoluteYear)) return "0";
+
   const absYear = Math.abs(absoluteYear);
   const era = absoluteYear <= 0 ? "BC" : "AD";
 
@@ -302,6 +384,8 @@ export const isHighlightedTimelineTick = (
   highlightStep: number,
   interval: number,
 ): boolean => {
+  if (isYearZero(absoluteYear)) return true;
+
   if (interval < 1) {
     const d = parseAbsoluteYearToDate(absoluteYear);
     if (isNaN(d.getTime())) return false;
