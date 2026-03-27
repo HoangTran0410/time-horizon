@@ -1,9 +1,7 @@
 import {
   ChangeEvent,
-  Dispatch,
   PointerEvent,
   RefObject,
-  SetStateAction,
   WheelEvent,
   startTransition,
   useEffect,
@@ -71,8 +69,8 @@ type UseTimelineViewportParams = {
   containerRef: RefObject<HTMLDivElement | null>;
   renderedTimelineEvents: Event[];
   selectedEventId: string | null;
-  setSelectedEventInfo: Dispatch<SetStateAction<Event | null>>;
-  setIsRulerActive: Dispatch<SetStateAction<boolean>>;
+  onSelectEvent: (event: Event | null) => void;
+  setIsRulerActive: (value: boolean) => void;
 };
 
 const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
@@ -81,7 +79,7 @@ export const useTimelineViewport = ({
   containerRef,
   renderedTimelineEvents,
   selectedEventId,
-  setSelectedEventInfo,
+  onSelectEvent,
   setIsRulerActive,
 }: UseTimelineViewportParams) => {
   const [ticks, setTicks] = useState<TimelineTick[]>([]);
@@ -601,7 +599,7 @@ export const useTimelineViewport = ({
   };
 
   const clearFocusedEvent = () => {
-    setSelectedEventInfo(null);
+    onSelectEvent(null);
     setIsRulerActive(false);
     focusedEventIdRef.current = null;
     setExpandedCollapsedGroup(null);
@@ -658,7 +656,7 @@ export const useTimelineViewport = ({
 
       collapsedGroupCycleRef.current[cycleKey] = nextIndex + 1;
 
-      setSelectedEventInfo(nextEvent);
+      onSelectEvent(nextEvent);
       setIsRulerActive(false);
       focusedEventIdRef.current = nextEvent.id;
       setExpandedCollapsedGroup(null);
@@ -679,7 +677,8 @@ export const useTimelineViewport = ({
   };
 
   const handleFocusEvent = (event: Event) => {
-    setSelectedEventInfo(event);
+    onSelectEvent(event);
+    setIsRulerActive(false);
     focusedEventIdRef.current = event.id;
     setExpandedCollapsedGroup(null);
 
@@ -1219,6 +1218,7 @@ export const useTimelineViewport = ({
 
   useEffect(() => {
     focusedEventIdRef.current = selectedEventId;
+    setExpandedCollapsedGroup(null);
   }, [selectedEventId]);
 
   useEffect(() => {

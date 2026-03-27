@@ -2,7 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { Event, EventCollectionMeta } from "../constants/types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
 import { ChevronDown, X } from "lucide-react";
-import { normalizeEventTimeParts } from "../helpers";
+import {
+  normalizeEmbedVideoUrl,
+  normalizeEventTimeParts,
+  normalizeExternalLinkUrl,
+  normalizeImageUrl,
+} from "../helpers";
 
 interface EventEditorProps {
   event: Event;
@@ -102,6 +107,15 @@ const COLOR_SWATCHES = [
   { label: "Rose", value: "#f43f5e" },
   { label: "Zinc", value: "#71717a" },
 ];
+
+const normalizeEventForSave = (event: Event): Event => ({
+  ...event,
+  title: event.title.trim(),
+  description: event.description.trim(),
+  image: normalizeImageUrl(event.image) ?? undefined,
+  video: normalizeEmbedVideoUrl(event.video) ?? undefined,
+  link: normalizeExternalLinkUrl(event.link) ?? undefined,
+});
 
 export const EventEditor: React.FC<EventEditorProps> = ({
   event,
@@ -241,19 +255,31 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     setEditedEvent((prev) => ({ ...prev, color: color ?? undefined }));
   };
 
+  const handleOptionalFieldChange =
+    (field: "image" | "video" | "link") =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { value } = e.target;
+      setEditedEvent((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
+
   const handleSave = () => {
     if (!validateDate()) return;
+
+    const normalizedEvent = normalizeEventForSave(editedEvent);
 
     if (mode === "create" && availableCollections.length > 0) {
       if (!selectedCollectionId) {
         setCollectionError("Choose a destination collection.");
         return;
       }
-      onSave(editedEvent, selectedCollectionId);
+      onSave(normalizedEvent, selectedCollectionId);
       return;
     }
 
-    onSave(editedEvent);
+    onSave(normalizedEvent);
   };
 
   const handleBackdropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -270,7 +296,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
   return (
     <div
-      className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
       data-ui-state={isClosing ? "closing" : "open"}
       onPointerDown={handleBackdropPointerDown}
       onPointerUp={handleBackdropPointerUp}
@@ -280,7 +306,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className={`ui-modal-surface max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900 md:p-8 p-4 shadow-2xl max-w-md`}
+        className={`ui-modal-surface max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900 md:p-8 p-4 max-w-md`}
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
@@ -288,7 +314,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       >
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">
-            {mode === "create" ? "Add Event" : "Edit Event"}
+            {mode === "create" ? "New Event" : "Edit Event"}
           </h2>
           <button
             onClick={requestClose}
@@ -415,7 +441,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 </button>
 
                 {showColorPicker && (
-                  <div className="color-trigger absolute z-10 mt-1 rounded-xl border border-zinc-700 bg-zinc-800 p-3 shadow-xl">
+                  <div className="color-trigger absolute z-10 mt-1 rounded-xl border border-zinc-700 bg-zinc-800 p-3">
                     <div className="grid grid-cols-4 gap-2">
                       {COLOR_SWATCHES.map((swatch) => (
                         <button
@@ -638,6 +664,63 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 {dateError}
               </p>
             )}
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-sm font-medium text-zinc-400">
+                Media & Links
+              </label>
+              <span className="text-xs text-zinc-500">Optional</span>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-zinc-500">
+                Image URL
+              </label>
+              <input
+                type="text"
+                value={editedEvent.image ?? ""}
+                onChange={handleOptionalFieldChange("image")}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                placeholder="https://upload.wikimedia.org/..."
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                Paste any direct image URL.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-zinc-500">Video</label>
+              <input
+                type="text"
+                value={editedEvent.video ?? ""}
+                onChange={handleOptionalFieldChange("video")}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                placeholder="dQw4w9WgXcQ or https://youtu.be/dQw4w9WgXcQ"
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                Supports YouTube IDs, `youtu.be`, and full YouTube links. Other
+                video URLs still work as-is.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-zinc-500">
+                External Link
+              </label>
+              <input
+                type="text"
+                value={editedEvent.link ?? ""}
+                onChange={handleOptionalFieldChange("link")}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                placeholder="Apollo_11 or https://en.wikipedia.org/wiki/Apollo_11"
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                Paste any URL, or enter a Wikipedia article name and it will be
+                expanded automatically when you save.
+              </p>
+            </div>
           </div>
 
           <div>

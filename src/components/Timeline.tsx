@@ -1,4 +1,5 @@
 import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   PLAYGROUND_COLLECTION,
   SYNCABLE_COLLECTION_IDS,
@@ -9,6 +10,7 @@ import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
 import { Controller } from "./Controller";
+import { ConfirmDialog, type ConfirmDialogOptions } from "./ConfirmDialog";
 import { EventInfoPanel } from "./EventInfoPanel";
 import { FpsBadge } from "./FpsBadge";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
@@ -18,8 +20,9 @@ import { useTimelineCollections } from "../hooks/useTimelineCollections";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
 import {
   filterTimelineSearchEvents,
-  useTimelineSearchStore,
-} from "../stores/timelineSearchStore";
+  findEventByIdInCollections,
+  useTimelineStore,
+} from "../stores";
 
 interface TimelineProps {
   theme: ThemeMode;
@@ -28,20 +31,49 @@ interface TimelineProps {
 
 export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedEventInfo, setSelectedEventInfo] = useState<Event | null>(
-    null,
+  const [confirmDialog, setConfirmDialog] =
+    useState<ConfirmDialogOptions | null>(null);
+  const {
+    selectedEventId,
+    isRulerActive,
+    isEventInfoCollapsed,
+    editingEventId,
+    addingEvent,
+    addingCollectionId,
+    isCreatingCollection,
+    focusEvent,
+    previewEvent,
+    clearFocusedEvent,
+    setIsRulerActive,
+    toggleEventInfoCollapsed,
+    openEventEditor,
+    closeEventEditor,
+    openEventCreator,
+    closeEventCreator,
+    openCollectionCreator,
+    closeCollectionCreator,
+  } = useTimelineStore(
+    useShallow((state) => ({
+      selectedEventId: state.selectedEventId,
+      isRulerActive: state.isRulerActive,
+      isEventInfoCollapsed: state.isEventInfoCollapsed,
+      editingEventId: state.editingEventId,
+      addingEvent: state.addingEvent,
+      addingCollectionId: state.addingCollectionId,
+      isCreatingCollection: state.isCreatingCollection,
+      focusEvent: state.focusEvent,
+      previewEvent: state.previewEvent,
+      clearFocusedEvent: state.clearFocusedEvent,
+      setIsRulerActive: state.setIsRulerActive,
+      toggleEventInfoCollapsed: state.toggleEventInfoCollapsed,
+      openEventEditor: state.openEventEditor,
+      closeEventEditor: state.closeEventEditor,
+      openEventCreator: state.openEventCreator,
+      closeEventCreator: state.closeEventCreator,
+      openCollectionCreator: state.openCollectionCreator,
+      closeCollectionCreator: state.closeCollectionCreator,
+    })),
   );
-  const [isRulerActive, setIsRulerActive] = useState(false);
-  const [isEventInfoCollapsed, setIsEventInfoCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(max-width: 640px)").matches;
-  });
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [addingEvent, setAddingEvent] = useState(false);
-  const [addingCollectionId, setAddingCollectionId] = useState<string | null>(
-    null,
-  );
-  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
   const {
     collections,
@@ -62,21 +94,36 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     handleDeleteCollection,
     handleSaveEvent,
     handleAddEvent,
+    handleDeleteEvent,
     handleCreateCollection,
     handleSetCollectionColor,
   } = useTimelineCollections();
+  const selectedEventInfo = useMemo(
+    () =>
+      selectedEventId
+        ? findEventByIdInCollections(collectionEventsById, selectedEventId)
+        : null,
+    [collectionEventsById, selectedEventId],
+  );
+  const editingEvent = useMemo(
+    () =>
+      editingEventId
+        ? findEventByIdInCollections(collectionEventsById, editingEventId)
+        : null,
+    [collectionEventsById, editingEventId],
+  );
 
-  const searchQuery = useTimelineSearchStore((state) => state.searchQuery);
-  const activeMediaFilters = useTimelineSearchStore(
+  const searchQuery = useTimelineStore((state) => state.searchQuery);
+  const activeMediaFilters = useTimelineStore(
     (state) => state.activeMediaFilters,
   );
-  const timeRangeStartInput = useTimelineSearchStore(
+  const timeRangeStartInput = useTimelineStore(
     (state) => state.timeRangeStartInput,
   );
-  const timeRangeEndInput = useTimelineSearchStore(
+  const timeRangeEndInput = useTimelineStore(
     (state) => state.timeRangeEndInput,
   );
-  const showOnlyResultsOnTimeline = useTimelineSearchStore(
+  const showOnlyResultsOnTimeline = useTimelineStore(
     (state) => state.showOnlyResultsOnTimeline,
   );
   const deferredTimelineSearchQuery = useDeferredValue(searchQuery);
@@ -137,34 +184,24 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     handleZoomDragStart,
     handleZoomDragMove,
     handleZoomDragEnd,
-    clearFocusedEvent,
+    clearFocusedEvent: clearFocusedEventFromViewport,
   } = useTimelineViewport({
     containerRef,
     renderedTimelineEvents,
-    selectedEventId: selectedEventInfo?.id ?? null,
-    setSelectedEventInfo,
+    selectedEventId,
+    onSelectEvent: (event) => {
+      if (event) {
+        focusEvent(event.id);
+        return;
+      }
+
+      clearFocusedEvent();
+    },
     setIsRulerActive,
   });
 
   const handleSidebarDeleteCollection = (collection: EventCollectionMeta) => {
-    const selectedInCollection =
-      selectedEventInfo &&
-      findEventCollectionId(selectedEventInfo.id) === collection.id;
-    const editingInCollection =
-      editingEvent && findEventCollectionId(editingEvent.id) === collection.id;
-
     handleDeleteCollection(collection.id);
-
-    if (selectedInCollection) {
-      clearFocusedEvent();
-    }
-    if (editingInCollection) {
-      setEditingEvent(null);
-    }
-    if (addingCollectionId === collection.id) {
-      setAddingCollectionId(null);
-      setAddingEvent(false);
-    }
   };
 
   const handleStartAddEvent = (targetCollectionId?: string) => {
@@ -183,8 +220,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
       addVisibleCollection(PLAYGROUND_COLLECTION.id);
     }
 
-    setAddingCollectionId(resolvedTargetCollectionId);
-    setAddingEvent(true);
+    openEventCreator(resolvedTargetCollectionId);
   };
 
   const handleCreateEvent = (
@@ -196,28 +232,62 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     if (!resolvedTargetCollectionId) return;
 
     handleAddEvent(newEvent, resolvedTargetCollectionId);
-    setAddingCollectionId(null);
-    setAddingEvent(false);
+    closeEventCreator();
+  };
+
+  const handleDeleteTimelineEvent = (event: Event) => {
+    const ownerCollectionId = findEventCollectionId(event.id);
+    if (!ownerCollectionId) return;
+
+    const ownerCollection = collections.find(
+      (collection) => collection.id === ownerCollectionId,
+    );
+    const confirmationMessage = ownerCollection
+      ? `This will remove "${event.title}" from "${ownerCollection.name}".`
+      : `This will remove "${event.title}".`;
+
+    setConfirmDialog({
+      title: "Delete event?",
+      description: confirmationMessage,
+      confirmLabel: "Delete Event",
+      tone: "danger",
+      onConfirm: () => {
+        handleDeleteEvent(event.id);
+      },
+    });
+  };
+
+  const handleCloseConfirmDialog = () => {
+    setConfirmDialog(null);
+  };
+
+  const handleConfirmDialog = () => {
+    if (!confirmDialog) return;
+
+    const { onConfirm } = confirmDialog;
+    setConfirmDialog(null);
+    onConfirm();
   };
 
   const handleUpdateEvent = (updatedEvent: Event) => {
     handleSaveEvent(updatedEvent);
-    setEditingEvent(null);
-    setAddingEvent(false);
+    closeEventEditor();
   };
 
   const handleCreateNewCollection = (
     collection: Pick<EventCollectionMeta, "emoji" | "name" | "description">,
   ) => {
     const nextCollection = handleCreateCollection(collection);
-    setAddingCollectionId(nextCollection.id);
-    setAddingEvent(true);
-    setIsCreatingCollection(false);
+    openEventCreator(nextCollection.id);
+    closeCollectionCreator();
   };
 
   const handleCloseAddEvent = () => {
-    setAddingCollectionId(null);
-    setAddingEvent(false);
+    closeEventCreator();
+  };
+
+  const handlePreviewSidebarEvent = (event: Event) => {
+    previewEvent(event.id);
   };
 
   return (
@@ -234,8 +304,11 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
         collectionColors={collectionColors}
         onSetCollectionColor={handleSetCollectionColor}
         onDeleteCollection={handleSidebarDeleteCollection}
+        onRequestConfirm={setConfirmDialog}
+        onPreviewEvent={handlePreviewSidebarEvent}
+        onDeleteEvent={handleDeleteTimelineEvent}
         onAddEvent={handleStartAddEvent}
-        onAddCollection={() => setIsCreatingCollection(true)}
+        onAddCollection={openCollectionCreator}
       />
 
       <TimelineCanvasViewport
@@ -277,6 +350,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
         onQuickZoom={handleQuickZoom}
         onJumpToDate={handleJumpToDate}
         onSearchSelect={handleFocusEvent}
+        onDeleteEvent={handleDeleteTimelineEvent}
         onAutoFitAll={() => handleAutoFit()}
         onAutoFitRange={handleAutoFitRange}
         zoomTrackRef={zoomTrackRef}
@@ -295,16 +369,16 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
             handleFocusEvent(selectedEventInfo);
           }}
           onEdit={() => {
-            setEditingEvent(selectedEventInfo);
-            clearFocusedEvent();
+            openEventEditor(selectedEventInfo.id);
           }}
+          onDelete={() => handleDeleteTimelineEvent(selectedEventInfo)}
           onToggleRuler={() => {
-            setIsRulerActive((prev) => !prev);
+            setIsRulerActive(!isRulerActive);
           }}
           onToggleCollapsed={() => {
-            setIsEventInfoCollapsed((prev) => !prev);
+            toggleEventInfoCollapsed();
           }}
-          onClose={clearFocusedEvent}
+          onClose={clearFocusedEventFromViewport}
         />
       )}
 
@@ -313,7 +387,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
           mode="edit"
           event={editingEvent}
           onSave={handleUpdateEvent}
-          onClose={() => setEditingEvent(null)}
+          onClose={closeEventEditor}
         />
       )}
 
@@ -323,7 +397,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
           event={createNewTimelineEvent()}
           availableCollections={writableCollections}
           initialCollectionId={addingCollectionId}
-          onAddCollection={() => setIsCreatingCollection(true)}
+          onAddCollection={openCollectionCreator}
           onSave={handleCreateEvent}
           onClose={handleCloseAddEvent}
         />
@@ -332,9 +406,20 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
       {isCreatingCollection && (
         <CollectionEditor
           onCreate={handleCreateNewCollection}
-          onClose={() => setIsCreatingCollection(false)}
+          onClose={closeCollectionCreator}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmDialog)}
+        title={confirmDialog?.title ?? ""}
+        description={confirmDialog?.description ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        tone={confirmDialog?.tone}
+        onConfirm={handleConfirmDialog}
+        onCancel={handleCloseConfirmDialog}
+      />
 
       <WarpOverlay
         isWarping={isWarping}

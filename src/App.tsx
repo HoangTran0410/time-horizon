@@ -1,17 +1,14 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect } from "react";
 import { Timeline } from "./components/Timeline";
-import {
-  applyThemeToDocument,
-  getInitialTheme,
-  THEME_STORAGE_KEY,
-} from "./constants/theme";
+import { applyThemeToDocument } from "./constants/theme";
+import { useTimelineStore } from "./stores";
 
 export default function App() {
-  const [theme, setTheme] = useState(getInitialTheme);
+  const theme = useTimelineStore((state) => state.theme);
+  const setTheme = useTimelineStore((state) => state.setTheme);
 
   useEffect(() => {
     applyThemeToDocument(theme);
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   return (
@@ -20,9 +17,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={() => {
           startTransition(() => {
-            setTheme((currentTheme) =>
-              currentTheme === "dark" ? "light" : "dark",
-            );
+            setTheme(theme === "dark" ? "light" : "dark");
           });
         }}
       />

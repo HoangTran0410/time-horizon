@@ -2,9 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./styles/index.css";
-import { applyThemeToDocument, getInitialTheme } from "./constants/theme.ts";
+import { applyThemeToDocument } from "./constants/theme.ts";
+import { useTimelineStore } from "./stores";
 
-applyThemeToDocument(getInitialTheme());
+applyThemeToDocument(useTimelineStore.getState().theme);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

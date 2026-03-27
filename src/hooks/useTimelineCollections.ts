@@ -1,64 +1,55 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  EVENT_COLLECTIONS,
-  PLAYGROUND_COLLECTION,
-  SYNCABLE_COLLECTION_IDS,
-  loadEventCollection,
-} from "../data/collections";
-import { Event, EventCollectionMeta } from "../constants/types";
-import { buildCustomCollectionMeta } from "../helpers";
-import {
-  persistCollectionCache,
-  persistCollectionColorPreferences,
-  readCollectionCache,
-  readCollectionColorPreferences,
-} from "../stores/collectionStorage";
-import { CollectionCreationInput } from "../constants/types";
+import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { EVENT_COLLECTIONS, PLAYGROUND_COLLECTION } from "../data/collections";
+import { useTimelineStore } from "../stores";
+import { findEventCollectionIdInCollections } from "../stores";
 
 export const useTimelineCollections = () => {
-  const initialCacheRef = useRef(readCollectionCache());
-
-  const [customCollections, setCustomCollections] = useState<
-    EventCollectionMeta[]
-  >(initialCacheRef.current.customCollections);
-  const [collectionEventsById, setCollectionEventsById] = useState<
-    Record<string, Event[]>
-  >(initialCacheRef.current.collections);
-  const [visibleCollectionIds, setVisibleCollectionIds] = useState<string[]>(
-    initialCacheRef.current.visibleCollectionIds,
+  const {
+    customCollections,
+    collectionEventsById,
+    visibleCollectionIds,
+    downloadingCollectionIds,
+    collectionColorPreferences,
+  } = useTimelineStore(
+    useShallow((state) => ({
+      customCollections: state.customCollections,
+      collectionEventsById: state.collectionEventsById,
+      visibleCollectionIds: state.visibleCollectionIds,
+      downloadingCollectionIds: state.downloadingCollectionIds,
+      collectionColorPreferences: state.collectionColorPreferences,
+    })),
   );
-  const [downloadingCollectionIds, setDownloadingCollectionIds] = useState<
-    string[]
-  >([]);
-  const [collectionColorPreferences, setCollectionColorPreferences] = useState<
-    Record<string, string>
-  >(readCollectionColorPreferences);
 
-  useEffect(() => {
-    persistCollectionCache({
-      collectionEventsById,
-      visibleCollectionIds,
-      customCollections,
-    });
-  }, [collectionEventsById, customCollections, visibleCollectionIds]);
-
-  useEffect(() => {
-    persistCollectionColorPreferences(collectionColorPreferences);
-  }, [collectionColorPreferences]);
-
-  const addVisibleCollection = (collectionId: string) => {
-    setVisibleCollectionIds((prev) =>
-      prev.includes(collectionId) ? prev : [...prev, collectionId],
-    );
-  };
-
-  const ensurePlaygroundCollection = () => {
-    setCollectionEventsById((prev) =>
-      Object.prototype.hasOwnProperty.call(prev, PLAYGROUND_COLLECTION.id)
-        ? prev
-        : { ...prev, [PLAYGROUND_COLLECTION.id]: [] },
-    );
-  };
+  const {
+    addVisibleCollection,
+    ensurePlaygroundCollection,
+    downloadCollection,
+    syncCollection,
+    setCollectionVisibility,
+    deleteCollection,
+    saveEvent,
+    addEvent,
+    deleteEvent,
+    createCollection,
+    setCollectionColor,
+    resetCollectionColor,
+  } = useTimelineStore(
+    useShallow((state) => ({
+      addVisibleCollection: state.addVisibleCollection,
+      ensurePlaygroundCollection: state.ensurePlaygroundCollection,
+      downloadCollection: state.downloadCollection,
+      syncCollection: state.syncCollection,
+      setCollectionVisibility: state.setCollectionVisibility,
+      deleteCollection: state.deleteCollection,
+      saveEvent: state.saveEvent,
+      addEvent: state.addEvent,
+      deleteEvent: state.deleteEvent,
+      createCollection: state.createCollection,
+      setCollectionColor: state.setCollectionColor,
+      resetCollectionColor: state.resetCollectionColor,
+    })),
+  );
 
   const collections = useMemo(
     () =>
@@ -117,167 +108,8 @@ export const useTimelineCollections = () => {
   const singleVisibleCollectionId =
     visibleCollectionIds.length === 1 ? visibleCollectionIds[0] : null;
 
-  const findEventCollectionId = (eventId: string) => {
-    for (const collectionId of Object.keys(collectionEventsById)) {
-      const collectionEvents = collectionEventsById[collectionId] ?? [];
-      if (collectionEvents.some((event) => event.id === eventId)) {
-        return collectionId;
-      }
-    }
-
-    return null;
-  };
-
-  const handleDownloadCollection = async (collectionId: string) => {
-    if (collectionEventsById[collectionId]) {
-      addVisibleCollection(collectionId);
-      return;
-    }
-
-    setDownloadingCollectionIds((prev) =>
-      prev.includes(collectionId) ? prev : [...prev, collectionId],
-    );
-
-    try {
-      const loadedEvents = await loadEventCollection(collectionId);
-      addVisibleCollection(collectionId);
-      setCollectionEventsById((prev) => ({
-        ...prev,
-        [collectionId]: loadedEvents,
-      }));
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setDownloadingCollectionIds((prev) =>
-        prev.filter((id) => id !== collectionId),
-      );
-    }
-  };
-
-  const handleSyncCollection = async (collectionId: string) => {
-    if (
-      downloadingCollectionIds.includes(collectionId) ||
-      !SYNCABLE_COLLECTION_IDS.includes(collectionId)
-    ) {
-      return;
-    }
-
-    setDownloadingCollectionIds((prev) =>
-      prev.includes(collectionId) ? prev : [...prev, collectionId],
-    );
-
-    try {
-      const loadedEvents = await loadEventCollection(collectionId);
-      setCollectionEventsById((prev) => ({
-        ...prev,
-        [collectionId]: loadedEvents,
-      }));
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setDownloadingCollectionIds((prev) =>
-        prev.filter((id) => id !== collectionId),
-      );
-    }
-  };
-
-  const handleSetCollectionVisibility = (
-    collectionId: string,
-    visible: boolean,
-  ) => {
-    if (!visible) {
-      setVisibleCollectionIds((prev) =>
-        prev.filter((id) => id !== collectionId),
-      );
-      return;
-    }
-
-    addVisibleCollection(collectionId);
-  };
-
-  const handleDeleteCollection = (collectionId: string) => {
-    setCustomCollections((prev) =>
-      prev.filter((collection) => collection.id !== collectionId),
-    );
-    setCollectionEventsById((prev) => {
-      if (!Object.prototype.hasOwnProperty.call(prev, collectionId)) {
-        return prev;
-      }
-
-      const next = { ...prev };
-      delete next[collectionId];
-      return next;
-    });
-    setVisibleCollectionIds((prev) => prev.filter((id) => id !== collectionId));
-    setDownloadingCollectionIds((prev) =>
-      prev.filter((id) => id !== collectionId),
-    );
-    setCollectionColorPreferences((prev) => {
-      if (!Object.prototype.hasOwnProperty.call(prev, collectionId)) {
-        return prev;
-      }
-
-      const next = { ...prev };
-      delete next[collectionId];
-      return next;
-    });
-  };
-
-  const handleSaveEvent = (updatedEvent: Event) => {
-    const ownerCollectionId = findEventCollectionId(updatedEvent.id);
-    if (!ownerCollectionId) return;
-
-    setCollectionEventsById((prev) => ({
-      ...prev,
-      [ownerCollectionId]: prev[ownerCollectionId].map((event) =>
-        event.id === updatedEvent.id ? updatedEvent : event,
-      ),
-    }));
-  };
-
-  const handleAddEvent = (newEvent: Event, targetCollectionId: string) => {
-    setCollectionEventsById((prev) => {
-      const existingEvents = prev[targetCollectionId] ?? [];
-
-      return {
-        ...prev,
-        [targetCollectionId]: [...existingEvents, newEvent],
-      };
-    });
-    addVisibleCollection(targetCollectionId);
-  };
-
-  const handleCreateCollection = (collection: CollectionCreationInput) => {
-    const nextCollection = buildCustomCollectionMeta(collection, [
-      ...EVENT_COLLECTIONS,
-      ...customCollections,
-      PLAYGROUND_COLLECTION,
-    ]);
-
-    setCustomCollections((prev) => [...prev, nextCollection]);
-    setCollectionEventsById((prev) => ({
-      ...prev,
-      [nextCollection.id]: [],
-    }));
-    addVisibleCollection(nextCollection.id);
-
-    return nextCollection;
-  };
-
-  const handleSetCollectionColor = (collectionId: string, color: string) => {
-    setCollectionColorPreferences((prev) => ({
-      ...prev,
-      [collectionId]: color,
-    }));
-  };
-
-  const handleResetCollectionColor = (collectionId: string) => {
-    setCollectionColorPreferences((prev) => {
-      const next = { ...prev };
-      delete next[collectionId];
-      return next;
-    });
-  };
+  const findEventCollectionId = (eventId: string) =>
+    findEventCollectionIdInCollections(collectionEventsById, eventId);
 
   return {
     collectionEventsById,
@@ -293,14 +125,15 @@ export const useTimelineCollections = () => {
     addVisibleCollection,
     ensurePlaygroundCollection,
     findEventCollectionId,
-    handleDownloadCollection,
-    handleSyncCollection,
-    handleSetCollectionVisibility,
-    handleDeleteCollection,
-    handleSaveEvent,
-    handleAddEvent,
-    handleCreateCollection,
-    handleSetCollectionColor,
-    handleResetCollectionColor,
+    handleDownloadCollection: downloadCollection,
+    handleSyncCollection: syncCollection,
+    handleSetCollectionVisibility: setCollectionVisibility,
+    handleDeleteCollection: deleteCollection,
+    handleSaveEvent: saveEvent,
+    handleAddEvent: addEvent,
+    handleDeleteEvent: deleteEvent,
+    handleCreateCollection: createCollection,
+    handleSetCollectionColor: setCollectionColor,
+    handleResetCollectionColor: resetCollectionColor,
   };
 };

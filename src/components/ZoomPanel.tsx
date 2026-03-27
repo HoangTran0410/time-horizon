@@ -24,7 +24,7 @@ export const ZoomPanel: React.FC<ZoomPanelProps> = ({
   onZoomDragEnd,
 }) => (
   <div className="ui-popover" data-open={isOpen}>
-    <div className="mt-0.5 flex flex-col items-end gap-2 rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 shadow-lg">
+    <div className="mt-0.5 flex flex-col items-end gap-2 rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5">
       <div className="relative flex items-center justify-center self-center">
         <select
           value="current"

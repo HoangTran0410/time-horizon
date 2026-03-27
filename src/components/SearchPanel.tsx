@@ -1,18 +1,49 @@
 import React from "react";
+import { X } from "lucide-react";
 import { Event } from "../constants/types";
 import { MEDIA_FILTERS, MediaFilter } from "../constants/types";
 import { SearchResultItem } from "./SearchResultItem";
 import {
+  SearchSortMode,
   filterTimelineSearchEvents,
   getTimelineSearchDateInputError,
+  hasActiveTimelineSearchFilters,
   SEARCH_SORT_OPTIONS,
-  useTimelineSearchStore,
-} from "../stores/timelineSearchStore";
+  useTimelineStore,
+} from "../stores";
+
+export interface SearchPanelStateAdapter {
+  searchQuery: string;
+  activeMediaFilters: MediaFilter[];
+  searchSortMode: SearchSortMode;
+  timeRangeStartInput: string;
+  timeRangeEndInput: string;
+  showOnlyResultsOnTimeline: boolean;
+  setSearchQuery: (value: string) => void;
+  toggleMediaFilter: (filter: MediaFilter) => void;
+  setSearchSortMode: (value: SearchSortMode) => void;
+  setTimeRangeStartInput: (value: string) => void;
+  setTimeRangeEndInput: (value: string) => void;
+  setShowOnlyResultsOnTimeline: (value: boolean) => void;
+}
 
 interface SearchPanelProps {
   isOpen: boolean;
   searchableEvents: Event[];
   onSearchSelect: (event: Event) => void;
+  onDeleteEvent: (event: Event) => void;
+  state?: SearchPanelStateAdapter;
+  title?: string;
+  subtitle?: string;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
+  resultLabel?: string;
+  showTimelineToggle?: boolean;
+  timelineToggleLabel?: string;
+  wrapperClassName?: string;
+  panelClassName?: string;
+  maxHeight?: string;
+  onClose?: () => void;
 }
 
 const INITIAL_VISIBLE_RESULTS = 16;
@@ -23,52 +54,93 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   isOpen,
   searchableEvents,
   onSearchSelect,
+  onDeleteEvent,
+  state,
+  title = "Search Events",
+  subtitle,
+  searchPlaceholder = "Name or description",
+  emptyMessage = "No visible events matched your search.",
+  resultLabel = "visible events",
+  showTimelineToggle = true,
+  timelineToggleLabel = "Only show matched events on timeline",
+  wrapperClassName,
+  panelClassName,
+  maxHeight = SEARCH_PANEL_MAX_HEIGHT,
+  onClose,
 }) => {
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] =
-    React.useState(true);
+    React.useState(false);
   const [advancedFiltersHeight, setAdvancedFiltersHeight] = React.useState(0);
   const [isResultsReady, setIsResultsReady] = React.useState(false);
   const [visibleResultCount, setVisibleResultCount] = React.useState(
     INITIAL_VISIBLE_RESULTS,
   );
-  const searchQuery = useTimelineSearchStore((state) => state.searchQuery);
-  const activeMediaFilters = useTimelineSearchStore(
+  const globalSearchQuery = useTimelineStore((state) => state.searchQuery);
+  const globalActiveMediaFilters = useTimelineStore(
     (state) => state.activeMediaFilters,
   );
-  const searchSortMode = useTimelineSearchStore(
+  const globalSearchSortMode = useTimelineStore(
     (state) => state.searchSortMode,
   );
-  const timeRangeStartInput = useTimelineSearchStore(
+  const globalTimeRangeStartInput = useTimelineStore(
     (state) => state.timeRangeStartInput,
   );
-  const timeRangeEndInput = useTimelineSearchStore(
+  const globalTimeRangeEndInput = useTimelineStore(
     (state) => state.timeRangeEndInput,
   );
-  const showOnlyResultsOnTimeline = useTimelineSearchStore(
+  const globalShowOnlyResultsOnTimeline = useTimelineStore(
     (state) => state.showOnlyResultsOnTimeline,
   );
-  const setSearchQuery = useTimelineSearchStore(
+  const globalSetSearchQuery = useTimelineStore(
     (state) => state.setSearchQuery,
   );
-  const toggleStoredMediaFilter = useTimelineSearchStore(
+  const globalToggleStoredMediaFilter = useTimelineStore(
     (state) => state.toggleMediaFilter,
   );
-  const setSearchSortMode = useTimelineSearchStore(
+  const globalSetSearchSortMode = useTimelineStore(
     (state) => state.setSearchSortMode,
   );
-  const setTimeRangeStartInput = useTimelineSearchStore(
+  const globalSetTimeRangeStartInput = useTimelineStore(
     (state) => state.setTimeRangeStartInput,
   );
-  const setTimeRangeEndInput = useTimelineSearchStore(
+  const globalSetTimeRangeEndInput = useTimelineStore(
     (state) => state.setTimeRangeEndInput,
   );
-  const setShowOnlyResultsOnTimeline = useTimelineSearchStore(
+  const globalSetShowOnlyResultsOnTimeline = useTimelineStore(
     (state) => state.setShowOnlyResultsOnTimeline,
   );
   const advancedFiltersContentRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const resultsListRef = React.useRef<HTMLDivElement>(null);
   const resultsSentinelRef = React.useRef<HTMLDivElement>(null);
+  const effectiveState = state ?? {
+    searchQuery: globalSearchQuery,
+    activeMediaFilters: globalActiveMediaFilters,
+    searchSortMode: globalSearchSortMode,
+    timeRangeStartInput: globalTimeRangeStartInput,
+    timeRangeEndInput: globalTimeRangeEndInput,
+    showOnlyResultsOnTimeline: globalShowOnlyResultsOnTimeline,
+    setSearchQuery: globalSetSearchQuery,
+    toggleMediaFilter: globalToggleStoredMediaFilter,
+    setSearchSortMode: globalSetSearchSortMode,
+    setTimeRangeStartInput: globalSetTimeRangeStartInput,
+    setTimeRangeEndInput: globalSetTimeRangeEndInput,
+    setShowOnlyResultsOnTimeline: globalSetShowOnlyResultsOnTimeline,
+  };
+  const {
+    searchQuery,
+    activeMediaFilters,
+    searchSortMode,
+    timeRangeStartInput,
+    timeRangeEndInput,
+    showOnlyResultsOnTimeline,
+    setSearchQuery,
+    toggleMediaFilter: toggleStoredMediaFilter,
+    setSearchSortMode,
+    setTimeRangeStartInput,
+    setTimeRangeEndInput,
+    setShowOnlyResultsOnTimeline,
+  } = effectiveState;
   const deferredSearchQuery = React.useDeferredValue(searchQuery);
 
   React.useEffect(() => {
@@ -140,6 +212,21 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     () =>
       getTimelineSearchDateInputError(timeRangeStartInput, timeRangeEndInput),
     [timeRangeEndInput, timeRangeStartInput],
+  );
+  const hasActiveFilters = React.useMemo(
+    () =>
+      hasActiveTimelineSearchFilters({
+        activeMediaFilters,
+        searchSortMode,
+        timeRangeStartInput,
+        timeRangeEndInput,
+      }),
+    [
+      activeMediaFilters,
+      searchSortMode,
+      timeRangeEndInput,
+      timeRangeStartInput,
+    ],
   );
 
   React.useLayoutEffect(() => {
@@ -227,28 +314,49 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   return (
     <div
-      className="ui-popover"
+      className={`ui-popover ${wrapperClassName ?? ""}`.trim()}
       data-open={isOpen}
-      style={isOpen ? { maxHeight: SEARCH_PANEL_MAX_HEIGHT } : undefined}
+      style={isOpen ? { maxHeight } : undefined}
     >
       <form
         onSubmit={handleSearchSubmit}
-        className="flex w-[24rem] max-w-[calc(100vw-4rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 shadow-lg"
-        style={{ maxHeight: SEARCH_PANEL_MAX_HEIGHT }}
+        className={`flex w-[24rem] max-w-[calc(100vw-4rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 ${
+          panelClassName ?? ""
+        }`.trim()}
+        style={{ maxHeight }}
       >
         <div
           ref={resultsListRef}
           className="min-h-0 flex-1 overflow-y-auto pr-1"
         >
-          <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-            Search Events
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                {title}
+              </div>
+              {subtitle ? (
+                <p className="mt-1 text-[11px] leading-5 text-zinc-400">
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
+            {onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-zinc-800 bg-zinc-900/90 p-1.5 text-zinc-400 transition-colors hover:border-zinc-700 hover:text-white"
+                aria-label="Close search panel"
+              >
+                <X size={12} />
+              </button>
+            ) : null}
           </div>
           <input
             ref={searchInputRef}
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Name or description"
+            placeholder={searchPlaceholder}
             className="mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
           />
           <div className="mb-2 rounded-xl border border-zinc-800  p-2">
@@ -258,8 +366,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               className="flex w-full items-center justify-between rounded-lg text-left"
               aria-expanded={isAdvancedFiltersOpen}
             >
-              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
-                Filters
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
+                <span>Filters</span>
+                {hasActiveFilters && (
+                  <span className="h-2 w-2 rounded-full bg-rose-500/80" />
+                )}
               </div>
               <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400">
                 {isAdvancedFiltersOpen ? "Hide" : "Show"}
@@ -355,9 +466,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             {filteredResults.length != searchableEvents.length
               ? `/${searchableEvents.length}`
               : ""}{" "}
-            visible events
+            {resultLabel}
           </div>
-          {filteredResults.length > 0 && (
+          {showTimelineToggle && filteredResults.length > 0 && (
             <label className="mb-2 flex items-center gap-2 rounded-lg border border-zinc-800 px-2.5 py-2 text-[11px] text-zinc-300">
               <input
                 type="checkbox"
@@ -365,7 +476,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 onChange={(e) => setShowOnlyResultsOnTimeline(e.target.checked)}
                 className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500 focus:ring-emerald-500/40"
               />
-              <span>Only show matched events on timeline</span>
+              <span>{timelineToggleLabel}</span>
             </label>
           )}
 
@@ -375,7 +486,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             </div>
           ) : filteredResults.length === 0 ? (
             <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
-              No visible events matched your search.
+              {emptyMessage}
             </div>
           ) : (
             <div className="space-y-1">
@@ -384,6 +495,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   key={event.id}
                   event={event}
                   onSelect={onSearchSelect}
+                  onDelete={onDeleteEvent}
                 />
               ))}
               {visibleResultCount < filteredResults.length && (

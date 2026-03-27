@@ -55,7 +55,7 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <div className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300 shadow-lg">
+      <div className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300">
         Logic {logicFps} | Canvas {renderFps}
       </div>
       {supportsFullscreen ? (
@@ -64,11 +64,13 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
           onClick={() => {
             void handleToggleFullscreen();
           }}
-          className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 shadow-lg transition-colors hover:bg-zinc-800 hover:text-white"
+          className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
           aria-label={
             isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"
           }
-          title={isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"}
+          title={
+            isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"
+          }
         >
           {isFullscreen ? (
             <Minimize2 width={15} height={15} />
@@ -83,7 +85,7 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
       <button
         type="button"
         onClick={onToggleTheme}
-        className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 shadow-lg transition-colors hover:bg-zinc-800 hover:text-white"
+        className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
         aria-label={
           theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
         }

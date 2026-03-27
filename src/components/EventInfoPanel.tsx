@@ -10,11 +10,17 @@ import {
   Pencil,
   RotateCcw,
   Ruler,
+  Trash2,
   X,
   ZoomIn,
 } from "lucide-react";
 import { Event } from "../constants/types";
-import { getEventDisplayLabel } from "../helpers";
+import {
+  getEventDisplayLabel,
+  normalizeEmbedVideoUrl,
+  normalizeExternalLinkUrl,
+  normalizeImageUrl,
+} from "../helpers";
 
 interface EventInfoPanelProps {
   event: Event;
@@ -22,6 +28,7 @@ interface EventInfoPanelProps {
   isCollapsed: boolean;
   onFocus: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   onToggleRuler: () => void;
   onToggleCollapsed: () => void;
   onClose: () => void;
@@ -43,52 +50,6 @@ const getPointerCenter = (first: PointerSnapshot, second: PointerSnapshot) => ({
   x: (first.clientX + second.clientX) / 2,
   y: (first.clientY + second.clientY) / 2,
 });
-
-const normalizeEmbedVideoUrl = (video: string | undefined): string | null => {
-  if (!video) return null;
-
-  const trimmed = video.trim();
-  if (trimmed === "") return null;
-
-  if (/^https?:\/\/(?:www\.)?youtube\.com\/watch\?/iu.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      const videoId = url.searchParams.get("v");
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : trimmed;
-    } catch {
-      return trimmed;
-    }
-  }
-
-  if (/^https?:\/\/youtu\.be\//iu.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      const videoId = url.pathname.replace(/^\/+/u, "");
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : trimmed;
-    } catch {
-      return trimmed;
-    }
-  }
-
-  if (/^https?:\/\//iu.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://www.youtube.com/embed/${trimmed}`;
-};
-
-const normalizeExternalLinkUrl = (link: string | undefined): string | null => {
-  if (!link) return null;
-
-  const trimmed = link.trim();
-  if (trimmed === "") return null;
-
-  if (/^https?:\/\//iu.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://en.wikipedia.org/wiki/${trimmed}`;
-};
 
 interface EventImagePreviewProps {
   src: string;
@@ -181,7 +142,7 @@ const EventImagePreview: React.FC<EventImagePreviewProps> = ({
       )}
 
       {status === "error" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/90 text-zinc-500">
+        <div className="absolute inset-0 flex items-center justify-center  text-zinc-500">
           <div className="flex flex-col items-center gap-1 text-[10px]">
             <ImageOff width={16} height={16} />
             <span>Image unavailable</span>
@@ -232,12 +193,14 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   isCollapsed,
   onFocus,
   onEdit,
+  onDelete,
   onToggleRuler,
   onToggleCollapsed,
   onClose,
 }) => {
   const embeddedVideoUrl = normalizeEmbedVideoUrl(event.video);
   const externalLinkUrl = normalizeExternalLinkUrl(event.link);
+  const imageUrl = normalizeImageUrl(event.image);
   const [mediaModal, setMediaModal] = React.useState<"image" | "video" | null>(
     null,
   );
@@ -458,7 +421,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
           >
             <motion.button
               onClick={onToggleCollapsed}
-              className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/95 px-4 py-2 text-sm font-medium text-zinc-100 shadow-lg shadow-black/30 transition-colors hover:bg-zinc-800"
+              className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/95 px-4 py-2 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-800"
               aria-expanded={false}
               aria-label="Expand event info"
               title="Expand panel"
@@ -483,7 +446,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
           >
             <motion.button
               onClick={onToggleCollapsed}
-              className="absolute -top-5 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/95 p-2 text-zinc-300 shadow-lg shadow-black/30 transition-colors hover:bg-zinc-800 hover:text-white"
+              className="absolute -top-5 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/95 p-2 text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
               aria-expanded
               aria-label="Collapse event info"
               title="Collapse panel"
@@ -530,6 +493,13 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                           <Pencil width={14} height={14} />
                         </button>
                         <button
+                          onClick={onDelete}
+                          className="flex items-center gap-1 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-300 transition-colors hover:border-red-500/35 hover:bg-red-500/15 hover:text-red-200"
+                          title={`Delete ${event.title}`}
+                        >
+                          <Trash2 width={14} height={14} />
+                        </button>
+                        <button
                           onClick={onToggleRuler}
                           className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                             isRulerActive
@@ -553,11 +523,11 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                     <p className="mt-1.5 line-clamp-2 text-xs text-zinc-300">
                       {event.description}
                     </p>
-                    {(event.image || embeddedVideoUrl || externalLinkUrl) && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {event.image && (
+                    {(imageUrl || embeddedVideoUrl || externalLinkUrl) && (
+                      <div className="mt-3 flex items-center gap-2">
+                        {imageUrl && (
                           <EventImagePreview
-                            src={event.image}
+                            src={imageUrl}
                             alt={event.title}
                             onClick={() => setMediaModal("image")}
                             wrapperClassName="h-[120px] w-[120px] rounded-xl border border-zinc-800"
@@ -566,28 +536,30 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                           />
                         )}
 
-                        {embeddedVideoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setMediaModal("video")}
-                            className="inline-flex items-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/15"
-                          >
-                            <Play width={13} height={13} />
-                            <span>Watch video</span>
-                          </button>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {embeddedVideoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setMediaModal("video")}
+                              className="inline-flex items-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/15"
+                            >
+                              <Play width={13} height={13} />
+                              <span>Video</span>
+                            </button>
+                          )}
 
-                        {externalLinkUrl && (
-                          <a
-                            href={externalLinkUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-white"
-                          >
-                            <ExternalLink width={13} height={13} />
-                            <span className="truncate">Open link</span>
-                          </a>
-                        )}
+                          {externalLinkUrl && (
+                            <a
+                              href={externalLinkUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-white"
+                            >
+                              <ExternalLink width={13} height={13} />
+                              <span className="truncate">Link</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -599,7 +571,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
       </AnimatePresence>
 
       <AnimatePresence>
-        {mediaModal === "image" && event.image ? (
+        {mediaModal === "image" && imageUrl ? (
           <motion.div
             className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
             initial={{ opacity: 0 }}
@@ -610,7 +582,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
             onWheel={(e) => e.stopPropagation()}
           >
             <motion.div
-              className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"
+              className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -618,7 +590,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 py-1.5 text-xs text-zinc-300">
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full border border-zinc-700  px-3 py-1.5 text-xs text-zinc-300">
                 <ZoomIn width={14} height={14} />
                 <span>{Math.round(imageScale * 100)}%</span>
                 <button
@@ -633,7 +605,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
               <button
                 type="button"
                 onClick={() => setMediaModal(null)}
-                className="absolute top-3 right-3 z-10 rounded-full border border-zinc-700 bg-zinc-900/90 p-2 text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                className="absolute top-3 right-3 z-10 rounded-full border border-zinc-700  p-2 text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
                 aria-label="Close image"
               >
                 <X width={16} height={16} />
@@ -643,7 +615,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                 onWheel={handleImageWheel}
               >
                 <EventImagePreview
-                  src={event.image}
+                  src={imageUrl}
                   alt={event.title}
                   wrapperClassName={`flex h-full w-full touch-none select-none items-center justify-center ${
                     imageScale > 1
@@ -679,7 +651,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
             onWheel={(e) => e.stopPropagation()}
           >
             <motion.div
-              className="ui-modal-surface relative w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-800 bg-black shadow-2xl"
+              className="ui-modal-surface relative w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-800 bg-black"
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -690,7 +662,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
               <button
                 type="button"
                 onClick={() => setMediaModal(null)}
-                className="absolute top-3 right-3 z-10 rounded-full border border-zinc-700 bg-zinc-900/90 p-2 text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                className="absolute top-3 right-3 z-10 rounded-full border border-zinc-700 p-2 text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
                 aria-label="Close video"
               >
                 <X width={16} height={16} />

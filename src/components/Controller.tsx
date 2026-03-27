@@ -7,6 +7,7 @@ import { JumpPanel } from "./JumpPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
 import { SearchPanel } from "./SearchPanel";
 import { ZoomPanel } from "./ZoomPanel";
+import { hasActiveTimelineSearch, useTimelineStore } from "../stores";
 
 interface ControllerProps {
   zoomRangeLabel: string;
@@ -14,6 +15,7 @@ interface ControllerProps {
   onQuickZoom: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onJumpToDate: (target: DateJumpTarget) => void;
   onSearchSelect: (event: Event) => void;
+  onDeleteEvent: (event: Event) => void;
   onAutoFitAll: () => void;
   onAutoFitRange: (target: AutoFitRangeTarget) => void;
   zoomTrackRef: React.RefObject<HTMLDivElement | null>;
@@ -31,6 +33,7 @@ export const Controller: React.FC<ControllerProps> = ({
   onQuickZoom,
   onJumpToDate,
   onSearchSelect,
+  onDeleteEvent,
   onAutoFitAll,
   onAutoFitRange,
   zoomTrackRef,
@@ -40,6 +43,24 @@ export const Controller: React.FC<ControllerProps> = ({
   onZoomDragEnd,
 }) => {
   const [activePanel, setActivePanel] = React.useState<ActivePanel>(null);
+  const searchQuery = useTimelineStore((state) => state.searchQuery);
+  const activeMediaFilters = useTimelineStore(
+    (state) => state.activeMediaFilters,
+  );
+  const searchSortMode = useTimelineStore((state) => state.searchSortMode);
+  const timeRangeStartInput = useTimelineStore(
+    (state) => state.timeRangeStartInput,
+  );
+  const timeRangeEndInput = useTimelineStore(
+    (state) => state.timeRangeEndInput,
+  );
+  const hasActiveSearch = hasActiveTimelineSearch({
+    searchQuery,
+    activeMediaFilters,
+    searchSortMode,
+    timeRangeStartInput,
+    timeRangeEndInput,
+  });
 
   const togglePanel = (panel: Exclude<ActivePanel, null>) => {
     setActivePanel((current) => (current === panel ? null : panel));
@@ -69,6 +90,7 @@ export const Controller: React.FC<ControllerProps> = ({
         onClick={() => togglePanel("search")}
         openLabel="Open event search"
         closeLabel="Close event search"
+        showIndicator={hasActiveSearch}
       >
         <Search width={16} height={16} />
       </PanelToggleButton>
@@ -107,6 +129,7 @@ export const Controller: React.FC<ControllerProps> = ({
             isOpen={activePanel === "search"}
             searchableEvents={searchableEvents}
             onSearchSelect={handleSearchSelect}
+            onDeleteEvent={onDeleteEvent}
           />
           <JumpPanel
             isOpen={activePanel === "jump"}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Event, EventCollectionMeta } from "../constants/types";
+import { Event, EventCollectionMeta, MediaFilter } from "../constants/types";
 import {
   Compass,
   Eye,
@@ -8,10 +8,14 @@ import {
   Menu,
   Plus,
   RefreshCw,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
+import { ConfirmDialogOptions } from "./ConfirmDialog";
 import { ExploreCollectionsModal } from "./ExploreCollectionsModal";
+import { SearchPanel, SearchPanelStateAdapter } from "./SearchPanel";
+import { DEFAULT_SEARCH_SORT_MODE, type SearchSortMode } from "../stores";
 
 interface SidebarProps {
   collections: EventCollectionMeta[];
@@ -28,6 +32,9 @@ interface SidebarProps {
   collectionColors: Record<string, string | null>;
   onSetCollectionColor: (collectionId: string, color: string) => void;
   onDeleteCollection: (collection: EventCollectionMeta) => void;
+  onRequestConfirm: (options: ConfirmDialogOptions) => void;
+  onPreviewEvent: (event: Event) => void;
+  onDeleteEvent: (event: Event) => void;
   onAddEvent: (collectionId?: string) => void;
   onAddCollection: () => void;
 }
@@ -44,6 +51,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collectionColors,
   onSetCollectionColor,
   onDeleteCollection,
+  onRequestConfirm,
+  onPreviewEvent,
+  onDeleteEvent,
   onAddEvent,
   onAddCollection,
 }) => {
@@ -56,6 +66,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [sessionPinnedCollectionIds, setSessionPinnedCollectionIds] = useState<
     string[]
   >([]);
+  const [browsingCollectionId, setBrowsingCollectionId] = useState<
+    string | null
+  >(null);
+  const [collectionEventQuery, setCollectionEventQuery] = useState("");
+  const [collectionEventMediaFilters, setCollectionEventMediaFilters] =
+    useState<MediaFilter[]>([]);
+  const [collectionEventSortMode, setCollectionEventSortMode] =
+    useState<SearchSortMode>(DEFAULT_SEARCH_SORT_MODE);
+  const [collectionEventStartInput, setCollectionEventStartInput] =
+    useState("");
+  const [collectionEventEndInput, setCollectionEventEndInput] = useState("");
+  const [showCollectionMatchesOnTimeline, setShowCollectionMatchesOnTimeline] =
+    useState(false);
   const prevIsOpenRef = useRef(false);
 
   const normalizedCollectionQuery = collectionQuery.trim().toLowerCase();
@@ -118,6 +141,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
 
   const showPinnedVisibleSection = pinnedCollections.length > 0;
+  const browsedCollection = browsingCollectionId
+    ? (downloadedCollectionsById.get(browsingCollectionId) ?? null)
+    : null;
+  const browsedCollectionEvents = browsedCollection
+    ? (collectionEventsById[browsedCollection.id] ?? [])
+    : [];
+
+  const resetCollectionSearchState = () => {
+    setCollectionEventQuery("");
+    setCollectionEventMediaFilters([]);
+    setCollectionEventSortMode(DEFAULT_SEARCH_SORT_MODE);
+    setCollectionEventStartInput("");
+    setCollectionEventEndInput("");
+    setShowCollectionMatchesOnTimeline(false);
+  };
 
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
@@ -127,6 +165,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!isOpen && prevIsOpenRef.current) {
       setSessionPinnedCollectionIds([]);
       setActiveCollectionId(null);
+      setBrowsingCollectionId(null);
+      resetCollectionSearchState();
     }
 
     prevIsOpenRef.current = isOpen;
@@ -142,24 +182,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleDeleteCollection = (collection: EventCollectionMeta) => {
-    const message =
-      collection.author === "You"
-        ? `Delete "${collection.name}" and all of its local events?`
-        : `Remove "${collection.name}" from the sidebar and delete its downloaded local copy?`;
+    onRequestConfirm({
+      title: "Delete collection?",
+      description:
+        collection.author === "You"
+          ? `This will permanently remove "${collection.name}" and all of its local events.`
+          : `This will remove "${collection.name}" from your library and delete its downloaded local copy.`,
+      confirmLabel: "Delete Collection",
+      tone: "danger",
+      onConfirm: () => {
+        setSessionPinnedCollectionIds((prev) =>
+          prev.filter((id) => id !== collection.id),
+        );
+        onDeleteCollection(collection);
+      },
+    });
+  };
 
-    if (!window.confirm(message)) return;
+  const toggleCollectionBrowser = (collectionId: string) => {
+    setActiveCollectionId(collectionId);
+    setBrowsingCollectionId((current) => {
+      const nextCollectionId = current === collectionId ? null : collectionId;
+      resetCollectionSearchState();
+      return nextCollectionId;
+    });
+  };
 
-    setSessionPinnedCollectionIds((prev) =>
-      prev.filter((id) => id !== collection.id),
+  useEffect(() => {
+    if (!browsingCollectionId) return;
+
+    if (!downloadedCollectionsById.has(browsingCollectionId)) {
+      setBrowsingCollectionId(null);
+      resetCollectionSearchState();
+    }
+  }, [browsingCollectionId, downloadedCollectionsById]);
+
+  const toggleCollectionMediaFilter = (filter: MediaFilter) => {
+    setCollectionEventMediaFilters((current) =>
+      current.includes(filter)
+        ? current.filter((item) => item !== filter)
+        : [...current, filter],
     );
-    onDeleteCollection(collection);
+  };
+
+  const sidebarSearchState: SearchPanelStateAdapter = {
+    searchQuery: collectionEventQuery,
+    activeMediaFilters: collectionEventMediaFilters,
+    searchSortMode: collectionEventSortMode,
+    timeRangeStartInput: collectionEventStartInput,
+    timeRangeEndInput: collectionEventEndInput,
+    showOnlyResultsOnTimeline: showCollectionMatchesOnTimeline,
+    setSearchQuery: setCollectionEventQuery,
+    toggleMediaFilter: toggleCollectionMediaFilter,
+    setSearchSortMode: setCollectionEventSortMode,
+    setTimeRangeStartInput: setCollectionEventStartInput,
+    setTimeRangeEndInput: setCollectionEventEndInput,
+    setShowOnlyResultsOnTimeline: setShowCollectionMatchesOnTimeline,
+  };
+
+  const handleSelectSidebarSearchEvent = (event: Event) => {
+    onPreviewEvent(event);
+    setBrowsingCollectionId(null);
+    resetCollectionSearchState();
+  };
+
+  const handleCloseSidebarSearch = () => {
+    setBrowsingCollectionId(null);
+    resetCollectionSearchState();
   };
 
   return (
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-95 rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-white shadow-lg transition-colors hover:bg-zinc-800"
+        className="fixed top-4 left-4 z-95 rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-white transition-colors hover:bg-zinc-800"
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
@@ -174,18 +270,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 overflow-y-auto p-4 pt-20">
           <h2 className="mb-4 text-xl font-bold text-white">Time Horizon</h2>
 
-          <div className="mb-6">
+          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-3">
+            {/* <div className="mb-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                Library
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">
+                Create your own collections or add curated ones from the
+                catalog.
+              </p>
+            </div> */}
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => onAddEvent()}
-                className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus size={16} />
                 <span>Event</span>
               </button>
               <button
                 onClick={onAddCollection}
-                className="flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
               >
                 <FolderPlus size={16} />
                 <span>Collection</span>
@@ -193,23 +298,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <button
               onClick={() => setIsExploreOpen(true)}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
             >
               <Compass size={16} />
-              <span>Explore Public Collections</span>
+              <span>Browse Collections</span>
             </button>
           </div>
 
           <div className="mb-8">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                Collections ({downloadedCollections.length})
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                My Collections ({downloadedCollections.length})
               </h3>
             </div>
             <div className="mb-3">
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search my collections…"
                 value={collectionQuery}
                 onChange={(event) => setCollectionQuery(event.target.value)}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-white placeholder-zinc-500 transition-colors focus:border-emerald-500 focus:outline-none"
@@ -220,30 +325,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {downloadedCollections.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/50 p-4">
                   <div className="mb-2 text-sm font-medium text-zinc-200">
-                    No downloaded collections yet
+                    Your library is empty
                   </div>
                   <p className="text-sm leading-6 text-zinc-500">
-                    Open Explore to browse public collections and download them
-                    to your workspace.
+                    Add a collection from the catalog, or create your own local
+                    collection to start organizing events.
                   </p>
                   <button
                     onClick={() => setIsExploreOpen(true)}
                     className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
                   >
                     <Compass size={14} />
-                    <span>Open Explore</span>
+                    <span>Open Catalog</span>
                   </button>
                 </div>
               ) : filteredCollections.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-3 text-sm text-zinc-500">
-                  No collections match your search.
+                  No collections in your library match that search.
                 </div>
               ) : (
                 <>
                   {showPinnedVisibleSection && (
                     <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
                       <div className="mb-2 flex items-center justify-between">
-                        <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
                           Visible on timeline
                         </div>
                         <div className="text-[11px] text-emerald-200">
@@ -315,6 +420,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     );
                     const isCollectionActive =
                       activeCollectionId === collection.id;
+                    const isCollectionBrowserOpen =
+                      browsingCollectionId === collection.id;
                     const isLoading = downloadingCollectionIds.includes(
                       collection.id,
                     );
@@ -359,31 +466,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             current === collection.id ? null : current,
                           );
                         }}
-                        className={`group rounded-xl border px-2.5 py-2 transition-colors outline-none focus-visible:border-emerald-500/45 focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${
+                        className={`group rounded-2xl border bg-zinc-950/50 p-3 transition-colors outline-none focus-visible:border-emerald-500/45 focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${
                           isVisibleOnTimeline
-                            ? "border-emerald-500/35 bg-emerald-500/10"
-                            : "border-zinc-800 bg-zinc-900/90"
+                            ? "border-emerald-500/30 bg-emerald-500/10"
+                            : "border-zinc-800 hover:border-zinc-700"
                         }`}
                       >
                         <div className="flex items-start gap-2.5">
                           <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                            <span className="pt-0.5 text-xl leading-none">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-xl leading-none">
                               {collection.emoji}
-                            </span>
+                            </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <h4 className="truncate text-[13px] font-semibold text-white">
+                                <h4 className="truncate text-sm font-semibold text-white">
                                   {collection.name}
                                 </h4>
                                 {statusLabel ? (
                                   <span
-                                    className={`rounded-full border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] ${statusClassName}`}
+                                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] ${statusClassName}`}
                                   >
                                     {statusLabel}
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-500">
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
                                 <span>{totalLoadedEvents} events</span>
                                 <span>by {collection.author}</span>
                                 {/* <span className="inline-flex items-center gap-1">
@@ -403,7 +510,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
                             }`}
                           >
-                            <label className="relative inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-zinc-800 bg-zinc-950/70 transition-colors hover:border-zinc-700">
+                            <label className="relative inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 transition-colors hover:border-zinc-700">
                               <input
                                 type="color"
                                 value={collectionColor}
@@ -422,13 +529,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               />
                             </label>
                             <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleCollectionBrowser(collection.id);
+                              }}
+                              className={`rounded-full border p-2 transition-colors ${
+                                isCollectionBrowserOpen
+                                  ? "border-sky-500/40 bg-sky-500/10 text-sky-200 hover:bg-sky-500/15"
+                                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-white"
+                              }`}
+                              aria-label={`Browse events in ${collection.name}`}
+                              title={`Browse events in ${collection.name}`}
+                            >
+                              <Search size={14} />
+                            </button>
+                            <button
                               onClick={() =>
                                 void togglePinnedCollection(collection.id)
                               }
-                              className={`rounded-lg border p-1.5 transition-colors ${
+                              className={`rounded-full border p-2 transition-colors ${
                                 isVisibleOnTimeline
                                   ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"
-                                  : "border-zinc-800 bg-zinc-950/70 text-zinc-400 hover:border-zinc-700 hover:text-white"
+                                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-white"
                               }`}
                               aria-label={
                                 isVisibleOnTimeline
@@ -445,15 +568,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         </div>
 
-                        <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-zinc-400">
+                        <p className="mt-3 line-clamp-2 text-xs leading-5 text-zinc-400">
                           {collection.description}
                         </p>
 
                         <div
                           className={`overflow-hidden transition-all duration-150 ${
                             isCollectionActive
-                              ? "pointer-events-auto mt-2 max-h-16 opacity-100"
-                              : "pointer-events-none mt-0 max-h-0 opacity-0 group-hover:pointer-events-auto group-hover:mt-2 group-hover:max-h-16 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:mt-2 group-focus-within:max-h-16 group-focus-within:opacity-100"
+                              ? "pointer-events-auto mt-3 max-h-16 opacity-100"
+                              : "pointer-events-none mt-0 max-h-0 opacity-0 group-hover:pointer-events-auto group-hover:mt-3 group-hover:max-h-[32rem] group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:mt-3 group-focus-within:max-h-[32rem] group-focus-within:opacity-100"
                           }`}
                         >
                           <div className="flex flex-wrap gap-1.5">
@@ -500,6 +623,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
+      {browsedCollection ? (
+        <div
+          className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4"
+          onClick={handleCloseSidebarSearch}
+          onPointerDown={(event) => event.stopPropagation()}
+          onWheel={(event) => event.stopPropagation()}
+        >
+          <div
+            className="w-full max-w-[min(92vw,40rem)]"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <SearchPanel
+              isOpen
+              searchableEvents={browsedCollectionEvents}
+              onSearchSelect={handleSelectSidebarSearchEvent}
+              onDeleteEvent={onDeleteEvent}
+              state={sidebarSearchState}
+              title={`Search ${browsedCollection.name}`}
+              subtitle={`Browse ${browsedCollectionEvents.length} loaded events without turning this collection on in the timeline.`}
+              searchPlaceholder={`Search ${browsedCollection.name}...`}
+              emptyMessage="No events in this collection matched your search."
+              resultLabel="collection events"
+              showTimelineToggle={false}
+              wrapperClassName="w-full"
+              panelClassName="w-full max-w-none rounded-[1.6rem] border-zinc-800 bg-zinc-950/95 shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+              maxHeight="min(82vh, calc(100vh - 3rem))"
+              onClose={handleCloseSidebarSearch}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {isExploreOpen ? (
         <ExploreCollectionsModal
           collections={publicCollections}
@@ -508,6 +664,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           collectionEventsById={collectionEventsById}
           onClose={() => setIsExploreOpen(false)}
           onDownloadCollection={onDownloadCollection}
+          onDeleteCollection={handleDeleteCollection}
           onSetCollectionVisibility={onSetCollectionVisibility}
         />
       ) : null}

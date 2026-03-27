@@ -89,7 +89,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
 
   return (
     <div
-      className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
       data-ui-state={isClosing ? "closing" : "open"}
       onPointerDown={handleBackdropPointerDown}
       onPointerUp={handleBackdropPointerUp}
@@ -99,7 +99,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="ui-modal-surface w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl"
+        className="ui-modal-surface w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}

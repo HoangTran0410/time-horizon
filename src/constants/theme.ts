@@ -1,9 +1,7 @@
 export type ThemeMode = "dark" | "light";
 
+// Kept for one-time migration into the unified Zustand persist store.
 export const THEME_STORAGE_KEY = "time-horizon:theme";
-
-const isThemeMode = (value: string | null): value is ThemeMode =>
-  value === "dark" || value === "light";
 
 export const getSystemTheme = (): ThemeMode => {
   if (typeof window === "undefined") return "dark";
@@ -14,10 +12,7 @@ export const getSystemTheme = (): ThemeMode => {
 };
 
 export const getInitialTheme = (): ThemeMode => {
-  if (typeof window === "undefined") return "dark";
-
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return isThemeMode(storedTheme) ? storedTheme : getSystemTheme();
+  return getSystemTheme();
 };
 
 export const applyThemeToDocument = (theme: ThemeMode) => {
