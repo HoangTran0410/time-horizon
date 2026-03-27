@@ -1,32 +1,63 @@
 import React from "react";
-import { motion, MotionValue } from "motion/react";
+import { AnimatePresence, motion, MotionValue } from "motion/react";
 import {
   CalendarDays,
+  ChevronUp,
   ChevronDown,
   Locate,
   Maximize2,
+  MoonStar,
   Pencil,
   Ruler,
   Search,
   SlidersVertical,
+  SunMedium,
   X,
   ZoomIn,
 } from "lucide-react";
 import { Event } from "../../types";
 import { getEventDisplayLabel } from "../../utils";
+import { ThemeMode } from "../../theme";
 
 interface FpsBadgeProps {
   logicFps: number;
   renderFps: number;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
 }
 
-export const FpsBadge: React.FC<FpsBadgeProps> = ({ logicFps, renderFps }) => (
+export const FpsBadge: React.FC<FpsBadgeProps> = ({
+  logicFps,
+  renderFps,
+  theme,
+  onToggleTheme,
+}) => (
   <div
-    className="fixed top-4 right-4 z-40 rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300"
+    className="fixed top-4 right-4 z-40 flex items-center gap-2"
     onPointerDown={(e) => e.stopPropagation()}
     onWheel={(e) => e.stopPropagation()}
   >
-    Logic {logicFps} | Canvas {renderFps}
+    <div className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300 shadow-lg">
+      Logic {logicFps} | Canvas {renderFps}
+    </div>
+    <button
+      type="button"
+      onClick={onToggleTheme}
+      className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 shadow-lg transition-colors hover:bg-zinc-800 hover:text-white"
+      aria-label={
+        theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+      }
+      title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+    >
+      {theme === "dark" ? (
+        <SunMedium width={15} height={15} />
+      ) : (
+        <MoonStar width={15} height={15} />
+      )}
+      <span className="hidden sm:inline">
+        {theme === "dark" ? "Light" : "Dark"}
+      </span>
+    </button>
   </div>
 );
 
@@ -258,78 +289,147 @@ export const ZoomController: React.FC<ZoomControllerProps> = ({
 interface EventInfoPanelProps {
   event: Event;
   isRulerActive: boolean;
+  isCollapsed: boolean;
   onFocus: () => void;
   onEdit: () => void;
   onToggleRuler: () => void;
+  onToggleCollapsed: () => void;
   onClose: () => void;
 }
+
+const eventInfoPanelTransition = {
+  type: "spring",
+  stiffness: 520,
+  damping: 34,
+  mass: 0.65,
+} as const;
 
 export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   event,
   isRulerActive,
+  isCollapsed,
   onFocus,
   onEdit,
   onToggleRuler,
+  onToggleCollapsed,
   onClose,
 }) => (
-  <div
-    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border border-zinc-700 px-4 py-3 rounded-xl w-[min(92vw,560px)]"
-    onPointerDown={(e) => e.stopPropagation()}
-    onWheel={(e) => e.stopPropagation()}
-  >
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex items-start gap-3 min-w-0">
-        <div className="w-9 h-9 shrink-0 bg-zinc-800 rounded-full flex items-center justify-center text-lg border border-zinc-700">
-          {event.emoji}
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-white truncate">
-            {event.title}
-          </h3>
-          <p className="text-emerald-500 font-mono text-xs mt-0.5 truncate">
-            {getEventDisplayLabel(event)}
-          </p>
-          <p className="text-zinc-300 text-xs mt-1.5 line-clamp-2">
-            {event.description}
-          </p>
-        </div>
-      </div>
+  <AnimatePresence mode="wait" initial={false}>
+    {isCollapsed ? (
+      <motion.div
+        key="collapsed"
+        className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2"
+        initial={{ opacity: 0, y: 18, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.94 }}
+        transition={eventInfoPanelTransition}
+        onPointerDown={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+      >
+        <motion.button
+          onClick={onToggleCollapsed}
+          className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/95 px-4 py-2 text-sm font-medium text-zinc-100 shadow-lg shadow-black/30 transition-colors hover:bg-zinc-800"
+          aria-expanded={false}
+          aria-label="Expand event info"
+          title="Expand panel"
+          whileTap={{ scale: 0.97 }}
+        >
+          <ChevronUp width={16} height={16} />
+          <span className="flex items-center gap-2">
+            <span className="text-lg">{event.emoji}</span> {event.title}
+          </span>
+        </motion.button>
+      </motion.div>
+    ) : (
+      <motion.div
+        key="expanded"
+        className="fixed bottom-5 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2"
+        initial={{ opacity: 0, y: 22, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.95 }}
+        transition={eventInfoPanelTransition}
+        onPointerDown={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+      >
+        <motion.button
+          onClick={onToggleCollapsed}
+          className="absolute -top-5 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/95 p-2 text-zinc-300 shadow-lg shadow-black/30 transition-colors hover:bg-zinc-800 hover:text-white"
+          aria-expanded
+          aria-label="Collapse event info"
+          title="Collapse panel"
+          whileTap={{ scale: 0.95 }}
+        >
+          <ChevronDown width={16} height={16} />
+        </motion.button>
 
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={onFocus}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-md transition-colors text-xs font-medium border border-emerald-500 flex items-center gap-1"
-          title="Center camera on this event"
+        <motion.div
+          className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.12, ease: "easeOut" }}
         >
-          <Locate width={14} height={14} /> Focus
-        </button>
-        <button
-          onClick={onEdit}
-          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2.5 py-1.5 rounded-md transition-colors text-xs font-medium border border-zinc-700 flex items-center gap-1"
-        >
-          <Pencil width={12} height={12} /> Edit
-        </button>
-        <button
-          onClick={onToggleRuler}
-          className={`px-2.5 py-1.5 rounded-md transition-colors text-xs font-medium border flex items-center gap-1 ${
-            isRulerActive
-              ? "bg-amber-500/15 hover:bg-amber-500/20 text-amber-100 border-amber-400/60"
-              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
-          }`}
-          title="Measure time from this event to the cursor"
-        >
-          <Ruler width={12} height={12} /> Ruler
-        </button>
-        <button
-          onClick={onClose}
-          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white p-1.5 rounded-md transition-colors border border-zinc-700"
-          aria-label="Close"
-        >
-          <X width={16} height={16} />
-        </button>
-      </div>
-    </div>
-  </div>
+          <div className="flex items-start gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <div className="w-9 h-9 shrink-0 rounded-full border border-zinc-700 bg-zinc-800 text-lg flex items-center justify-center">
+                {event.emoji}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                  <div className="min-w-0 flex-1 basis-48">
+                    <h3 className="truncate text-sm font-semibold text-white">
+                      {event.title}
+                    </h3>
+                    <p className="mt-0.5 truncate font-mono text-xs text-emerald-500">
+                      {getEventDisplayLabel(event)}
+                    </p>
+                  </div>
+
+                  <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:max-w-[50%]">
+                    <button
+                      onClick={onFocus}
+                      className="flex items-center gap-1 rounded-md border border-emerald-500 bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-500"
+                      title="Center camera on this event"
+                    >
+                      <Locate width={14} height={14} />
+                    </button>
+                    <button
+                      onClick={onEdit}
+                      className="flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700"
+                    >
+                      <Pencil width={12} height={12} />
+                    </button>
+                    <button
+                      onClick={onToggleRuler}
+                      className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                        isRulerActive
+                          ? "border-amber-400/60 bg-amber-500/15 text-amber-100 hover:bg-amber-500/20"
+                          : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                      }`}
+                      title="Measure time from this event to the cursor"
+                    >
+                      <Ruler width={12} height={12} />
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="rounded-md border border-zinc-700 bg-zinc-800 p-1.5 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-white"
+                      aria-label="Close"
+                    >
+                      <X width={16} height={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mt-1.5 line-clamp-2 text-xs text-zinc-300">
+                  {event.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
 );
 
 interface AutoFitButtonProps {

@@ -8,6 +8,7 @@ import {
   animate,
 } from "motion/react";
 import { getNiceInterval } from "../../utils";
+import { ThemeMode } from "../../theme";
 
 export type TimelineTick = {
   year: number;
@@ -84,6 +85,7 @@ interface WarpOverlayProps {
   isWarping: boolean;
   mode: WarpOverlayMode;
   direction: 1 | -1;
+  theme: ThemeMode;
   zoom: MotionValue<number>;
   zoomPivotX: MotionValue<number>;
 }
@@ -94,6 +96,7 @@ interface ZoomReferenceRingProps {
   maxVisibleDiameter: number;
   mode: Exclude<WarpOverlayMode, "travel">;
   index: number;
+  theme: ThemeMode;
 }
 
 const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
@@ -102,6 +105,7 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
   maxVisibleDiameter,
   mode,
   index,
+  theme,
 }) => {
   const diameter = useTransform(() => intervalYears * zoom.get());
   const opacity = useTransform(() => {
@@ -111,14 +115,26 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
   });
   return (
     <motion.div
-      className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/45"
+      className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full"
       style={{
         width: diameter,
         height: diameter,
         opacity,
+        border:
+          theme === "dark"
+            ? "1px solid rgba(255,255,255,0.45)"
+            : "1px solid rgba(71,85,105,0.28)",
       }}
     >
-      <motion.div className="absolute left-1/2 top-0 w-max whitespace-nowrap -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-500/90 bg-zinc-950 px-2 py-0.5 text-[10px] font-mono text-zinc-100">
+      <motion.div
+        className="absolute left-1/2 top-0 w-max whitespace-nowrap -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-500/90 bg-zinc-950 px-2 py-0.5 text-[10px] font-mono text-zinc-100"
+        style={{
+          borderColor:
+            theme === "dark"
+              ? "rgba(100,116,139,0.8)"
+              : "rgba(148,163,184,0.72)",
+        }}
+      >
         {formatRingTimespan(intervalYears)}
       </motion.div>
     </motion.div>
@@ -129,6 +145,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   isWarping,
   mode,
   direction,
+  theme,
   zoom,
   zoomPivotX,
 }) => {
@@ -188,7 +205,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-70 overflow-hidden"
+      className="warp-overlay pointer-events-none fixed inset-0 z-70 overflow-hidden"
       style={{
         opacity: isWarping ? 1 : 0,
         transition:
@@ -206,7 +223,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             return (
               <div
                 key={i}
-                className="absolute bg-linear-to-r from-white/20 via-white/60 to-transparent"
+                className="absolute"
                 style={{
                   top: `${top}%`,
                   left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
@@ -214,6 +231,10 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
                     direction === -1 ? (short ? "-20%" : "-40%") : undefined,
                   width: short ? "30%" : "60%",
                   height: "1px",
+                  background:
+                    theme === "dark"
+                      ? "linear-gradient(90deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.55) 55%, transparent 100%)"
+                      : "linear-gradient(90deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.22) 55%, transparent 100%)",
                   animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
                   transform: direction === -1 ? "scaleX(-1)" : undefined,
                 }}
@@ -226,8 +247,12 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             style={{
               background:
                 direction === 1
-                  ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
-                  : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)",
+                  ? theme === "dark"
+                    ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                    : "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(15,23,42,0.06) 0%, transparent 70%)"
+                  : theme === "dark"
+                    ? "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                    : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(15,23,42,0.06) 0%, transparent 70%)",
             }}
           />
         </>
@@ -245,6 +270,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
                 maxVisibleDiameter={maxVisibleDiameter}
                 mode={mode}
                 index={index}
+                theme={theme}
               />
             ))}
 
@@ -256,8 +282,12 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
                 opacity: mode === "zoom-in" ? 0.22 : 0.14,
                 background:
                   mode === "zoom-in"
-                    ? "radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 55%, transparent 100%)"
-                    : "radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 72%)",
+                    ? theme === "dark"
+                      ? "radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 55%, transparent 100%)"
+                      : "radial-gradient(circle, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0.04) 55%, transparent 100%)"
+                    : theme === "dark"
+                      ? "radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 72%)"
+                      : "radial-gradient(circle, rgba(15,23,42,0.12) 0%, transparent 72%)",
               }}
             />
           </div>

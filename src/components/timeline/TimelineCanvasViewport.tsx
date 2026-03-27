@@ -8,6 +8,7 @@ import {
   formatTimelineTick,
   withAlpha,
 } from "../../utils";
+import { ThemeMode } from "../../theme";
 import {
   CollapsedEventGroup,
   EventLayoutState,
@@ -15,6 +16,7 @@ import {
 } from "./TimelineMarkers";
 
 interface TimelineCanvasViewportProps {
+  theme: ThemeMode;
   containerRef: React.RefObject<HTMLDivElement | null>;
   focusPixel: MotionValue<number>;
   focusYear: MotionValue<number>;
@@ -64,6 +66,71 @@ const EVENT_LABEL_MAX_WIDTH = 120;
 const EVENT_TITLE_LINE_HEIGHT = 14;
 const EVENT_TITLE_MAX_LINES = 3;
 const EVENT_LABEL_GAP = 4;
+
+const CANVAS_THEME = {
+  dark: {
+    axis: "#3c4858",
+    yearZero: "rgba(148,163,184,0.24)",
+    tick: "#556274",
+    tickHighlighted: "rgba(248,250,252,0.86)",
+    tickText: "#8693a6",
+    tickTextHighlighted: "rgba(248,250,252,0.92)",
+    collapsedLine: "rgba(245,158,11,0.45)",
+    collapsedLineHover: "rgba(251,191,36,0.9)",
+    collapsedFill: "#10161d",
+    collapsedStroke: "rgba(245,158,11,0.72)",
+    collapsedStrokeHover: "rgba(251,191,36,0.95)",
+    collapsedText: "#fcd34d",
+    collapsedTextHover: "#fef3c7",
+    defaultIdleLine: "#44505f",
+    defaultIdleBorder: "#5d6879",
+    defaultActiveLine: "#10b981",
+    defaultActiveBorder: "#10b981",
+    defaultActiveText: "#34d399",
+    defaultActiveDate: "#10b981",
+    eventFill: "#10161d",
+    eventText: "#f5f7fa",
+    eventDate: "#8a97aa",
+    rulerLabelFill: "rgba(8,12,18,0.92)",
+    rulerLabelText: "#fef3c7",
+    bigBangLine: "rgba(245,158,11,0.5)",
+    bigBangFill: "#10161d",
+    bigBangStroke: "rgba(245,158,11,0.65)",
+    bigBangText: "#f59e0b",
+    bigBangBadgeText: "#fbbf24",
+  },
+  light: {
+    axis: "#c0c9d4",
+    yearZero: "rgba(100,116,139,0.24)",
+    tick: "#c3ccd7",
+    tickHighlighted: "rgba(30,41,59,0.8)",
+    tickText: "#7b8798",
+    tickTextHighlighted: "#1f2937",
+    collapsedLine: "rgba(180,83,9,0.3)",
+    collapsedLineHover: "rgba(180,83,9,0.72)",
+    collapsedFill: "#fffaf2",
+    collapsedStroke: "rgba(180,83,9,0.52)",
+    collapsedStrokeHover: "rgba(146,64,14,0.82)",
+    collapsedText: "#b45309",
+    collapsedTextHover: "#92400e",
+    defaultIdleLine: "#c8d0da",
+    defaultIdleBorder: "#c0cad4",
+    defaultActiveLine: "#059669",
+    defaultActiveBorder: "#059669",
+    defaultActiveText: "#047857",
+    defaultActiveDate: "#059669",
+    eventFill: "#fffaf2",
+    eventText: "#1f2937",
+    eventDate: "#667085",
+    rulerLabelFill: "rgba(255,250,242,0.95)",
+    rulerLabelText: "#92400e",
+    bigBangLine: "rgba(194,65,12,0.3)",
+    bigBangFill: "#fff7eb",
+    bigBangStroke: "rgba(194,65,12,0.42)",
+    bigBangText: "#c2410c",
+    bigBangBadgeText: "#c2410c",
+  },
+} as const;
 
 const splitLongToken = (
   ctx: CanvasRenderingContext2D,
@@ -138,6 +205,7 @@ const wrapCanvasText = (
 };
 
 export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
+  theme,
   containerRef,
   focusPixel,
   focusYear,
@@ -159,6 +227,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   onFocusEvent,
   onFocusCollapsedGroup,
 }) => {
+  const canvasTheme = CANVAS_THEME[theme];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const latestRef = useRef({
     ticks: [] as VisibleCanvasTick[],
@@ -395,7 +464,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       ctx.lineJoin = "round";
       ctx.clearRect(0, 0, width, height);
 
-      ctx.strokeStyle = "#3f3f46";
+      ctx.strokeStyle = canvasTheme.axis;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, snap(centerY));
@@ -405,7 +474,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       const yearZeroX = getScreenX(0);
       if (yearZeroX >= 0 && yearZeroX <= width) {
         const snappedYearZeroX = snap(yearZeroX);
-        ctx.strokeStyle = "rgba(161,161,170,0.28)";
+        ctx.strokeStyle = canvasTheme.yearZero;
         ctx.beginPath();
         ctx.moveTo(snappedYearZeroX, 0);
         ctx.lineTo(snappedYearZeroX, height);
@@ -420,8 +489,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           centerY + TICK_LABEL_OFFSET_Y + (tick.isHighlighted ? 5 : 0),
         );
         ctx.strokeStyle = tick.isHighlighted
-          ? "rgba(255,255,255,0.8)"
-          : "#52525b";
+          ? canvasTheme.tickHighlighted
+          : canvasTheme.tick;
         ctx.beginPath();
         ctx.moveTo(tickX, snap(centerY - 6));
         ctx.lineTo(tickX, snap(centerY + (tick.isHighlighted ? 14 : 9)));
@@ -431,8 +500,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           ? "600 11px ui-monospace, monospace"
           : "10px ui-monospace, monospace";
         ctx.fillStyle = tick.isHighlighted
-          ? "rgba(255,255,255,0.9)"
-          : "#71717a";
+          ? canvasTheme.tickTextHighlighted
+          : canvasTheme.tickText;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(label, tickX, tickLabelY);
@@ -447,23 +516,25 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           hoveredTarget.type === "collapsed" && hoveredTarget.id === group.id;
         const radius = isHovered ? 24 : COLLAPSED_RADIUS;
         ctx.strokeStyle = isHovered
-          ? "rgba(251,191,36,0.9)"
-          : "rgba(245,158,11,0.45)";
+          ? canvasTheme.collapsedLineHover
+          : canvasTheme.collapsedLine;
         ctx.beginPath();
         ctx.moveTo(groupX, snap(centerY));
         ctx.lineTo(groupX, groupY);
         ctx.stroke();
 
-        ctx.fillStyle = "#18181b";
+        ctx.fillStyle = canvasTheme.collapsedFill;
         ctx.strokeStyle = isHovered
-          ? "rgba(251,191,36,0.95)"
-          : "rgba(245,158,11,0.7)";
+          ? canvasTheme.collapsedStrokeHover
+          : canvasTheme.collapsedStroke;
         ctx.beginPath();
         ctx.arc(groupX, groupY, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = isHovered ? "#fde68a" : "#fcd34d";
+        ctx.fillStyle = isHovered
+          ? canvasTheme.collapsedTextHover
+          : canvasTheme.collapsedText;
         ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -493,12 +564,13 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         const accentColor = currentEventAccentColors[event.id] ?? null;
         const idleLineColor = accentColor
           ? withAlpha(accentColor, 0.55)
-          : "#3f3f46";
-        const activeLineColor = accentColor ?? "#10b981";
-        const idleBorderColor = accentColor ?? "#52525b";
-        const activeBorderColor = accentColor ?? "#10b981";
-        const activeTextColor = accentColor ?? "#34d399";
-        const activeDateColor = accentColor ?? "#10b981";
+          : canvasTheme.defaultIdleLine;
+        const activeLineColor = accentColor ?? canvasTheme.defaultActiveLine;
+        const idleBorderColor = accentColor ?? canvasTheme.defaultIdleBorder;
+        const activeBorderColor =
+          accentColor ?? canvasTheme.defaultActiveBorder;
+        const activeTextColor = accentColor ?? canvasTheme.defaultActiveText;
+        const activeDateColor = accentColor ?? canvasTheme.defaultActiveDate;
 
         ctx.save();
         ctx.globalAlpha = isHovered ? Math.max(alpha, 0.95) : alpha;
@@ -509,7 +581,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.lineTo(eventX, eventY);
         ctx.stroke();
 
-        ctx.fillStyle = "#18181b";
+        ctx.fillStyle = canvasTheme.eventFill;
         ctx.beginPath();
         ctx.arc(eventX, eventY, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -525,7 +597,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.fillText(event.emoji, eventX, snap(eventY + 1));
 
         ctx.font = "500 12px ui-sans-serif, system-ui, sans-serif";
-        ctx.fillStyle = isHighlighted ? activeTextColor : "#e4e4e7";
+        ctx.fillStyle = isHighlighted ? activeTextColor : canvasTheme.eventText;
         const titleLines = wrapCanvasText(
           ctx,
           event.title,
@@ -558,7 +630,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         }
 
         ctx.font = "10px ui-monospace, monospace";
-        ctx.fillStyle = isHighlighted ? activeDateColor : "#71717a";
+        ctx.fillStyle = isHighlighted ? activeDateColor : canvasTheme.eventDate;
         const dateY = isBelowMarker
           ? eventY +
             34 +
@@ -600,7 +672,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           }
 
           const originAccent =
-            currentEventAccentColors[currentRulerEvent.id] ?? "#f59e0b";
+            currentEventAccentColors[currentRulerEvent.id] ??
+            canvasTheme.bigBangText;
           const deltaYears = targetYear - originYear;
           const rulerLabel = formatElapsedTimelineTime(deltaYears);
           const lineLength = Math.hypot(targetX - originX, targetY - originY);
@@ -643,7 +716,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             ctx.font = "600 11px ui-monospace, monospace";
             const labelWidth =
               ctx.measureText(rulerLabel).width + labelPaddingX * 2;
-            ctx.fillStyle = "rgba(9,9,11,0.92)";
+            ctx.fillStyle = canvasTheme.rulerLabelFill;
             ctx.strokeStyle = withAlpha(originAccent, 0.65);
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -657,7 +730,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = "#fef3c7";
+            ctx.fillStyle = canvasTheme.rulerLabelText;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(rulerLabel, labelX, labelY);
@@ -669,14 +742,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       const bigBangX = getScreenX(BIG_BANG_YEAR);
       if (bigBangX >= 0 && bigBangX <= width) {
         const snappedBigBangX = snap(bigBangX);
-        ctx.strokeStyle = "rgba(245,158,11,0.5)";
+        ctx.strokeStyle = canvasTheme.bigBangLine;
         ctx.beginPath();
         ctx.moveTo(snappedBigBangX, 0);
         ctx.lineTo(snappedBigBangX, height);
         ctx.stroke();
 
-        ctx.fillStyle = "#18181b";
-        ctx.strokeStyle = "rgba(245,158,11,0.65)";
+        ctx.fillStyle = canvasTheme.bigBangFill;
+        ctx.strokeStyle = canvasTheme.bigBangStroke;
         const labelWidth = 86;
         const labelHeight = 28;
         ctx.beginPath();
@@ -689,7 +762,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         );
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = "#f59e0b";
+        ctx.fillStyle = canvasTheme.bigBangText;
         ctx.font = "700 12px ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -698,8 +771,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         const badgeX = snap(width - 78);
         const badgeWidth = 92;
         const badgeHeight = 32;
-        ctx.fillStyle = "#18181b";
-        ctx.strokeStyle = "rgba(245,158,11,0.65)";
+        ctx.fillStyle = canvasTheme.bigBangFill;
+        ctx.strokeStyle = canvasTheme.bigBangStroke;
         ctx.beginPath();
         ctx.roundRect(
           snap(badgeX - badgeWidth / 2),
@@ -710,7 +783,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         );
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = "#fbbf24";
+        ctx.fillStyle = canvasTheme.bigBangBadgeText;
         ctx.font = "700 12px ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -726,7 +799,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         renderFrameRef.current = null;
       }
     };
-  }, [containerRef, focusPixel, focusYear, zoom]);
+  }, [canvasTheme, containerRef, focusPixel, focusYear, zoom]);
 
   useEffect(() => {
     // Continuous RAF loop — needed because canvas has no native animation mechanism.
@@ -823,7 +896,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative h-screen w-full overflow-hidden bg-zinc-950 text-white touch-none select-none"
+      className="timeline-viewport relative h-screen w-full overflow-hidden bg-zinc-950 text-white touch-none select-none"
       onWheel={onWheel}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handleCanvasPointerMove}

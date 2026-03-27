@@ -45,6 +45,7 @@ import {
   getTimelineHighlightStep,
   isHighlightedTimelineTick,
 } from "../utils";
+import { ThemeMode } from "../theme";
 
 const tickLabelWidthEstimateCache = new Map<number, number>();
 const TICK_OVERSCAN_INTERVALS = 2;
@@ -77,6 +78,11 @@ type CollectionCreationInput = Pick<
   EventCollectionMeta,
   "emoji" | "name" | "description"
 >;
+
+interface TimelineProps {
+  theme: ThemeMode;
+  onToggleTheme: () => void;
+}
 
 const BUILT_IN_COLLECTION_IDS = new Set(
   [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION].map(
@@ -315,7 +321,10 @@ const areCollapsedGroupsEqual = (
 const MIN_ZOOM = 100 / 13.8e9;
 const MAX_ZOOM = 1000 / (1 / 365.25);
 
-export const Timeline: React.FC = () => {
+export const Timeline: React.FC<TimelineProps> = ({
+  theme,
+  onToggleTheme,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const initialCacheRef = useRef(readCollectionCache());
 
@@ -330,6 +339,10 @@ export const Timeline: React.FC = () => {
     null,
   );
   const [isRulerActive, setIsRulerActive] = useState(false);
+  const [isEventInfoCollapsed, setIsEventInfoCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 640px)").matches;
+  });
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [addingEvent, setAddingEvent] = useState(false);
   const [addingCollectionId, setAddingCollectionId] = useState<string | null>(
@@ -1804,6 +1817,7 @@ export const Timeline: React.FC = () => {
       />
 
       <TimelineCanvasViewport
+        theme={theme}
         containerRef={containerRef}
         focusPixel={focusPixel}
         focusYear={focusYear}
@@ -1826,7 +1840,12 @@ export const Timeline: React.FC = () => {
         onFocusCollapsedGroup={handleFocusCollapsedGroup}
       />
 
-      <FpsBadge logicFps={logicFps} renderFps={renderFps} />
+      <FpsBadge
+        logicFps={logicFps}
+        renderFps={renderFps}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <ZoomController
         zoomRangeLabel={zoomRangeLabel}
@@ -1843,6 +1862,7 @@ export const Timeline: React.FC = () => {
         <EventInfoPanel
           event={selectedEventInfo}
           isRulerActive={isRulerActive}
+          isCollapsed={isEventInfoCollapsed}
           onFocus={() => {
             handleFocusEvent(selectedEventInfo);
           }}
@@ -1854,6 +1874,9 @@ export const Timeline: React.FC = () => {
           }}
           onToggleRuler={() => {
             setIsRulerActive((prev) => !prev);
+          }}
+          onToggleCollapsed={() => {
+            setIsEventInfoCollapsed((prev) => !prev);
           }}
           onClose={() => {
             setSelectedEventInfo(null);
@@ -1898,6 +1921,7 @@ export const Timeline: React.FC = () => {
         isWarping={isWarping}
         mode={warpMode}
         direction={warpDirection}
+        theme={theme}
         zoom={zoom}
         zoomPivotX={focusPixel}
       />
