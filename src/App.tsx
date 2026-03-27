@@ -4,7 +4,7 @@ import {
   applyThemeToDocument,
   getInitialTheme,
   THEME_STORAGE_KEY,
-} from "./theme";
+} from "./constants/theme";
 
 export default function App() {
   const [theme, setTheme] = useState(getInitialTheme);

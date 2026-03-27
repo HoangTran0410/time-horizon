@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { EventCollectionMeta } from "../types";
+import type { EventCollectionMeta } from "../constants/types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
 import { ChevronDown, X } from "lucide-react";
 

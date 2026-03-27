@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   motion,
   MotionValue,
@@ -7,35 +7,40 @@ import {
   useMotionValue,
   animate,
 } from "motion/react";
-import { getNiceInterval } from "../../utils";
-import { ThemeMode } from "../../theme";
+import { ThemeMode } from "../constants/theme";
+import { WarpOverlayMode } from "../constants/types";
 
-export type TimelineTick = {
-  year: number;
-  interval: number;
-  isHighlighted: boolean;
-};
-
-export type EventLayoutState = {
-  y: MotionValue<number>;
-  opacity: MotionValue<number>;
-  targetY: number;
-  targetOpacity: number;
-};
-
-export type CollapsedEventGroup = {
-  id: string;
-  year: number;
-  side: 1 | -1;
-  count: number;
-  eventIds: string[];
-};
-
-export type WarpOverlayMode = "travel" | "zoom-in" | "zoom-out";
-const MIN_RING_DIAMETER = 72;
-const TARGET_RING_SPACING = 120;
-const MIN_RING_COUNT = 3;
-const RING_INTERVAL_REFRESH_MS = 180;
+const MIN_RING_DIAMETER = 12;
+const RING_FADE_IN_START = 10;
+const RING_FADE_IN_END = 72;
+const RING_LABEL_FADE_IN_START = 44;
+const RING_LABEL_FADE_IN_END = 88;
+const REFERENCE_RING_INTERVALS = [
+  1 / 365.25,
+  1 / 52,
+  1 / 12,
+  1,
+  5,
+  10,
+  50,
+  100,
+  500,
+  1000,
+  5000,
+  1e4,
+  5e4,
+  1e5,
+  5e5,
+  1e6,
+  5e6,
+  1e7,
+  5e7,
+  1e8,
+  5e8,
+  1e9,
+  5e9,
+  1e10,
+] as const;
 
 const formatRingTimespan = (years: number): string => {
   if (years >= 1e9)
@@ -58,6 +63,13 @@ const areIntervalsEqual = (prev: number[], next: number[]) =>
   prev.length === next.length &&
   prev.every((interval, index) => interval === next[index]);
 
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+const getFadeProgress = (value: number, start: number, end: number) => {
+  if (end <= start) return value >= end ? 1 : 0;
+  return clamp01((value - start) / (end - start));
+};
+
 const getZoomReferenceIntervals = (
   zoomValue: number,
   maxVisibleDiameter: number,
@@ -66,19 +78,10 @@ const getZoomReferenceIntervals = (
     return [];
   }
 
-  const ringCount = Math.max(
-    MIN_RING_COUNT,
-    Math.floor(maxVisibleDiameter / TARGET_RING_SPACING),
-  );
-  const diameterStep = maxVisibleDiameter / (ringCount + 1);
-  const intervals = new Set<number>();
-
-  for (let index = 1; index <= ringCount; index += 1) {
-    const targetDiameter = Math.max(MIN_RING_DIAMETER, diameterStep * index);
-    intervals.add(getNiceInterval(targetDiameter / zoomValue));
-  }
-
-  return Array.from(intervals).sort((a, b) => a - b);
+  return REFERENCE_RING_INTERVALS.filter((interval) => {
+    const diameter = interval * zoomValue;
+    return diameter >= MIN_RING_DIAMETER && diameter <= maxVisibleDiameter;
+  });
 };
 
 interface WarpOverlayProps {
@@ -110,8 +113,26 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
   const diameter = useTransform(() => intervalYears * zoom.get());
   const opacity = useTransform(() => {
     const nextDiameter = intervalYears * zoom.get();
-    if (nextDiameter < 56 || nextDiameter > maxVisibleDiameter) return 0;
-    return Math.max(0.4, 0.6 - index * 0.15);
+    if (nextDiameter > maxVisibleDiameter) return 0;
+
+    const baseOpacity = Math.max(0.18, 0.56 - index * 0.12);
+    const fadeInProgress = getFadeProgress(
+      nextDiameter,
+      RING_FADE_IN_START,
+      RING_FADE_IN_END,
+    );
+
+    return baseOpacity * fadeInProgress;
+  });
+  const labelOpacity = useTransform(() => {
+    const nextDiameter = intervalYears * zoom.get();
+    if (nextDiameter > maxVisibleDiameter) return 0;
+
+    return getFadeProgress(
+      nextDiameter,
+      RING_LABEL_FADE_IN_START,
+      RING_LABEL_FADE_IN_END,
+    );
   });
   return (
     <motion.div
@@ -129,6 +150,7 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
       <motion.div
         className="absolute left-1/2 top-0 w-max whitespace-nowrap -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-500/90 bg-zinc-950 px-2 py-0.5 text-[10px] font-mono text-zinc-100"
         style={{
+          opacity: labelOpacity,
           borderColor:
             theme === "dark"
               ? "rgba(100,116,139,0.8)"
@@ -156,7 +178,6 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   const [ringIntervals, setRingIntervals] = useState<number[]>(() =>
     getZoomReferenceIntervals(zoom.get(), maxVisibleDiameter),
   );
-  const ringIntervalTimeoutRef = useRef<number | null>(null);
   // Smooth pivot: spring-animates to zoomPivotX so rings glide, not snap.
   // useMotionValueEvent gives us the new value directly (not stale like .get() in useEffect).
   const pivotX = useMotionValue(zoomPivotX.get());
@@ -179,28 +200,11 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
 
   useMotionValueEvent(zoom, "change", (value: number) => {
     if (mode === "travel") return;
-    if (ringIntervalTimeoutRef.current !== null) return;
-
-    ringIntervalTimeoutRef.current = window.setTimeout(() => {
-      ringIntervalTimeoutRef.current = null;
-      const nextIntervals = getZoomReferenceIntervals(
-        value,
-        maxVisibleDiameter,
-      );
-      setRingIntervals((prev) =>
-        areIntervalsEqual(prev, nextIntervals) ? prev : nextIntervals,
-      );
-    }, RING_INTERVAL_REFRESH_MS);
+    const nextIntervals = getZoomReferenceIntervals(value, maxVisibleDiameter);
+    setRingIntervals((prev) =>
+      areIntervalsEqual(prev, nextIntervals) ? prev : nextIntervals,
+    );
   });
-
-  useEffect(
-    () => () => {
-      if (ringIntervalTimeoutRef.current !== null) {
-        window.clearTimeout(ringIntervalTimeoutRef.current);
-      }
-    },
-    [],
-  );
 
   return (
     <div

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Search, X } from "lucide-react";
-import type { Event, EventCollectionMeta } from "../types";
+import type { Event, EventCollectionMeta } from "../constants/types";
 
 interface ExploreCollectionsModalProps {
   collections: EventCollectionMeta[];
@@ -88,17 +88,12 @@ export const ExploreCollectionsModal: React.FC<
     [],
   );
 
-  const handleBackdropPointerDown = (
-    e: React.PointerEvent<HTMLDivElement>,
-  ) => {
+  const handleBackdropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     shouldCloseOnPointerUpRef.current = e.target === e.currentTarget;
   };
 
   const handleBackdropPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (
-      shouldCloseOnPointerUpRef.current &&
-      e.target === e.currentTarget
-    ) {
+    if (shouldCloseOnPointerUpRef.current && e.target === e.currentTarget) {
       requestClose();
     }
 
@@ -194,7 +189,7 @@ export const ExploreCollectionsModal: React.FC<
                   const totalLoadedEvents =
                     collectionEventsById[collection.id]?.length ?? 0;
 
-                  let badgeLabel = "Available";
+                  let badgeLabel = "";
                   let badgeClassName =
                     "border-zinc-700 bg-zinc-900 text-zinc-300";
 
@@ -238,11 +233,13 @@ export const ExploreCollectionsModal: React.FC<
                             <span className="truncate">
                               by {collection.author}
                             </span>
-                            <span
-                              className={`rounded-full border px-2 py-0.5 font-medium ${badgeClassName}`}
-                            >
-                              {badgeLabel}
-                            </span>
+                            {!!badgeLabel && (
+                              <span
+                                className={`rounded-full border px-2 py-0.5 font-medium ${badgeClassName}`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -252,11 +249,9 @@ export const ExploreCollectionsModal: React.FC<
                       </p>
 
                       <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-zinc-500">
-                        <span>{collection.createdAt}</span>
+                        {/* <span>{collection.createdAt}</span> */}
                         <span>
-                          {isDownloaded
-                            ? `${totalLoadedEvents} events`
-                            : "Ready"}
+                          {isDownloaded ? `${totalLoadedEvents} events` : ""}
                         </span>
                       </div>
 

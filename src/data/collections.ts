@@ -1,4 +1,8 @@
-import type { Event, EventCollectionMeta } from "../types";
+import type { Event, EventCollectionMeta } from "../constants/types";
+import {
+  HISTOGRAPHY_COLLECTIONS,
+  HISTOGRAPHY_COLLECTION_URLS,
+} from "./histographyCollections";
 
 export const PLAYGROUND_COLLECTION: EventCollectionMeta = {
   id: "playground",
@@ -38,7 +42,8 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     id: "ice-age",
     name: "Ice Age",
     emoji: "🧊",
-    description: "Glacial-era milestones from the Pleistocene into the Holocene.",
+    description:
+      "Glacial-era milestones from the Pleistocene into the Holocene.",
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
@@ -94,7 +99,8 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     id: "ho-chi-minh",
     name: "Ho Chi Minh",
     emoji: "🇻🇳",
-    description: "Key milestones in the life and political career of Ho Chi Minh.",
+    description:
+      "Key milestones in the life and political career of Ho Chi Minh.",
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
@@ -102,7 +108,8 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     id: "lenin",
     name: "Vladimir Lenin",
     emoji: "📕",
-    description: "Major turning points in Lenin's life and the Russian Revolution.",
+    description:
+      "Major turning points in Lenin's life and the Russian Revolution.",
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
@@ -110,7 +117,8 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     id: "hitler",
     name: "Adolf Hitler",
     emoji: "⚠️",
-    description: "Key events in Hitler's rise, dictatorship, war, and downfall.",
+    description:
+      "Key events in Hitler's rise, dictatorship, war, and downfall.",
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
@@ -134,7 +142,8 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     id: "buddha-life",
     name: "Life of the Buddha",
     emoji: "🪷",
-    description: "Traditional and historical milestones in the life of Siddhartha Gautama, the Buddha.",
+    description:
+      "Traditional and historical milestones in the life of Siddhartha Gautama, the Buddha.",
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
@@ -142,7 +151,8 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     id: "hinduism",
     name: "Hinduism",
     emoji: "🕉️",
-    description: "Major milestones in the long development of Hindu traditions.",
+    description:
+      "Major milestones in the long development of Hindu traditions.",
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
@@ -162,6 +172,7 @@ export const EVENT_COLLECTIONS: EventCollectionMeta[] = [
     author: "Time Horizon",
     createdAt: "2026-03-26",
   },
+  ...HISTOGRAPHY_COLLECTIONS,
 ];
 
 const COLLECTION_URLS: Record<string, URL> = {
@@ -190,6 +201,7 @@ const COLLECTION_URLS: Record<string, URL> = {
   hinduism: new URL("./collections/hinduism.json", import.meta.url),
   christianity: new URL("./collections/christianity.json", import.meta.url),
   islam: new URL("./collections/islam.json", import.meta.url),
+  ...HISTOGRAPHY_COLLECTION_URLS,
 };
 
 export const SYNCABLE_COLLECTION_IDS = Object.keys(COLLECTION_URLS);

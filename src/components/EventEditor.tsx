@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Event, EventCollectionMeta } from "../types";
+import {
+  Event,
+  EventCollectionMeta,
+  normalizeEventTimeParts,
+} from "../constants/types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
 import { ChevronDown, X } from "lucide-react";
 
@@ -23,10 +27,10 @@ const supportsDateInputYear = (year: number): boolean =>
   Number.isInteger(year) && year >= 0 && year <= 9999;
 
 const normalizeEventTime = (time: Event["time"]): Event["time"] => {
-  const nextTime = [...time] as Event["time"];
+  const nextTime = [...normalizeEventTimeParts(time)] as Event["time"];
   const [year, month, day, hour, minute] = nextTime;
 
-  if (month === null) {
+  if (month == null) {
     nextTime[2] = null;
     nextTime[3] = null;
     nextTime[4] = null;
@@ -34,7 +38,7 @@ const normalizeEventTime = (time: Event["time"]): Event["time"] => {
     return nextTime;
   }
 
-  if (day === null) {
+  if (day == null) {
     nextTime[3] = null;
     nextTime[4] = null;
     nextTime[5] = null;
@@ -58,7 +62,7 @@ const normalizeEventTime = (time: Event["time"]): Event["time"] => {
 
 const toDateInputValue = (time: Event["time"]): string => {
   const [year, month, day] = normalizeEventTime(time);
-  if (!supportsDateInputYear(year) || month === null || day === null) {
+  if (!supportsDateInputYear(year) || month == null || day == null) {
     return "";
   }
 
@@ -136,15 +140,15 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   }, [availableCollections, initialCollectionId, mode]);
 
   const [year, month, day, hour, minute, seconds] = editedEvent.time;
-  const hasMonth = month !== null;
-  const hasDay = day !== null;
-  const hasHour = hour !== null;
-  const hasMinute = minute !== null;
+  const hasMonth = month != null;
+  const hasDay = day != null;
+  const hasHour = hour != null;
+  const hasMinute = minute != null;
   const canUseDateInput = supportsDateInputYear(year);
 
   const validateDate = (): boolean => {
     setDateError(null);
-    if (month === null || day === null) return true;
+    if (month == null || day == null) return true;
     const maxDay = getMaxDay(year, month);
     if (day > maxDay) {
       setDateError(

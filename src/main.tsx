@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
-import "./index.css";
-import { applyThemeToDocument, getInitialTheme } from "./theme";
+import "./styles/index.css";
+import { applyThemeToDocument, getInitialTheme } from "./constants/theme.ts";
 
 applyThemeToDocument(getInitialTheme());
 

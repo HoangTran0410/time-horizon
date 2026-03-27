@@ -9,8 +9,16 @@ body,
 :root {
   --app-bg: #0b0f14;
   --app-bg-image:
-    radial-gradient(circle at 18% 14%, rgba(16, 185, 129, 0.1), transparent 28%),
-    radial-gradient(circle at 82% 8%, rgba(245, 158, 11, 0.07), transparent 24%),
+    radial-gradient(
+      circle at 18% 14%,
+      rgba(16, 185, 129, 0.1),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 82% 8%,
+      rgba(245, 158, 11, 0.07),
+      transparent 24%
+    ),
     linear-gradient(180deg, #0b0f14 0%, #10151c 54%, #0d1218 100%);
   --app-vignette: radial-gradient(
     circle at 50% 50%,
@@ -77,8 +85,16 @@ body,
 :root[data-theme="light"] {
   --app-bg: #f4efe5;
   --app-bg-image:
-    radial-gradient(circle at 18% 14%, rgba(16, 185, 129, 0.06), transparent 28%),
-    radial-gradient(circle at 82% 8%, rgba(245, 158, 11, 0.05), transparent 24%),
+    radial-gradient(
+      circle at 18% 14%,
+      rgba(16, 185, 129, 0.06),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 82% 8%,
+      rgba(245, 158, 11, 0.05),
+      transparent 24%
+    ),
     linear-gradient(180deg, #f7f3ea 0%, #f1ecdf 54%, #ebe4d6 100%);
   --app-vignette: radial-gradient(
     circle at 50% 50%,
@@ -140,6 +156,10 @@ body,
   --ui-border-amber-400-60: rgba(180, 83, 9, 0.44);
   --ui-amber-200: #92400e;
   --ui-amber-100: #78350f;
+}
+
+button {
+  cursor: pointer !important;
 }
 
 body {
@@ -542,6 +562,7 @@ body {
 
 .ui-popover {
   max-height: 0;
+  max-width: 0;
   opacity: 0;
   overflow: hidden;
   transform: translateY(-8px) scale(0.985);
@@ -555,6 +576,7 @@ body {
 
 .ui-popover[data-open="true"] {
   max-height: 24rem;
+  max-width: unset;
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;

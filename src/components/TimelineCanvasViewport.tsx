@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { MotionValue } from "motion/react";
-import { Event, getEventTimelineYear } from "../../types";
+import { Event, getEventTimelineYear } from "../../constants/types";
 import { BIG_BANG_YEAR } from "../../constants";
 import {
   formatElapsedTimelineTime,
   getEventDisplayLabel,
   formatTimelineTick,
   withAlpha,
-} from "../../utils";
-import { ThemeMode } from "../../theme";
+} from "../../helpers";
+import { ThemeMode } from "../../constants/theme";
 import {
   CollapsedEventGroup,
   EventLayoutState,
@@ -37,6 +37,7 @@ interface TimelineCanvasViewportProps {
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
+  consumeClickSuppression: () => boolean;
   onFocusBigBang: () => void;
   onFocusEvent: (event: Event) => void;
   onFocusCollapsedGroup: (group: CollapsedEventGroup) => void;
@@ -66,6 +67,8 @@ const EVENT_LABEL_MAX_WIDTH = 120;
 const EVENT_TITLE_LINE_HEIGHT = 14;
 const EVENT_TITLE_MAX_LINES = 3;
 const EVENT_LABEL_GAP = 4;
+const MEDIA_BADGE_SIZE = 14;
+const MEDIA_BADGE_GAP = 4;
 
 const CANVAS_THEME = {
   dark: {
@@ -98,6 +101,12 @@ const CANVAS_THEME = {
     bigBangStroke: "rgba(245,158,11,0.65)",
     bigBangText: "#f59e0b",
     bigBangBadgeText: "#fbbf24",
+    mediaImageBadgeFill: "rgba(14,165,233,0.92)",
+    mediaImageBadgeStroke: "rgba(186,230,253,0.9)",
+    mediaImageBadgeIcon: "#eff6ff",
+    mediaVideoBadgeFill: "rgba(239,68,68,0.92)",
+    mediaVideoBadgeStroke: "rgba(254,202,202,0.9)",
+    mediaVideoBadgeIcon: "#fff1f2",
   },
   light: {
     axis: "#c0c9d4",
@@ -129,8 +138,52 @@ const CANVAS_THEME = {
     bigBangStroke: "rgba(194,65,12,0.42)",
     bigBangText: "#c2410c",
     bigBangBadgeText: "#c2410c",
+    mediaImageBadgeFill: "rgba(2,132,199,0.92)",
+    mediaImageBadgeStroke: "rgba(186,230,253,0.95)",
+    mediaImageBadgeIcon: "#f8fafc",
+    mediaVideoBadgeFill: "rgba(220,38,38,0.9)",
+    mediaVideoBadgeStroke: "rgba(254,202,202,0.95)",
+    mediaVideoBadgeIcon: "#fff7ed",
   },
 } as const;
+
+const drawImageBadgeIcon = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+) => {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1.1;
+
+  ctx.beginPath();
+  ctx.arc(x + 4.1, y + 4, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x + 2.6, y + 10.3);
+  ctx.lineTo(x + 5.8, y + 7.1);
+  ctx.lineTo(x + 7.8, y + 8.9);
+  ctx.lineTo(x + 10.4, y + 5.9);
+  ctx.lineTo(x + 12, y + 7.7);
+  ctx.stroke();
+};
+
+const drawVideoBadgeIcon = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+) => {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + 5, y + 4);
+  ctx.lineTo(x + 10.6, y + 7);
+  ctx.lineTo(x + 5, y + 10);
+  ctx.closePath();
+  ctx.fill();
+};
 
 const splitLongToken = (
   ctx: CanvasRenderingContext2D,
@@ -223,6 +276,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  consumeClickSuppression,
   onFocusBigBang,
   onFocusEvent,
   onFocusCollapsedGroup,
@@ -589,6 +643,57 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.strokeStyle = isHighlighted ? activeBorderColor : idleBorderColor;
         ctx.stroke();
 
+        const mediaBadges: Array<"image" | "video"> = [];
+        if (event.image) mediaBadges.push("image");
+        if (event.video) mediaBadges.push("video");
+
+        mediaBadges.forEach((badge, index) => {
+          const badgeX = snap(eventX + radius - 4 - MEDIA_BADGE_SIZE / 2);
+          const badgeY = snap(
+            eventY - radius + 3 + index * (MEDIA_BADGE_SIZE + MEDIA_BADGE_GAP),
+          );
+          const isImageBadge = badge === "image";
+          const fill = isImageBadge
+            ? canvasTheme.mediaImageBadgeFill
+            : canvasTheme.mediaVideoBadgeFill;
+          const stroke = isImageBadge
+            ? canvasTheme.mediaImageBadgeStroke
+            : canvasTheme.mediaVideoBadgeStroke;
+          const icon = isImageBadge
+            ? canvasTheme.mediaImageBadgeIcon
+            : canvasTheme.mediaVideoBadgeIcon;
+
+          ctx.fillStyle = isHighlighted ? fill : withAlpha(fill, 0.88);
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(
+            badgeX - MEDIA_BADGE_SIZE / 2,
+            badgeY - MEDIA_BADGE_SIZE / 2,
+            MEDIA_BADGE_SIZE,
+            MEDIA_BADGE_SIZE,
+            5,
+          );
+          ctx.fill();
+          ctx.stroke();
+
+          if (isImageBadge) {
+            drawImageBadgeIcon(
+              ctx,
+              badgeX - MEDIA_BADGE_SIZE / 2,
+              badgeY - MEDIA_BADGE_SIZE / 2,
+              icon,
+            );
+          } else {
+            drawVideoBadgeIcon(
+              ctx,
+              badgeX - MEDIA_BADGE_SIZE / 2,
+              badgeY - MEDIA_BADGE_SIZE / 2,
+              icon,
+            );
+          }
+        });
+
         ctx.font =
           "24px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
         ctx.textAlign = "center";
@@ -802,6 +907,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   }, [canvasTheme, containerRef, focusPixel, focusYear, zoom]);
 
   useEffect(() => {
+    if (
+      timelineEvents.length === 0 &&
+      collapsedGroups.length === 0 &&
+      rulerEvent === null
+    ) {
+      return;
+    }
+
     // Continuous RAF loop — needed because canvas has no native animation mechanism.
     // layout.y / layout.opacity MotionValues are animated by Motion during
     // collapse/uncollapse, but canvas won't redraw unless explicitly told to.
@@ -825,7 +938,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       unsubscribeFocusYear();
       unsubscribeZoom();
     };
-  }, [focusPixel, focusYear, zoom]);
+  }, [
+    collapsedGroups.length,
+    focusPixel,
+    focusYear,
+    rulerEvent,
+    timelineEvents.length,
+    zoom,
+  ]);
 
   const handleCanvasPointerMove = (e: React.PointerEvent) => {
     const pointer = getPointerPosition(e.clientX, e.clientY);
@@ -873,6 +993,12 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
+    if (consumeClickSuppression()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     const target = findHitTarget(e.clientX, e.clientY);
     if (!target) return;
 

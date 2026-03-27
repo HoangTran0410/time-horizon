@@ -1,4 +1,12 @@
-import { Event, getEventTimelineYear } from "./types";
+import { BIG_BANG_YEAR } from "../constants";
+import {
+  CollapsedEventGroup,
+  DateJumpTarget,
+  Event,
+  EventCollectionMeta,
+  getEventTimelineYear,
+  normalizeEventTimeParts,
+} from "../constants/types";
 
 // Cache: event time is immutable — label never changes.
 // WeakMap avoids memory leaks.
@@ -183,11 +191,13 @@ const formatEventTime = (event: Event): string => {
   const cached = _displayLabelCache.get(event);
   if (cached !== undefined) return cached;
 
-  const [year, month, day, hour, minute, seconds] = event.time;
+  const [year, month, day, hour, minute, seconds] = normalizeEventTimeParts(
+    event.time,
+  );
 
   let label: string;
 
-  if (month === null) {
+  if (month == null) {
     label = formatYear(year);
   } else if (year <= 0) {
     // JavaScript Date formatting around BC years is unreliable for locale output.
@@ -205,16 +215,16 @@ const formatEventTime = (event: Event): string => {
 
     if (isNaN(d.getTime())) {
       label = formatYear(getEventTimelineYear(event));
-    } else if (day === null) {
+    } else if (day == null) {
       label = d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
     } else {
-      const hasTime = hour !== null || minute !== null || seconds !== null;
+      const hasTime = hour != null || minute != null || seconds != null;
       if (!hasTime) {
         label = d.toLocaleDateString(undefined, FULL_DATE_FORMAT);
       } else {
         label = d.toLocaleString(undefined, {
           ...DATE_TIME_FORMAT,
-          second: seconds !== null ? "2-digit" : undefined,
+          second: seconds != null ? "2-digit" : undefined,
         });
       }
     }
@@ -404,9 +414,7 @@ export const isHighlightedTimelineTick = (
     }
 
     return (
-      day === 1 &&
-      normalized.getHours() === 0 &&
-      normalized.getMinutes() === 0
+      day === 1 && normalized.getHours() === 0 && normalized.getMinutes() === 0
     );
   }
 
@@ -416,3 +424,146 @@ export const isHighlightedTimelineTick = (
   if (roundedYear === 0) return true;
   return roundedYear % highlightStep === 0;
 };
+
+const tickLabelWidthEstimateCache = new Map<number, number>();
+
+export const getAbsoluteYearFromDateJump = ({
+  year,
+  month,
+  day,
+}: DateJumpTarget): number => {
+  if (month === null) return year;
+
+  const normalizedDay = day ?? 1;
+  const date = new Date(Date.UTC(0, month - 1, normalizedDay, 12));
+  date.setUTCFullYear(year, month - 1, normalizedDay);
+
+  const actualYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(0, 0, 1));
+  yearStart.setUTCFullYear(actualYear, 0, 1);
+  const nextYearStart = new Date(Date.UTC(0, 0, 1));
+  nextYearStart.setUTCFullYear(actualYear + 1, 0, 1);
+
+  return (
+    actualYear +
+    (date.getTime() - yearStart.getTime()) /
+      (nextYearStart.getTime() - yearStart.getTime())
+  );
+};
+
+export const slugifyCollectionId = (value: string): string => {
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const slug = normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+  return slug || "collection";
+};
+
+export const createLocalDateStamp = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const createNewTimelineEvent = (): Event => ({
+  id:
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  title: "",
+  description: "",
+  emoji: "📅",
+  time: [new Date().getFullYear(), null, null, null, null, null],
+  priority: 50,
+});
+
+export const buildCustomCollectionMeta = (
+  collection: Pick<EventCollectionMeta, "emoji" | "name" | "description">,
+  existingCollections: EventCollectionMeta[],
+): EventCollectionMeta => {
+  const existingIds = new Set(existingCollections.map((item) => item.id));
+  const baseId = slugifyCollectionId(collection.name);
+  let nextId = baseId;
+  let suffix = 2;
+
+  while (existingIds.has(nextId)) {
+    nextId = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  return {
+    id: nextId,
+    emoji: collection.emoji,
+    name: collection.name,
+    description: collection.description,
+    author: "You",
+    createdAt: createLocalDateStamp(),
+  };
+};
+
+export const getStableTickLabelWidthEstimate = (interval: number) => {
+  const cached = tickLabelWidthEstimateCache.get(interval);
+  if (cached !== undefined) return cached;
+
+  const sampleYears =
+    interval >= 1 ? [BIG_BANG_YEAR, 0, 2000] : [2024, 2024.25, 2024.5];
+  const estimate = Math.max(
+    80,
+    ...sampleYears.map(
+      (year) => formatTimelineTick(year, interval).length * 8 + 40,
+    ),
+  );
+  tickLabelWidthEstimateCache.set(interval, estimate);
+  return estimate;
+};
+
+export const formatZoomRangeLabel = (
+  currentLogZoom: number,
+  viewportWidth: number,
+): string => {
+  const currentZoom = Math.exp(currentLogZoom);
+  const rangeInYears = viewportWidth / currentZoom;
+  if (rangeInYears >= 1e9) {
+    return `${(rangeInYears / 1e9).toFixed(0)}B Yrs`;
+  }
+  if (rangeInYears >= 1e6) {
+    return `${(rangeInYears / 1e6).toFixed(0)}M Yrs`;
+  }
+  if (rangeInYears >= 1000) {
+    return `${(rangeInYears / 1000).toFixed(0)}K Yrs`;
+  }
+  if (rangeInYears >= 1) {
+    return `${rangeInYears.toFixed(0)} Yrs`;
+  }
+  if (rangeInYears >= 1 / 12) {
+    return `${(rangeInYears * 12).toFixed(0)} Mos`;
+  }
+  if (rangeInYears >= 1 / 365.25) {
+    return `${(rangeInYears * 365.25).toFixed(0)} Days`;
+  }
+  return "1 Day";
+};
+
+export const areCollapsedGroupsEqual = (
+  prevGroups: CollapsedEventGroup[],
+  nextGroups: CollapsedEventGroup[],
+) =>
+  prevGroups.length === nextGroups.length &&
+  prevGroups.every((group, index) => {
+    const nextGroup = nextGroups[index];
+    const nextEventIds = new Set(nextGroup.eventIds);
+    return (
+      group.id === nextGroup.id &&
+      group.year === nextGroup.year &&
+      group.side === nextGroup.side &&
+      group.count === nextGroup.count &&
+      group.eventIds.length === nextEventIds.size &&
+      group.eventIds.every((eventId) => nextEventIds.has(eventId))
+    );
+  });

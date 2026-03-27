@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Event, EventCollectionMeta, getEventTimelineYear } from "../types";
+import {
+  Event,
+  EventCollectionMeta,
+  getEventTimelineYear,
+} from "../constants/types";
 import {
   Compass,
   Eye,
@@ -12,7 +16,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { getEventDisplayLabel } from "../utils";
+import { getEventDisplayLabel } from "../helpers";
 import { ExploreCollectionsModal } from "./ExploreCollectionsModal";
 
 interface SidebarProps {
@@ -365,7 +369,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     const isSyncable = syncableCollectionIds.includes(
                       collection.id,
                     );
-                    const collectionEvents = getCollectionEvents(collection.id);
                     const totalLoadedEvents =
                       collectionEventsById[collection.id]?.length ?? 0;
                     const collectionColor = collectionColors[collection.id];
@@ -373,6 +376,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       collectionColorPreferences,
                       collection.id,
                     );
+                    const collectionEvents = isExpanded
+                      ? getCollectionEvents(collection.id)
+                      : [];
 
                     let statusLabel = "";
                     let statusClassName =
