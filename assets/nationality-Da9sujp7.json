@@ -1,0 +1,2512 @@
+[
+  {
+    "id": "h646",
+    "title": "Rise of Proto-Elamite Civilization in Iran",
+    "description": "",
+    "time": [
+      -3200
+    ],
+    "emoji": "👑",
+    "priority": 1707,
+    "image": "https://histography.io/images/16663.jpg"
+  },
+  {
+    "id": "h652",
+    "title": "First dynasty of Egypt",
+    "description": "",
+    "time": [
+      -3100
+    ],
+    "emoji": "👑",
+    "priority": 7263,
+    "link": "Fifteenth_Dynasty_of_Egypt",
+    "image": "https://histography.io/images/16665.gif"
+  },
+  {
+    "id": "h818",
+    "title": "Ethiopia independence",
+    "description": "",
+    "time": [
+      -980
+    ],
+    "emoji": "🗽",
+    "priority": 856,
+    "link": "Ethiopia",
+    "image": "https://histography.io/images/6906.jpg"
+  },
+  {
+    "id": "h842",
+    "title": "Iran independence",
+    "description": "",
+    "time": [
+      -678
+    ],
+    "emoji": "🗽",
+    "priority": 44,
+    "link": "Iran",
+    "image": "https://histography.io/images/6987.jpg"
+  },
+  {
+    "id": "h846",
+    "title": "Japan independence",
+    "description": "",
+    "time": [
+      -660
+    ],
+    "emoji": "🗽",
+    "priority": 204,
+    "link": "Japan",
+    "image": "https://histography.io/images/6990.jpg"
+  },
+  {
+    "id": "h869",
+    "title": "India independence",
+    "description": "",
+    "time": [
+      -600
+    ],
+    "emoji": "🗽",
+    "priority": 973,
+    "link": "India",
+    "image": "https://histography.io/images/6985.jpg"
+  },
+  {
+    "id": "h881",
+    "title": "Sri Lanka independence",
+    "description": "",
+    "time": [
+      -543
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7009.jpg"
+  },
+  {
+    "id": "h957",
+    "title": "South Korea independence",
+    "description": "",
+    "time": [
+      -400
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7008.gif"
+  },
+  {
+    "id": "h1057",
+    "title": "People's Republic of China independence",
+    "description": "",
+    "time": [
+      -221
+    ],
+    "emoji": "🗽",
+    "priority": 1409,
+    "image": "https://histography.io/images/6984.jpg"
+  },
+  {
+    "id": "h1068",
+    "title": "Mongolia independence",
+    "description": "",
+    "time": [
+      -209
+    ],
+    "emoji": "🗽",
+    "priority": 440,
+    "link": "Mongolia",
+    "image": "https://histography.io/images/6998.jpg"
+  },
+  {
+    "id": "h1407",
+    "title": "France independence",
+    "description": "",
+    "time": [
+      481,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 194,
+    "link": "France",
+    "image": "https://histography.io/images/7032.jpg"
+  },
+  {
+    "id": "h1413",
+    "title": "United Kingdom independence",
+    "description": "",
+    "time": [
+      519,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 1968,
+    "link": "United_Kingdom",
+    "image": "https://histography.io/images/7060.jpg"
+  },
+  {
+    "id": "h1462",
+    "title": "Bulgaria independence",
+    "description": "",
+    "time": [
+      632,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 783,
+    "link": "Bulgaria",
+    "image": "https://histography.io/images/7025.jpg"
+  },
+  {
+    "id": "h1516",
+    "title": "Spain independence",
+    "description": "",
+    "time": [
+      718,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 585,
+    "link": "Spain",
+    "image": "https://histography.io/images/7056.jpg"
+  },
+  {
+    "id": "h1536",
+    "title": "Serbia independence",
+    "description": "",
+    "time": [
+      768,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 140,
+    "link": "Serbia",
+    "image": "https://histography.io/images/7053.jpg"
+  },
+  {
+    "id": "h1573",
+    "title": "Czech Republic independence",
+    "description": "",
+    "time": [
+      895,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 879,
+    "link": "Czech_Republic",
+    "image": "https://histography.io/images/7028.jpg"
+  },
+  {
+    "id": "h1574",
+    "title": "Hungary independence",
+    "description": "",
+    "time": [
+      895,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7035.jpg"
+  },
+  {
+    "id": "h1588",
+    "title": "Croatia independence",
+    "description": "",
+    "time": [
+      925,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7026.gif"
+  },
+  {
+    "id": "h1598",
+    "title": "Denmark independence",
+    "description": "",
+    "time": [
+      958,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 590,
+    "link": "Denmark",
+    "image": "https://histography.io/images/7029.jpg"
+  },
+  {
+    "id": "h1602",
+    "title": "Poland independence",
+    "description": "",
+    "time": [
+      966,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7050.jpg"
+  },
+  {
+    "id": "h1603",
+    "title": "Sweden independence",
+    "description": "",
+    "time": [
+      970,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 181,
+    "link": "Sweden",
+    "image": "https://histography.io/images/7057.jpg"
+  },
+  {
+    "id": "h1701",
+    "title": "Portugal independence",
+    "description": "",
+    "time": [
+      1139,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 259,
+    "link": "Portugal",
+    "image": "https://histography.io/images/7051.gif"
+  },
+  {
+    "id": "h1719",
+    "title": "Bosnia and Herzegovina independence",
+    "description": "",
+    "time": [
+      1154,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 137,
+    "link": "Bosnia_and_Herzegovina",
+    "image": "https://histography.io/images/7024.jpg"
+  },
+  {
+    "id": "h1748",
+    "title": "Albania independence",
+    "description": "",
+    "time": [
+      1190,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 396,
+    "link": "Albania",
+    "image": "https://histography.io/images/7019.jpg"
+  },
+  {
+    "id": "h1881",
+    "title": "&#160;Switzerland independence",
+    "description": "",
+    "time": [
+      1291,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 1
+  },
+  {
+    "id": "h2693",
+    "title": "Oman independence",
+    "description": "",
+    "time": [
+      1650,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 381,
+    "link": "Oman",
+    "image": "https://histography.io/images/7002.jpg"
+  },
+  {
+    "id": "h3087",
+    "title": "Afghanistan independence",
+    "description": "",
+    "time": [
+      1747,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6977.jpg"
+  },
+  {
+    "id": "h3165",
+    "title": "&#160;&#160;Nepal independence",
+    "description": "",
+    "time": [
+      1768,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1
+  },
+  {
+    "id": "h3218",
+    "title": "United States independence",
+    "description": "",
+    "time": [
+      1776,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 4350,
+    "link": "United_States",
+    "image": "https://histography.io/images/6973.gif"
+  },
+  {
+    "id": "h3215",
+    "title": "Thailand independence",
+    "description": "",
+    "time": [
+      1776,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 593,
+    "link": "Thailand",
+    "image": "https://histography.io/images/7012.jpg"
+  },
+  {
+    "id": "h3468",
+    "title": "the Louisiana Purchase",
+    "description": "",
+    "time": [
+      1803,
+      7
+    ],
+    "emoji": "📜",
+    "priority": 2902,
+    "link": "Louisiana_Purchase",
+    "image": "https://histography.io/images/16213.jpg"
+  },
+  {
+    "id": "h3485",
+    "title": "Haiti independence",
+    "description": "",
+    "time": [
+      1804,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 451,
+    "link": "Haiti",
+    "image": "https://histography.io/images/6960.jpg"
+  },
+  {
+    "id": "h3563",
+    "title": "Venezuela independence",
+    "description": "",
+    "time": [
+      1810,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 994,
+    "link": "Venezuela",
+    "image": "https://histography.io/images/6976.jpg"
+  },
+  {
+    "id": "h3561",
+    "title": "Argentina independence",
+    "description": "",
+    "time": [
+      1810,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 633,
+    "link": "Argentina",
+    "image": "https://histography.io/images/6942.jpg"
+  },
+  {
+    "id": "h3551",
+    "title": "Chile independence",
+    "description": "",
+    "time": [
+      1810
+    ],
+    "emoji": "🗽",
+    "priority": 623,
+    "link": "Chile",
+    "image": "https://histography.io/images/6949.jpg"
+  },
+  {
+    "id": "h3549",
+    "title": "Mexico independence",
+    "description": "",
+    "time": [
+      1810
+    ],
+    "emoji": "🗽",
+    "priority": 145,
+    "link": "Mexico",
+    "image": "https://histography.io/images/6963.de"
+  },
+  {
+    "id": "h3550",
+    "title": "Colombia independence",
+    "description": "",
+    "time": [
+      1810
+    ],
+    "emoji": "🗽",
+    "priority": 139,
+    "link": "Colombia",
+    "image": "https://histography.io/images/6950.jpg"
+  },
+  {
+    "id": "h3579",
+    "title": "Paraguay independence",
+    "description": "",
+    "time": [
+      1811,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 349,
+    "link": "Paraguay",
+    "image": "https://histography.io/images/6966.jpg"
+  },
+  {
+    "id": "h3596",
+    "title": "Andorra independence",
+    "description": "",
+    "time": [
+      1813,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 228,
+    "link": "Andorra",
+    "image": "https://histography.io/images/7020.jpg"
+  },
+  {
+    "id": "h3606",
+    "title": "Liechtenstein independence",
+    "description": "",
+    "time": [
+      1813,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 199,
+    "link": "Liechtenstein",
+    "image": "https://histography.io/images/7040.gif"
+  },
+  {
+    "id": "h3611",
+    "title": "Norway independence",
+    "description": "",
+    "time": [
+      1814,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 758,
+    "link": "Norway",
+    "image": "https://histography.io/images/7049.jpg"
+  },
+  {
+    "id": "h3638",
+    "title": "Netherlands independence",
+    "description": "",
+    "time": [
+      1815,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 566,
+    "link": "Netherlands",
+    "image": "https://histography.io/images/7048.gif"
+  },
+  {
+    "id": "h3714",
+    "title": "Guatemala independence",
+    "description": "",
+    "time": [
+      1821,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 551,
+    "link": "Guatemala",
+    "image": "https://histography.io/images/6958.com-guatemala-21"
+  },
+  {
+    "id": "h3710",
+    "title": "Greece independence",
+    "description": "",
+    "time": [
+      1821,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 488,
+    "link": "Greece",
+    "image": "https://histography.io/images/7034.jpg"
+  },
+  {
+    "id": "h3712",
+    "title": "Costa Rica independence",
+    "description": "",
+    "time": [
+      1821,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 482,
+    "link": "Costa_Rica",
+    "image": "https://histography.io/images/6951.jpg"
+  },
+  {
+    "id": "h3708",
+    "title": "El Salvador independence",
+    "description": "",
+    "time": [
+      1821,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 125,
+    "link": "El_Salvador",
+    "image": "https://histography.io/images/6956.jpg"
+  },
+  {
+    "id": "h3697",
+    "title": "Honduras independence",
+    "description": "",
+    "time": [
+      1821,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 79,
+    "link": "Honduras",
+    "image": "https://histography.io/images/6961.jpg"
+  },
+  {
+    "id": "h3716",
+    "title": "Peru independence",
+    "description": "",
+    "time": [
+      1821,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 41,
+    "link": "Peru",
+    "image": "https://histography.io/images/6967.gif"
+  },
+  {
+    "id": "h3713",
+    "title": "Nicaragua independence",
+    "description": "",
+    "time": [
+      1821,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6964.jpg"
+  },
+  {
+    "id": "h3725",
+    "title": "Brazil independence",
+    "description": "",
+    "time": [
+      1822,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 565,
+    "link": "Brazil",
+    "image": "https://histography.io/images/6947.gif"
+  },
+  {
+    "id": "h3721",
+    "title": "Ecuador independence",
+    "description": "",
+    "time": [
+      1822,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6955.jpg"
+  },
+  {
+    "id": "h3752",
+    "title": "Bolivia independence",
+    "description": "",
+    "time": [
+      1825,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 469,
+    "link": "Bolivia",
+    "image": "https://histography.io/images/6946.jpg"
+  },
+  {
+    "id": "h3751",
+    "title": "Uruguay independence",
+    "description": "",
+    "time": [
+      1825,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 136,
+    "link": "Uruguay",
+    "image": "https://histography.io/images/6975.gif"
+  },
+  {
+    "id": "h3811",
+    "title": "Belgium independence",
+    "description": "",
+    "time": [
+      1830,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 324,
+    "link": "Belgium",
+    "image": "https://histography.io/images/7023.jpg"
+  },
+  {
+    "id": "h3894",
+    "title": "New Zealand independence",
+    "description": "",
+    "time": [
+      1835,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 816,
+    "link": "New_Zealand",
+    "image": "https://histography.io/images/7068.gif"
+  },
+  {
+    "id": "h4058",
+    "title": "Liberia independence",
+    "description": "",
+    "time": [
+      1847,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 5,
+    "link": "Liberia",
+    "image": "https://histography.io/images/6914.gif"
+  },
+  {
+    "id": "h4288",
+    "title": "Monaco independence",
+    "description": "",
+    "time": [
+      1861,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 359,
+    "link": "Monaco",
+    "image": "https://histography.io/images/7046.jpg"
+  },
+  {
+    "id": "h4385",
+    "title": "Dominican Republic independence",
+    "description": "",
+    "time": [
+      1865,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6954.jpg"
+  },
+  {
+    "id": "h4420",
+    "title": "Canada independence",
+    "description": "",
+    "time": [
+      1867,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 286,
+    "link": "Canada",
+    "image": "https://histography.io/images/6948.jpg"
+  },
+  {
+    "id": "h4437",
+    "title": "Cuba independence",
+    "description": "",
+    "time": [
+      1868,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 785,
+    "link": "Cuba",
+    "image": "https://histography.io/images/6952.jpg"
+  },
+  {
+    "id": "h4500",
+    "title": "Germany independence",
+    "description": "",
+    "time": [
+      1871,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 741,
+    "link": "Germany",
+    "image": "https://histography.io/images/7033.jpg"
+  },
+  {
+    "id": "h4595",
+    "title": "Romania independence",
+    "description": "",
+    "time": [
+      1877,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 408,
+    "link": "Romania",
+    "image": "https://histography.io/images/7052.jpg"
+  },
+  {
+    "id": "h4619",
+    "title": "Montenegro independence",
+    "description": "",
+    "time": [
+      1878,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 180,
+    "link": "Montenegro",
+    "image": "https://histography.io/images/7047.gif"
+  },
+  {
+    "id": "h4707",
+    "title": "Congo independence",
+    "description": "",
+    "time": [
+      1884,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 391,
+    "link": "Congo",
+    "image": "https://histography.io/images/6900.jpg"
+  },
+  {
+    "id": "h4735",
+    "title": "Bhutan independence",
+    "description": "",
+    "time": [
+      1885,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 299,
+    "link": "Bhutan",
+    "image": "https://histography.io/images/6980.jpg"
+  },
+  {
+    "id": "h4730",
+    "title": "Botswana independence",
+    "description": "",
+    "time": [
+      1885,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 8,
+    "link": "Botswana",
+    "image": "https://histography.io/images/6892.gif"
+  },
+  {
+    "id": "h5013",
+    "title": "Philippines independence",
+    "description": "",
+    "time": [
+      1898,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 105,
+    "link": "Philippines",
+    "image": "https://histography.io/images/7004.jpg"
+  },
+  {
+    "id": "h5075",
+    "title": "Australia independence",
+    "description": "",
+    "time": [
+      1901,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7062.jpg"
+  },
+  {
+    "id": "h5143",
+    "title": "Panama independence",
+    "description": "",
+    "time": [
+      1903,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 148,
+    "link": "Panama",
+    "image": "https://histography.io/images/6965.jpg"
+  },
+  {
+    "id": "h5537",
+    "title": "Finland independence",
+    "description": "",
+    "time": [
+      1917,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 801,
+    "link": "Finland",
+    "image": "https://histography.io/images/7031.jpg"
+  },
+  {
+    "id": "h5583",
+    "title": "Estonia independence",
+    "description": "",
+    "time": [
+      1918,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7030.jpg"
+  },
+  {
+    "id": "h5607",
+    "title": "Latvia independence",
+    "description": "",
+    "time": [
+      1918,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7039.gif"
+  },
+  {
+    "id": "h5781",
+    "title": "Ireland independence",
+    "description": "",
+    "time": [
+      1922,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 979,
+    "link": "Ireland",
+    "image": "https://histography.io/images/7037.jpg"
+  },
+  {
+    "id": "h5770",
+    "title": "Egypt independence",
+    "description": "",
+    "time": [
+      1922,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 136,
+    "link": "Egypt",
+    "image": "https://histography.io/images/7078.jpg"
+  },
+  {
+    "id": "h5968",
+    "title": "Saudi Arabia independence",
+    "description": "",
+    "time": [
+      1927,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 8,
+    "link": "Saudi_Arabia",
+    "image": "https://histography.io/images/7006.jpg"
+  },
+  {
+    "id": "h6028",
+    "title": "&#160;Vatican City independence",
+    "description": "",
+    "time": [
+      1929,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1
+  },
+  {
+    "id": "h6131",
+    "title": "South Africa independence",
+    "description": "",
+    "time": [
+      1931,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 184,
+    "link": "South_Africa",
+    "image": "https://histography.io/images/6932.jpg"
+  },
+  {
+    "id": "h6152",
+    "title": "Iraq independence",
+    "description": "",
+    "time": [
+      1932,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 728,
+    "link": "Iraq",
+    "image": "https://histography.io/images/6988.jpg"
+  },
+  {
+    "id": "h6479",
+    "title": "Lebanon independence",
+    "description": "",
+    "time": [
+      1941,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 882,
+    "link": "Lebanon",
+    "image": "https://histography.io/images/6995.132"
+  },
+  {
+    "id": "h6561",
+    "title": "Iceland independence",
+    "description": "",
+    "time": [
+      1944,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 638,
+    "link": "Iceland",
+    "image": "https://histography.io/images/7036.jpg"
+  },
+  {
+    "id": "h6622",
+    "title": "Vietnam independence",
+    "description": "",
+    "time": [
+      1945,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 587,
+    "link": "Vietnam",
+    "image": "https://histography.io/images/7017.jpg"
+  },
+  {
+    "id": "h6600",
+    "title": "Luxembourg independence",
+    "description": "",
+    "time": [
+      1945,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 583,
+    "link": "Luxembourg",
+    "image": "https://histography.io/images/7042.gif"
+  },
+  {
+    "id": "h6591",
+    "title": "Indonesia independence",
+    "description": "",
+    "time": [
+      1945,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 105,
+    "link": "Indonesia",
+    "image": "https://histography.io/images/6986.jpg"
+  },
+  {
+    "id": "h6582",
+    "title": "Italy independence",
+    "description": "",
+    "time": [
+      1945
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7038.jpg"
+  },
+  {
+    "id": "h6634",
+    "title": "Jordan independence",
+    "description": "",
+    "time": [
+      1946,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 477,
+    "link": "Jordan",
+    "image": "https://histography.io/images/6991.jpg"
+  },
+  {
+    "id": "h6676",
+    "title": "Pakistan independence",
+    "description": "",
+    "time": [
+      1947,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 951,
+    "link": "Pakistan",
+    "image": "https://histography.io/images/7003.jpg"
+  },
+  {
+    "id": "h6714",
+    "title": "Israel independence",
+    "description": "",
+    "time": [
+      1948,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 881,
+    "link": "Israel",
+    "image": "https://histography.io/images/6989.JPG"
+  },
+  {
+    "id": "h6715",
+    "title": "North Korea independence",
+    "description": "",
+    "time": [
+      1948,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 573,
+    "link": "North_Korea",
+    "image": "https://histography.io/images/7001.jpg"
+  },
+  {
+    "id": "h6732",
+    "title": "Myanmar independence",
+    "description": "",
+    "time": [
+      1948,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 336,
+    "image": "https://histography.io/images/6999.gif"
+  },
+  {
+    "id": "h6761",
+    "title": "Republic of China independence",
+    "description": "",
+    "time": [
+      1949,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 913,
+    "image": "https://histography.io/images/6983.jpg"
+  },
+  {
+    "id": "h6865",
+    "title": "Libya independence",
+    "description": "",
+    "time": [
+      1951,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 186,
+    "link": "Libya",
+    "image": "https://histography.io/images/6915.jpg"
+  },
+  {
+    "id": "h6922",
+    "title": "Cambodia independence",
+    "description": "",
+    "time": [
+      1953,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 424,
+    "link": "Cambodia",
+    "image": "https://histography.io/images/6982.jpg"
+  },
+  {
+    "id": "h6927",
+    "title": "Laos independence",
+    "description": "",
+    "time": [
+      1953,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 155,
+    "link": "Laos",
+    "image": "https://histography.io/images/6994.jpg"
+  },
+  {
+    "id": "h6983",
+    "title": "Suriname independence",
+    "description": "",
+    "time": [
+      1954,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 339,
+    "link": "Suriname",
+    "image": "https://histography.io/images/6971.gif"
+  },
+  {
+    "id": "h7015",
+    "title": "Morocco independence",
+    "description": "",
+    "time": [
+      1955,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 813,
+    "link": "Morocco",
+    "image": "https://histography.io/images/6921.gif"
+  },
+  {
+    "id": "h7056",
+    "title": "Austria independence",
+    "description": "",
+    "time": [
+      1955,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7021.gif"
+  },
+  {
+    "id": "h7080",
+    "title": "Sudan independence",
+    "description": "",
+    "time": [
+      1956,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 879,
+    "link": "Sudan",
+    "image": "https://histography.io/images/6933.jpg"
+  },
+  {
+    "id": "h7063",
+    "title": "Tunisia independence",
+    "description": "",
+    "time": [
+      1956,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 196,
+    "link": "Tunisia",
+    "image": "https://histography.io/images/6937.jpg"
+  },
+  {
+    "id": "h7159",
+    "title": "Ghana independence",
+    "description": "",
+    "time": [
+      1957,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 573,
+    "link": "Ghana",
+    "image": "https://histography.io/images/6909.jpg"
+  },
+  {
+    "id": "h7140",
+    "title": "Malaysia independence",
+    "description": "",
+    "time": [
+      1957,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 368,
+    "link": "Malaysia",
+    "image": "https://histography.io/images/6996.jpg"
+  },
+  {
+    "id": "h7215",
+    "title": "Madagascar independence",
+    "description": "",
+    "time": [
+      1958,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 587,
+    "link": "Madagascar",
+    "image": "https://histography.io/images/6916.jpg"
+  },
+  {
+    "id": "h7166",
+    "title": "Mali independence",
+    "description": "",
+    "time": [
+      1958
+    ],
+    "emoji": "🗽",
+    "priority": 408,
+    "link": "Mali",
+    "image": "https://histography.io/images/6918.jpg"
+  },
+  {
+    "id": "h7170",
+    "title": "Burkina Faso independence",
+    "description": "",
+    "time": [
+      1958,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 171,
+    "link": "Burkina_Faso",
+    "image": "https://histography.io/images/6893.gif"
+  },
+  {
+    "id": "h7174",
+    "title": "Togo independence",
+    "description": "",
+    "time": [
+      1958,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 21,
+    "link": "Togo",
+    "image": "https://histography.io/images/6936.jpg"
+  },
+  {
+    "id": "h7205",
+    "title": "Guinea independence",
+    "description": "",
+    "time": [
+      1958,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6910.gif"
+  },
+  {
+    "id": "h7190",
+    "title": "Ivory Coast independence",
+    "description": "",
+    "time": [
+      1958,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6902.jpg"
+  },
+  {
+    "id": "h7227",
+    "title": "Singapore independence",
+    "description": "",
+    "time": [
+      1959,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 787,
+    "link": "Singapore",
+    "image": "https://histography.io/images/7007.jpg"
+  },
+  {
+    "id": "h7281",
+    "title": "Congo, Republic of the independence",
+    "description": "",
+    "time": [
+      1960,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 1520,
+    "image": "https://histography.io/images/6901.gif"
+  },
+  {
+    "id": "h7271",
+    "title": "Nigeria independence",
+    "description": "",
+    "time": [
+      1960
+    ],
+    "emoji": "🗽",
+    "priority": 877,
+    "link": "Nigeria",
+    "image": "https://histography.io/images/6925.jpg"
+  },
+  {
+    "id": "h7307",
+    "title": "Gabon independence",
+    "description": "",
+    "time": [
+      1960,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 813,
+    "link": "Gabon",
+    "image": "https://histography.io/images/6907.jpg"
+  },
+  {
+    "id": "h7289",
+    "title": "Benin independence",
+    "description": "",
+    "time": [
+      1960,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 803,
+    "link": "Benin",
+    "image": "https://histography.io/images/6891.gif"
+  },
+  {
+    "id": "h7320",
+    "title": "Somalia independence",
+    "description": "",
+    "time": [
+      1960,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 705,
+    "link": "Somalia",
+    "image": "https://histography.io/images/6931.jpg"
+  },
+  {
+    "id": "h7311",
+    "title": "Central African Republic independence",
+    "description": "",
+    "time": [
+      1960,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 635,
+    "link": "Central_African_Republic",
+    "image": "https://histography.io/images/6897.gif"
+  },
+  {
+    "id": "h7308",
+    "title": "Chad independence",
+    "description": "",
+    "time": [
+      1960,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 472,
+    "link": "Chad",
+    "image": "https://histography.io/images/6898.jpg"
+  },
+  {
+    "id": "h7314",
+    "title": "Senegal independence",
+    "description": "",
+    "time": [
+      1960,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 462,
+    "link": "Senegal",
+    "image": "https://histography.io/images/6928.gif"
+  },
+  {
+    "id": "h7293",
+    "title": "Mauritania independence",
+    "description": "",
+    "time": [
+      1960,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 413,
+    "link": "Mauritania",
+    "image": "https://histography.io/images/6919.gif"
+  },
+  {
+    "id": "h7288",
+    "title": "Cyprus independence",
+    "description": "",
+    "time": [
+      1960,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 399,
+    "link": "Cyprus",
+    "image": "https://histography.io/images/7027.Full"
+  },
+  {
+    "id": "h7283",
+    "title": "Niger independence",
+    "description": "",
+    "time": [
+      1960,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 398,
+    "link": "Niger",
+    "image": "https://histography.io/images/6924.jpg"
+  },
+  {
+    "id": "h7323",
+    "title": "Cameroon independence",
+    "description": "",
+    "time": [
+      1960,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6896.jpg"
+  },
+  {
+    "id": "h7390",
+    "title": "Sierra Leone independence",
+    "description": "",
+    "time": [
+      1961,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 905,
+    "link": "Sierra_Leone",
+    "image": "https://histography.io/images/6930.jpg"
+  },
+  {
+    "id": "h7358",
+    "title": "Syria independence",
+    "description": "",
+    "time": [
+      1961,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 803,
+    "link": "Syria",
+    "image": "https://histography.io/images/7010.jpg"
+  },
+  {
+    "id": "h7341",
+    "title": "Tanzania independence",
+    "description": "",
+    "time": [
+      1961,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6935.jpg"
+  },
+  {
+    "id": "h7449",
+    "title": "Algeria independence",
+    "description": "",
+    "time": [
+      1962,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 970,
+    "link": "Algeria",
+    "image": "https://histography.io/images/6889.jpg"
+  },
+  {
+    "id": "h7434",
+    "title": "Jamaica independence",
+    "description": "",
+    "time": [
+      1962,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 798,
+    "link": "Jamaica",
+    "image": "https://histography.io/images/6962.jpg"
+  },
+  {
+    "id": "h7440",
+    "title": "Trinidad and Tobago independence",
+    "description": "",
+    "time": [
+      1962,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 633,
+    "link": "Trinidad_and_Tobago",
+    "image": "https://histography.io/images/6972.jpg"
+  },
+  {
+    "id": "h7400",
+    "title": "Samoa independence",
+    "description": "",
+    "time": [
+      1962
+    ],
+    "emoji": "🗽",
+    "priority": 419,
+    "link": "Samoa",
+    "image": "https://histography.io/images/7071.gif"
+  },
+  {
+    "id": "h7452",
+    "title": "Uganda independence",
+    "description": "",
+    "time": [
+      1962,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 268,
+    "link": "Uganda",
+    "image": "https://histography.io/images/6938.jpg"
+  },
+  {
+    "id": "h7467",
+    "title": "Burundi independence",
+    "description": "",
+    "time": [
+      1962,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 61,
+    "link": "Burundi",
+    "image": "https://histography.io/images/6894.gif"
+  },
+  {
+    "id": "h7435",
+    "title": "Rwanda independence",
+    "description": "",
+    "time": [
+      1962,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6926.gif"
+  },
+  {
+    "id": "h7505",
+    "title": "Kenya independence",
+    "description": "",
+    "time": [
+      1963,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6912.jpg"
+  },
+  {
+    "id": "h7593",
+    "title": "Bahamas independence",
+    "description": "",
+    "time": [
+      1964,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 130,
+    "link": "The_Bahamas",
+    "image": "https://histography.io/images/6943.gif"
+  },
+  {
+    "id": "h7625",
+    "title": "Zambia independence",
+    "description": "",
+    "time": [
+      1964,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 108,
+    "link": "Zambia",
+    "image": "https://histography.io/images/6939.gif"
+  },
+  {
+    "id": "h7583",
+    "title": "Malawi independence",
+    "description": "",
+    "time": [
+      1964,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6917.gif"
+  },
+  {
+    "id": "h7596",
+    "title": "Malta independence",
+    "description": "",
+    "time": [
+      1964,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7044.jpg"
+  },
+  {
+    "id": "h7674",
+    "title": "Zimbabwe independence",
+    "description": "",
+    "time": [
+      1965,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 647,
+    "link": "Zimbabwe",
+    "image": "https://histography.io/images/6940.jpg"
+  },
+  {
+    "id": "h7693",
+    "title": "Gambia independence",
+    "description": "",
+    "time": [
+      1965,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 542,
+    "link": "The_Gambia",
+    "image": "https://histography.io/images/6908.gif"
+  },
+  {
+    "id": "h7655",
+    "title": "Maldives independence",
+    "description": "",
+    "time": [
+      1965,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 98,
+    "link": "Maldives",
+    "image": "https://histography.io/images/6997.jpg"
+  },
+  {
+    "id": "h7738",
+    "title": "Lesotho independence",
+    "description": "",
+    "time": [
+      1966,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 133,
+    "link": "Lesotho",
+    "image": "https://histography.io/images/6913.gif"
+  },
+  {
+    "id": "h7768",
+    "title": "Barbados independence",
+    "description": "",
+    "time": [
+      1966,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6944.81560200%201353159287"
+  },
+  {
+    "id": "h7708",
+    "title": "Guyana independence",
+    "description": "",
+    "time": [
+      1966,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6959.jpg"
+  },
+  {
+    "id": "h7838",
+    "title": "Saint Kitts and Nevis independence",
+    "description": "",
+    "time": [
+      1967,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 918,
+    "link": "Saint_Kitts_and_Nevis",
+    "image": "https://histography.io/images/6968.jpg"
+  },
+  {
+    "id": "h7844",
+    "title": "Grenada independence",
+    "description": "",
+    "time": [
+      1967,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 410,
+    "link": "Grenada",
+    "image": "https://histography.io/images/6957.jpg"
+  },
+  {
+    "id": "h7845",
+    "title": "Dominica independence",
+    "description": "",
+    "time": [
+      1967,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 233,
+    "link": "Dominica",
+    "image": "https://histography.io/images/6953.gif"
+  },
+  {
+    "id": "h7843",
+    "title": "Saint Lucia independence",
+    "description": "",
+    "time": [
+      1967,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 43,
+    "link": "Saint_Lucia",
+    "image": "https://histography.io/images/6969.jpg"
+  },
+  {
+    "id": "h7927",
+    "title": "Nauru independence",
+    "description": "",
+    "time": [
+      1968,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 955,
+    "link": "Nauru",
+    "image": "https://histography.io/images/7067.gif"
+  },
+  {
+    "id": "h7900",
+    "title": "Mauritius independence",
+    "description": "",
+    "time": [
+      1968,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 882,
+    "link": "Mauritius",
+    "image": "https://histography.io/images/6920.jpg"
+  },
+  {
+    "id": "h7878",
+    "title": "Equatorial Guinea independence",
+    "description": "",
+    "time": [
+      1968,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 485,
+    "link": "Equatorial_Guinea",
+    "image": "https://histography.io/images/6904.gif"
+  },
+  {
+    "id": "h7899",
+    "title": "Swaziland independence",
+    "description": "",
+    "time": [
+      1968,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6934.jpg"
+  },
+  {
+    "id": "h7932",
+    "title": "Saint Vincent and the Grenadines independence",
+    "description": "",
+    "time": [
+      1969
+    ],
+    "emoji": "🗽",
+    "priority": 1603,
+    "link": "Saint_Vincent_and_the_Grenadines",
+    "image": "https://histography.io/images/6970.jpg"
+  },
+  {
+    "id": "h8076",
+    "title": "Fiji independence",
+    "description": "",
+    "time": [
+      1970,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 270,
+    "link": "Fiji",
+    "image": "https://histography.io/images/7063.gif"
+  },
+  {
+    "id": "h8060",
+    "title": "Tonga independence",
+    "description": "",
+    "time": [
+      1970,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 153,
+    "link": "Tonga",
+    "image": "https://histography.io/images/7073.jpg"
+  },
+  {
+    "id": "h8124",
+    "title": "Qatar independence",
+    "description": "",
+    "time": [
+      1971,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 145,
+    "link": "Qatar",
+    "image": "https://histography.io/images/7005.jpg"
+  },
+  {
+    "id": "h8131",
+    "title": "United Arab Emirates independence",
+    "description": "",
+    "time": [
+      1971,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 102,
+    "link": "United_Arab_Emirates",
+    "image": "https://histography.io/images/7015.jpg"
+  },
+  {
+    "id": "h8134",
+    "title": "Bahrain independence",
+    "description": "",
+    "time": [
+      1971,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6978.gif"
+  },
+  {
+    "id": "h8132",
+    "title": "Bangladesh independence",
+    "description": "",
+    "time": [
+      1971,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6979.jpg"
+  },
+  {
+    "id": "h8166",
+    "title": "03-0000September 3, 1783 independence",
+    "description": "",
+    "time": [
+      1972,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 59,
+    "image": "https://histography.io/images/6974.jpg"
+  },
+  {
+    "id": "h8204",
+    "title": "Guinea-Bissau independence",
+    "description": "",
+    "time": [
+      1973,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 713,
+    "link": "Guinea-Bissau",
+    "image": "https://histography.io/images/6911.jpg"
+  },
+  {
+    "id": "h8247",
+    "title": "Papua New Guinea independence",
+    "description": "",
+    "time": [
+      1973,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 441,
+    "link": "Papua_New_Guinea",
+    "image": "https://histography.io/images/7070.gif"
+  },
+  {
+    "id": "h8325",
+    "title": "Cabo Verde independence",
+    "description": "",
+    "time": [
+      1975,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 810,
+    "link": "Cape_Verde",
+    "image": "https://histography.io/images/6895.jpg"
+  },
+  {
+    "id": "h8317",
+    "title": "Timor-Leste independence",
+    "description": "",
+    "time": [
+      1975,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 591,
+    "image": "https://histography.io/images/7013.jpg"
+  },
+  {
+    "id": "h8351",
+    "title": "Mozambique independence",
+    "description": "",
+    "time": [
+      1975,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 573,
+    "link": "Mozambique",
+    "image": "https://histography.io/images/6922.gif"
+  },
+  {
+    "id": "h8326",
+    "title": "Angola independence",
+    "description": "",
+    "time": [
+      1975,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 221,
+    "link": "Angola",
+    "image": "https://histography.io/images/6890.jpg"
+  },
+  {
+    "id": "h8361",
+    "title": "São Tomé and Príncipe independence",
+    "description": "",
+    "time": [
+      1975,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 192,
+    "image": "https://histography.io/images/6927.gif"
+  },
+  {
+    "id": "h8324",
+    "title": "Comoros independence",
+    "description": "",
+    "time": [
+      1975,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 111,
+    "link": "Comoros",
+    "image": "https://histography.io/images/6899.gif"
+  },
+  {
+    "id": "h8421",
+    "title": "Seychelles independence",
+    "description": "",
+    "time": [
+      1976,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 594,
+    "link": "Seychelles",
+    "image": "https://histography.io/images/6929.jpg"
+  },
+  {
+    "id": "h8393",
+    "title": "Solomon Islands independence",
+    "description": "",
+    "time": [
+      1976,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 209,
+    "link": "Solomon_Islands",
+    "image": "https://histography.io/images/7072.jpg"
+  },
+  {
+    "id": "h8444",
+    "title": "Djibouti independence",
+    "description": "",
+    "time": [
+      1977,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 601,
+    "link": "Djibouti",
+    "image": "https://histography.io/images/6903.jpg"
+  },
+  {
+    "id": "h8498",
+    "title": "Tuvalu independence",
+    "description": "",
+    "time": [
+      1978,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 500,
+    "link": "Tuvalu",
+    "image": "https://histography.io/images/7074.jpg"
+  },
+  {
+    "id": "h8597",
+    "title": "Kiribati independence",
+    "description": "",
+    "time": [
+      1979,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 833,
+    "link": "Kiribati",
+    "image": "https://histography.io/images/7064.JPG"
+  },
+  {
+    "id": "h8634",
+    "title": "Vanuatu independence",
+    "description": "",
+    "time": [
+      1980,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 624,
+    "link": "Vanuatu",
+    "image": "https://histography.io/images/7075.gif"
+  },
+  {
+    "id": "h8667",
+    "title": "Belize independence",
+    "description": "",
+    "time": [
+      1981,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 585,
+    "link": "Belize",
+    "image": "https://histography.io/images/6945.jpg"
+  },
+  {
+    "id": "h8710",
+    "title": "Antigua and Barbuda independence",
+    "description": "",
+    "time": [
+      1981,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 114,
+    "link": "Antigua_and_Barbuda",
+    "image": "https://histography.io/images/6941.gif"
+  },
+  {
+    "id": "h8843",
+    "title": "Brunei independence",
+    "description": "",
+    "time": [
+      1984,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 450,
+    "link": "Brunei",
+    "image": "https://histography.io/images/6981.gif"
+  },
+  {
+    "id": "h8945",
+    "title": "Marshall Islands independence",
+    "description": "",
+    "time": [
+      1986,
+      8
+    ],
+    "emoji": "🗽",
+    "priority": 824,
+    "link": "Marshall_Islands",
+    "image": "https://histography.io/images/7065.jpg#marshal%20islands%20884x856"
+  },
+  {
+    "id": "h8929",
+    "title": "Federated States of Micronesia independence",
+    "description": "",
+    "time": [
+      1986,
+      5
+    ],
+    "emoji": "🗽",
+    "priority": 543,
+    "link": "Federated_States_of_Micronesia",
+    "image": "https://histography.io/images/7066.jpg"
+  },
+  {
+    "id": "h9157",
+    "title": "Lithuania independence",
+    "description": "",
+    "time": [
+      1990,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 937,
+    "link": "Lithuania",
+    "image": "https://histography.io/images/7041.jpg"
+  },
+  {
+    "id": "h9106",
+    "title": "Belarus independence",
+    "description": "",
+    "time": [
+      1990
+    ],
+    "emoji": "🗽",
+    "priority": 853,
+    "link": "Belarus",
+    "image": "https://histography.io/images/7022.jpg"
+  },
+  {
+    "id": "h9114",
+    "title": "Russia independence",
+    "description": "",
+    "time": [
+      1990,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 730,
+    "link": "Russia",
+    "image": "https://histography.io/images/7081.gif"
+  },
+  {
+    "id": "h9133",
+    "title": "Namibia independence",
+    "description": "",
+    "time": [
+      1990,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 613,
+    "link": "Namibia",
+    "image": "https://histography.io/images/6923.jpg"
+  },
+  {
+    "id": "h9152",
+    "title": "Yemen independence",
+    "description": "",
+    "time": [
+      1990,
+      9
+    ],
+    "emoji": "🗽",
+    "priority": 146,
+    "link": "Yemen",
+    "image": "https://histography.io/images/7018.jpg"
+  },
+  {
+    "id": "h9132",
+    "title": "Armenia independence",
+    "description": "",
+    "time": [
+      1990,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/7076.gif"
+  },
+  {
+    "id": "h9169",
+    "title": "Turkmenistan independence",
+    "description": "",
+    "time": [
+      1991
+    ],
+    "emoji": "🗽",
+    "priority": 928,
+    "link": "Turkmenistan",
+    "image": "https://histography.io/images/7014.jpg"
+  },
+  {
+    "id": "h9207",
+    "title": "Moldova independence",
+    "description": "",
+    "time": [
+      1991,
+      7
+    ],
+    "emoji": "🗽",
+    "priority": 827,
+    "link": "Moldova",
+    "image": "https://histography.io/images/7045.jpg"
+  },
+  {
+    "id": "h9230",
+    "title": "Slovenia independence",
+    "description": "",
+    "time": [
+      1991,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 786,
+    "link": "Slovenia",
+    "image": "https://histography.io/images/7055.jpg"
+  },
+  {
+    "id": "h9234",
+    "title": "Ukraine independence",
+    "description": "",
+    "time": [
+      1991,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 736,
+    "link": "Ukraine",
+    "image": "https://histography.io/images/7059.jpg"
+  },
+  {
+    "id": "h9181",
+    "title": "Azerbaijan independence",
+    "description": "",
+    "time": [
+      1991,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 455,
+    "link": "Azerbaijan",
+    "image": "https://histography.io/images/7077.gif"
+  },
+  {
+    "id": "h9203",
+    "title": "Uzbekistan independence",
+    "description": "",
+    "time": [
+      1991,
+      6
+    ],
+    "emoji": "🗽",
+    "priority": 417,
+    "link": "Uzbekistan",
+    "image": "https://histography.io/images/7016.gif"
+  },
+  {
+    "id": "h9191",
+    "title": "Kuwait independence",
+    "description": "",
+    "time": [
+      1991,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 392,
+    "link": "Kuwait",
+    "image": "https://histography.io/images/6992.jpg"
+  },
+  {
+    "id": "h9229",
+    "title": "Kazakhstan independence",
+    "description": "",
+    "time": [
+      1991,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 342,
+    "link": "Kazakhstan",
+    "image": "https://histography.io/images/7080.JPG"
+  },
+  {
+    "id": "h9180",
+    "title": "Georgia independence",
+    "description": "",
+    "time": [
+      1991,
+      3
+    ],
+    "emoji": "🗽",
+    "priority": 294,
+    "link": "Georgia",
+    "image": "https://histography.io/images/7079.gif"
+  },
+  {
+    "id": "h9190",
+    "title": "Macedonia independence",
+    "description": "",
+    "time": [
+      1991,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 280,
+    "link": "Macedonia",
+    "image": "https://histography.io/images/7043.gif"
+  },
+  {
+    "id": "h9177",
+    "title": "Tajikistan independence",
+    "description": "",
+    "time": [
+      1991,
+      2
+    ],
+    "emoji": "🗽",
+    "priority": 188,
+    "link": "Tajikistan",
+    "image": "https://histography.io/images/7011.jpg"
+  },
+  {
+    "id": "h9184",
+    "title": "Kyrgyzstan independence",
+    "description": "",
+    "time": [
+      1991,
+      4
+    ],
+    "emoji": "🗽",
+    "priority": 1,
+    "image": "https://histography.io/images/6993.jpg"
+  },
+  {
+    "id": "h9339",
+    "title": "Slovakia independence",
+    "description": "",
+    "time": [
+      1993,
+      12
+    ],
+    "emoji": "🗽",
+    "priority": 911,
+    "link": "Slovakia",
+    "image": "https://histography.io/images/7054.jpg"
+  },
+  {
+    "id": "h9335",
+    "title": "Eritrea independence",
+    "description": "",
+    "time": [
+      1993,
+      11
+    ],
+    "emoji": "🗽",
+    "priority": 247,
+    "link": "Eritrea",
+    "image": "https://histography.io/images/6905.jpg"
+  },
+  {
+    "id": "h9380",
+    "title": "Palau independence",
+    "description": "",
+    "time": [
+      1994,
+      10
+    ],
+    "emoji": "🗽",
+    "priority": 749,
+    "link": "Palau",
+    "image": "https://histography.io/images/7069.jpg"
+  },
+  {
+    "id": "h10449",
+    "title": "Lithuania joins the Eurozone",
+    "description": "",
+    "time": [
+      2015,
+      11
+    ],
+    "emoji": "💶",
+    "priority": 1254,
+    "link": "Lithuania_and_the_euro",
+    "image": "https://histography.io/images/16609.jpg"
+  },
+  {
+    "id": "h10434",
+    "title": "The Eurasian Union is formed",
+    "description": "",
+    "time": [
+      2015,
+      7
+    ],
+    "emoji": "🤝",
+    "priority": 591,
+    "image": "https://histography.io/images/16610.gif"
+  }
+]

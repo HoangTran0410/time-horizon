@@ -1,0 +1,3966 @@
+[
+  {
+    "id": "h942",
+    "title": "Plague of Athens",
+    "description": "",
+    "time": [
+      -426
+    ],
+    "emoji": "☣️",
+    "priority": 1498,
+    "link": "Plague_of_Athens",
+    "image": "https://histography.io/images/6195.jpg"
+  },
+  {
+    "id": "h1202",
+    "title": "Fidenae Amphitheatre Collapse",
+    "description": "",
+    "time": [
+      27,
+      7
+    ],
+    "emoji": "💥",
+    "priority": 221,
+    "image": "https://histography.io/images/16271.jpg"
+  },
+  {
+    "id": "h1233",
+    "title": "Destruction of Pompeii",
+    "description": "",
+    "time": [
+      79,
+      4
+    ],
+    "emoji": "🌋",
+    "priority": 113,
+    "image": "https://histography.io/images/16762.jpg"
+  },
+  {
+    "id": "h1277",
+    "title": "Antonine Plague",
+    "description": "",
+    "time": [
+      165,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 743,
+    "link": "Antonine_Plague",
+    "image": "https://histography.io/images/6196.jpg"
+  },
+  {
+    "id": "h1416",
+    "title": "Antioch Earthquake",
+    "description": "",
+    "time": [
+      526,
+      11
+    ],
+    "emoji": "🌎",
+    "priority": 1482,
+    "link": "526_Antioch_earthquake",
+    "image": "https://histography.io/images/16249.jpg"
+  },
+  {
+    "id": "h1426",
+    "title": "Plague of Justinian",
+    "description": "",
+    "time": [
+      541,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 1218,
+    "link": "Plague_of_Justinian",
+    "image": "https://histography.io/images/6197.jpg"
+  },
+  {
+    "id": "h1571",
+    "title": "Pakistan Earthquake",
+    "description": "",
+    "time": [
+      893,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 1515,
+    "image": "https://histography.io/images/16240.jpg"
+  },
+  {
+    "id": "h1575",
+    "title": "The Great White Plaque",
+    "description": "",
+    "time": [
+      899,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 1034,
+    "image": "https://histography.io/images/16259.JPG"
+  },
+  {
+    "id": "h1699",
+    "title": "Aleppo Earthquake",
+    "description": "",
+    "time": [
+      1138,
+      11
+    ],
+    "emoji": "🌎",
+    "priority": 443,
+    "link": "1138_Aleppo_earthquake",
+    "image": "https://histography.io/images/16247.jpg"
+  },
+  {
+    "id": "h1938",
+    "title": "the Black Death",
+    "description": "",
+    "time": [
+      1346,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 12313,
+    "link": "Black_Death",
+    "image": "https://histography.io/images/6198.jpg",
+    "video": "pRZYb2Jl22g"
+  },
+  {
+    "id": "h1946",
+    "title": "plague in Yemen",
+    "description": "",
+    "time": [
+      1351,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 38,
+    "image": "https://histography.io/images/6292.jpg"
+  },
+  {
+    "id": "h2363",
+    "title": "Shaanxi earthquake",
+    "description": "",
+    "time": [
+      1556,
+      6
+    ],
+    "emoji": "🌎",
+    "priority": 1606,
+    "link": "1556_Shaanxi_earthquake",
+    "image": "https://histography.io/images/16309.jpg"
+  },
+  {
+    "id": "h2361",
+    "title": "Earthquake in Shansi",
+    "description": "",
+    "time": [
+      1556,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 808,
+    "image": "https://histography.io/images/16306.jpg"
+  },
+  {
+    "id": "h2362",
+    "title": "Shaanxi earthquake",
+    "description": "",
+    "time": [
+      1556,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 606,
+    "link": "1556_Shaanxi_earthquake",
+    "image": "https://histography.io/images/16284.jpg"
+  },
+  {
+    "id": "h2425",
+    "title": "Mexico Cocoliztli epidemic",
+    "description": "",
+    "time": [
+      1576,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 288,
+    "image": "https://histography.io/images/6199.jpg"
+  },
+  {
+    "id": "h2464",
+    "title": "Seneca measles plague",
+    "description": "",
+    "time": [
+      1592,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 1046,
+    "image": "https://histography.io/images/6200.jpg"
+  },
+  {
+    "id": "h2478",
+    "title": "plague in spain",
+    "description": "",
+    "time": [
+      1596,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 213,
+    "image": "https://histography.io/images/6201.gif"
+  },
+  {
+    "id": "h2495",
+    "title": "malaria plague in South America",
+    "description": "",
+    "time": [
+      1600,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 2626,
+    "image": "https://histography.io/images/6202.jpg"
+  },
+  {
+    "id": "h2509",
+    "title": "plague in london",
+    "description": "",
+    "time": [
+      1603
+    ],
+    "emoji": "☣️",
+    "priority": 2124,
+    "link": "Great_Plague_of_London",
+    "image": "https://histography.io/images/6203.jpg"
+  },
+  {
+    "id": "h2530",
+    "title": "plague in egypt",
+    "description": "",
+    "time": [
+      1609,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 260,
+    "image": "https://histography.io/images/6204.jpg"
+  },
+  {
+    "id": "h2562",
+    "title": "Southern New England plague",
+    "description": "",
+    "time": [
+      1616,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 921,
+    "image": "https://histography.io/images/6205.gif"
+  },
+  {
+    "id": "h2600",
+    "title": "the vasa sinking",
+    "description": "",
+    "time": [
+      1628,
+      7
+    ],
+    "emoji": "🌊",
+    "priority": 1
+  },
+  {
+    "id": "h2608",
+    "title": "italian plague",
+    "description": "",
+    "time": [
+      1629,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 246,
+    "image": "https://histography.io/images/6206.jpg"
+  },
+  {
+    "id": "h2611",
+    "title": "Ontario smallpox plague",
+    "description": "",
+    "time": [
+      1630,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1936,
+    "image": "https://histography.io/images/6207.jpg"
+  },
+  {
+    "id": "h2624",
+    "title": "Plymouth Colony smallpox plague",
+    "description": "",
+    "time": [
+      1633,
+      9
+    ],
+    "emoji": "☣️",
+    "priority": 2434,
+    "image": "https://histography.io/images/6208.jpg"
+  },
+  {
+    "id": "h2628",
+    "title": "Connecticut River smallpox plague",
+    "description": "",
+    "time": [
+      1634,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 916,
+    "image": "https://histography.io/images/6209.jpg"
+  },
+  {
+    "id": "h2634",
+    "title": "Newcastle plague",
+    "description": "",
+    "time": [
+      1636,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 313,
+    "image": "https://histography.io/images/6210.jpg"
+  },
+  {
+    "id": "h2653",
+    "title": "plague in China",
+    "description": "",
+    "time": [
+      1641,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 141,
+    "image": "https://histography.io/images/6211.jpg"
+  },
+  {
+    "id": "h2676",
+    "title": "Seville plague",
+    "description": "",
+    "time": [
+      1647,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1193,
+    "image": "https://histography.io/images/16308.jpg"
+  },
+  {
+    "id": "h2675",
+    "title": "Great Plague of Seville",
+    "description": "",
+    "time": [
+      1647,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 401,
+    "link": "Great_Plague_of_Seville",
+    "image": "https://histography.io/images/6212.jpg"
+  },
+  {
+    "id": "h2682",
+    "title": "South America yellow fever plague",
+    "description": "",
+    "time": [
+      1648,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1952,
+    "image": "https://histography.io/images/6213."
+  },
+  {
+    "id": "h2726",
+    "title": "Naples plague",
+    "description": "",
+    "time": [
+      1656,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 170,
+    "link": "Naples_Plague",
+    "image": "https://histography.io/images/6214.jpg"
+  },
+  {
+    "id": "h2739",
+    "title": "Boston measles plague",
+    "description": "",
+    "time": [
+      1657,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 453,
+    "image": "https://histography.io/images/6215.jpg"
+  },
+  {
+    "id": "h2766",
+    "title": "plague in Amsterdam",
+    "description": "",
+    "time": [
+      1663,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 169,
+    "image": "https://histography.io/images/6216.jpg"
+  },
+  {
+    "id": "h2775",
+    "title": "Great Plague of London",
+    "description": "",
+    "time": [
+      1665,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 2871,
+    "link": "Great_Plague_of_London",
+    "image": "https://histography.io/images/6217.jpg"
+  },
+  {
+    "id": "h2797",
+    "title": "plague in france",
+    "description": "",
+    "time": [
+      1668,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 60,
+    "image": "https://histography.io/images/6218.jpg"
+  },
+  {
+    "id": "h2832",
+    "title": "plague in spain",
+    "description": "",
+    "time": [
+      1676,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 213,
+    "image": "https://histography.io/images/6219.gif"
+  },
+  {
+    "id": "h2845",
+    "title": "Great Plague of Vienna",
+    "description": "",
+    "time": [
+      1679,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 518,
+    "link": "Great_Plague_of_Vienna",
+    "image": "https://histography.io/images/6220.jpg"
+  },
+  {
+    "id": "h2864",
+    "title": "measles plague in boston",
+    "description": "",
+    "time": [
+      1687,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1342,
+    "image": "https://histography.io/images/6221.jpg"
+  },
+  {
+    "id": "h2879",
+    "title": "new york yellow fever plague",
+    "description": "",
+    "time": [
+      1690,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 2210,
+    "image": "https://histography.io/images/6222.jpg"
+  },
+  {
+    "id": "h2908",
+    "title": "canada smallpox plague",
+    "description": "",
+    "time": [
+      1702,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 2147,
+    "image": "https://histography.io/images/6223.jpg"
+  },
+  {
+    "id": "h2931",
+    "title": "Stockholm&#;s plague",
+    "description": "",
+    "time": [
+      1710,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1
+  },
+  {
+    "id": "h2940",
+    "title": "measles plague in boston",
+    "description": "",
+    "time": [
+      1713,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1342,
+    "image": "https://histography.io/images/6225.jpg"
+  },
+  {
+    "id": "h2945",
+    "title": "New England measles plague",
+    "description": "",
+    "time": [
+      1713,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 1327,
+    "image": "https://histography.io/images/6226.jpg"
+  },
+  {
+    "id": "h2948",
+    "title": "measles plague in canada",
+    "description": "",
+    "time": [
+      1714,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 973,
+    "image": "https://histography.io/images/6227.jpg"
+  },
+  {
+    "id": "h2977",
+    "title": "Great Plague of Marseille",
+    "description": "",
+    "time": [
+      1720,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 875,
+    "link": "Great_Plague_of_Marseille",
+    "image": "https://histography.io/images/6228.JPG"
+  },
+  {
+    "id": "h2984",
+    "title": "smallpox plague in boston",
+    "description": "",
+    "time": [
+      1721,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 2850,
+    "image": "https://histography.io/images/6229.jpg"
+  },
+  {
+    "id": "h3007",
+    "title": "measles plague in boston",
+    "description": "",
+    "time": [
+      1729,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1342,
+    "image": "https://histography.io/images/6230.jpg"
+  },
+  {
+    "id": "h3011",
+    "title": "yellow fever plague in boston",
+    "description": "",
+    "time": [
+      1730,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 623,
+    "image": "https://histography.io/images/6231.jpg"
+  },
+  {
+    "id": "h3018",
+    "title": "plague in the Thirteen Colonies",
+    "description": "",
+    "time": [
+      1732,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 919,
+    "image": "https://histography.io/images/6232.jpg"
+  },
+  {
+    "id": "h3026",
+    "title": "smallpox plague in canada",
+    "description": "",
+    "time": [
+      1733,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 2850,
+    "image": "https://histography.io/images/6233.jpg"
+  },
+  {
+    "id": "h3040",
+    "title": "South Carolina smallpox plague",
+    "description": "",
+    "time": [
+      1738,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 1675,
+    "image": "https://histography.io/images/6235.jpg"
+  },
+  {
+    "id": "h3044",
+    "title": "Great Plague of 1738",
+    "description": "",
+    "time": [
+      1738,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 1266,
+    "link": "Great_Plague_of_1738",
+    "image": "https://histography.io/images/6234.jpg"
+  },
+  {
+    "id": "h3050",
+    "title": "Boston measles plague",
+    "description": "",
+    "time": [
+      1739,
+      9
+    ],
+    "emoji": "☣️",
+    "priority": 453,
+    "image": "https://histography.io/images/6236.jpg"
+  },
+  {
+    "id": "h3060",
+    "title": "measles plague in Philadelphia",
+    "description": "",
+    "time": [
+      1741,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 186,
+    "image": "https://histography.io/images/6250.png"
+  },
+  {
+    "id": "h3066",
+    "title": "plague in messina",
+    "description": "",
+    "time": [
+      1743,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 624,
+    "image": "https://histography.io/images/6237.jpg"
+  },
+  {
+    "id": "h3084",
+    "title": "measles plague in new york",
+    "description": "",
+    "time": [
+      1747,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 226,
+    "image": "https://histography.io/images/6238.jpg"
+  },
+  {
+    "id": "h3108",
+    "title": "the Lisbon earthquake",
+    "description": "",
+    "time": [
+      1755
+    ],
+    "emoji": "🌎",
+    "priority": 1518,
+    "link": "1755_Lisbon_earthquake",
+    "image": "https://histography.io/images/16312.gif"
+  },
+  {
+    "id": "h3109",
+    "title": "north america smallpox epidemic",
+    "description": "",
+    "time": [
+      1755,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 494,
+    "link": "1775–82_North_American_smallpox_epidemic",
+    "image": "https://histography.io/images/6239.jpg"
+  },
+  {
+    "id": "h3127",
+    "title": "west indies measles plague",
+    "description": "",
+    "time": [
+      1759,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 520,
+    "image": "https://histography.io/images/6240."
+  },
+  {
+    "id": "h3131",
+    "title": "plague in north america",
+    "description": "",
+    "time": [
+      1761,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 381,
+    "image": "https://histography.io/images/6241.jpg"
+  },
+  {
+    "id": "h3180",
+    "title": "Northwest natives smallpox epidemic",
+    "description": "",
+    "time": [
+      1770,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 1090,
+    "image": "https://histography.io/images/6243.jpg"
+  },
+  {
+    "id": "h3179",
+    "title": "Russian plague of",
+    "description": "",
+    "time": [
+      1770,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 878,
+    "link": "Russian_plague_of_1770–72",
+    "image": "https://histography.io/images/6242.jpg"
+  },
+  {
+    "id": "h3192",
+    "title": "north america measles plague",
+    "description": "",
+    "time": [
+      1772,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 1235,
+    "image": "https://histography.io/images/6244.jpg"
+  },
+  {
+    "id": "h3205",
+    "title": "North American Smallpox Epidemic",
+    "description": "",
+    "time": [
+      1775,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 1500,
+    "link": "1775–82_North_American_smallpox_epidemic",
+    "image": "https://histography.io/images/16258.jpg"
+  },
+  {
+    "id": "h3202",
+    "title": "America northeast plague",
+    "description": "",
+    "time": [
+      1775,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 1138,
+    "image": "https://histography.io/images/6245.jpg"
+  },
+  {
+    "id": "h3201",
+    "title": "epidemic in england",
+    "description": "",
+    "time": [
+      1775,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 12,
+    "image": "https://histography.io/images/6246.38"
+  },
+  {
+    "id": "h3235",
+    "title": "flague in spain",
+    "description": "",
+    "time": [
+      1778,
+      10
+    ],
+    "emoji": "⚠️",
+    "priority": 1
+  },
+  {
+    "id": "h3249",
+    "title": "North American smallpox epidemic",
+    "description": "",
+    "time": [
+      1780,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 2500,
+    "link": "1775–82_North_American_smallpox_epidemic",
+    "image": "https://histography.io/images/6248.jpg"
+  },
+  {
+    "id": "h3258",
+    "title": "famine in japan",
+    "description": "",
+    "time": [
+      1782,
+      5
+    ],
+    "emoji": "🌾",
+    "priority": 1
+  },
+  {
+    "id": "h3313",
+    "title": "Pueblo Indians smallpox epidemic",
+    "description": "",
+    "time": [
+      1788,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 360,
+    "image": "https://histography.io/images/6249.jpg"
+  },
+  {
+    "id": "h3325",
+    "title": "the Aborigines smallpox plague",
+    "description": "",
+    "time": [
+      1789,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1824,
+    "image": "https://histography.io/images/6251.jpg"
+  },
+  {
+    "id": "h3367",
+    "title": "usa yellow fever plague",
+    "description": "",
+    "time": [
+      1793,
+      9
+    ],
+    "emoji": "☣️",
+    "priority": 1418,
+    "image": "https://histography.io/images/6287.jpg"
+  },
+  {
+    "id": "h3365",
+    "title": "Yellow Fever Epidemic of 93",
+    "description": "",
+    "time": [
+      1793,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 881,
+    "image": "https://histography.io/images/6254.jpg"
+  },
+  {
+    "id": "h3362",
+    "title": "Vermont typhus epidemic",
+    "description": "",
+    "time": [
+      1793,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 151,
+    "image": "https://histography.io/images/6252.jpg"
+  },
+  {
+    "id": "h3430",
+    "title": "yellow fever epidemic in spain",
+    "description": "",
+    "time": [
+      1800,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 1160,
+    "image": "https://histography.io/images/6255.jpg"
+  },
+  {
+    "id": "h3444",
+    "title": "Egypt bubonic plague",
+    "description": "",
+    "time": [
+      1801,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 193,
+    "image": "https://histography.io/images/6256.jpg"
+  },
+  {
+    "id": "h3467",
+    "title": "new york yellow fever plague",
+    "description": "",
+    "time": [
+      1803,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 2210,
+    "image": "https://histography.io/images/6257.jpg"
+  },
+  {
+    "id": "h3595",
+    "title": "plague in egypt",
+    "description": "",
+    "time": [
+      1812,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 260,
+    "image": "https://histography.io/images/6258.jpg"
+  },
+  {
+    "id": "h3589",
+    "title": "plague in istanbul",
+    "description": "",
+    "time": [
+      1812,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 31,
+    "image": "https://histography.io/images/6259.jpg"
+  },
+  {
+    "id": "h3605",
+    "title": "plague in bucharest",
+    "description": "",
+    "time": [
+      1813,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 196,
+    "image": "https://histography.io/images/6261.jpg"
+  },
+  {
+    "id": "h3599",
+    "title": "plague in malta",
+    "description": "",
+    "time": [
+      1813,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 148,
+    "image": "https://histography.io/images/6260.jpg"
+  },
+  {
+    "id": "h3633",
+    "title": "Mount Tambora eruption",
+    "description": "",
+    "time": [
+      1815,
+      5
+    ],
+    "emoji": "🌋",
+    "priority": 1,
+    "link": "Mount_Tambora",
+    "image": "https://histography.io/images/16315.gif",
+    "video": "KKzjb6wyMZ8"
+  },
+  {
+    "id": "h3655",
+    "title": "first cholera pandemic",
+    "description": "",
+    "time": [
+      1816,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 1528,
+    "image": "https://histography.io/images/6263.jpg"
+  },
+  {
+    "id": "h3690",
+    "title": "Schuylkill River epidemic",
+    "description": "",
+    "time": [
+      1820,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 140,
+    "image": "https://histography.io/images/6264.jpg"
+  },
+  {
+    "id": "h3698",
+    "title": "Barcelona yellow fever epidemic",
+    "description": "",
+    "time": [
+      1821,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 2062,
+    "image": "https://histography.io/images/6265.jpg"
+  },
+  {
+    "id": "h3797",
+    "title": "the Aborigines smallpox plague",
+    "description": "",
+    "time": [
+      1828,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 1824,
+    "image": "https://histography.io/images/6266.jpg"
+  },
+  {
+    "id": "h3806",
+    "title": "South Australia smallpox plague",
+    "description": "",
+    "time": [
+      1829,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 2434,
+    "image": "https://histography.io/images/6268.jpg"
+  },
+  {
+    "id": "h3801",
+    "title": "iran bubonic plague",
+    "description": "",
+    "time": [
+      1829,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 1052,
+    "image": "https://histography.io/images/6269.jpg"
+  },
+  {
+    "id": "h3810",
+    "title": "the world second cholera pandemic",
+    "description": "",
+    "time": [
+      1829,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 380,
+    "image": "https://histography.io/images/6270.jpg"
+  },
+  {
+    "id": "h3808",
+    "title": "Groningen malaria epidemic",
+    "description": "",
+    "time": [
+      1829,
+      9
+    ],
+    "emoji": "☣️",
+    "priority": 196,
+    "link": "Groningen_epidemic",
+    "image": "https://histography.io/images/6267.jpg"
+  },
+  {
+    "id": "h3840",
+    "title": "india smallpox plague",
+    "description": "",
+    "time": [
+      1831,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 4266,
+    "image": "https://histography.io/images/6272.jpg"
+  },
+  {
+    "id": "h3833",
+    "title": "egypt cholera plague",
+    "description": "",
+    "time": [
+      1831,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 2063,
+    "image": "https://histography.io/images/6271.jpg"
+  },
+  {
+    "id": "h3849",
+    "title": "england cholera plague",
+    "description": "",
+    "time": [
+      1832,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 1905,
+    "image": "https://histography.io/images/6273.jpg"
+  },
+  {
+    "id": "h3853",
+    "title": "montreal cholera plague",
+    "description": "",
+    "time": [
+      1832,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 136,
+    "image": "https://histography.io/images/6274.jpg"
+  },
+  {
+    "id": "h3863",
+    "title": "ohio cholera plague",
+    "description": "",
+    "time": [
+      1833,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 108,
+    "image": "https://histography.io/images/6275.jpg"
+  },
+  {
+    "id": "h3874",
+    "title": "new york cholera plague",
+    "description": "",
+    "time": [
+      1834,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 1026,
+    "image": "https://histography.io/images/6276.jpg"
+  },
+  {
+    "id": "h3883",
+    "title": "egypt bubonic plague",
+    "description": "",
+    "time": [
+      1834,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 193,
+    "image": "https://histography.io/images/6277.jpg"
+  },
+  {
+    "id": "h3912",
+    "title": "Philadelphia typhus epidemic",
+    "description": "",
+    "time": [
+      1837,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 370,
+    "image": "https://histography.io/images/6278.jpg"
+  },
+  {
+    "id": "h3923",
+    "title": "smallpox epidemic",
+    "description": "",
+    "time": [
+      1837,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 331,
+    "image": "https://histography.io/images/6279.jpg"
+  },
+  {
+    "id": "h3959",
+    "title": "Cape Town smallpox plague",
+    "description": "",
+    "time": [
+      1840,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 1862,
+    "image": "https://histography.io/images/6281.jpg"
+  },
+  {
+    "id": "h3957",
+    "title": "plague in Dalmatia",
+    "description": "",
+    "time": [
+      1840,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 320,
+    "image": "https://histography.io/images/6280.jpg"
+  },
+  {
+    "id": "h3966",
+    "title": "United States yellow fever plague",
+    "description": "",
+    "time": [
+      1841,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 1952,
+    "image": "https://histography.io/images/6282.jpg"
+  },
+  {
+    "id": "h4013",
+    "title": "The Great Potato Famine",
+    "description": "",
+    "time": [
+      1845,
+      2
+    ],
+    "emoji": "🌾",
+    "priority": 50,
+    "image": "https://histography.io/images/16296.jpg"
+  },
+  {
+    "id": "h4045",
+    "title": "New Orleans yellow fever epidemic",
+    "description": "",
+    "time": [
+      1847,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 1952,
+    "image": "https://histography.io/images/6284.jpg"
+  },
+  {
+    "id": "h4060",
+    "title": "Typhus epidemic of",
+    "description": "",
+    "time": [
+      1847,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1128,
+    "link": "Typhus_epidemic_of_1847",
+    "image": "https://histography.io/images/6283.jpg"
+  },
+  {
+    "id": "h4050",
+    "title": "typhus epidemic in ireland",
+    "description": "",
+    "time": [
+      1847,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 223,
+    "image": "https://histography.io/images/6262.jpg"
+  },
+  {
+    "id": "h4080",
+    "title": "Egypt cholera plague",
+    "description": "",
+    "time": [
+      1848,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 2063,
+    "image": "https://histography.io/images/6285.jpg"
+  },
+  {
+    "id": "h4066",
+    "title": "north america cholera plague",
+    "description": "",
+    "time": [
+      1848,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 122,
+    "image": "https://histography.io/images/6286.jpg"
+  },
+  {
+    "id": "h4116",
+    "title": "plague in north america",
+    "description": "",
+    "time": [
+      1850,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 381,
+    "image": "https://histography.io/images/6288.jpg"
+  },
+  {
+    "id": "h4123",
+    "title": "Missouri cholera outbreak",
+    "description": "",
+    "time": [
+      1851,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 50,
+    "image": "https://histography.io/images/6289.jpg"
+  },
+  {
+    "id": "h4153",
+    "title": "Buenos Aires yellow fever plague",
+    "description": "",
+    "time": [
+      1852,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 2025,
+    "image": "https://histography.io/images/6305.jpg"
+  },
+  {
+    "id": "h4151",
+    "title": "New Orleans yellow fever epidemic",
+    "description": "",
+    "time": [
+      1852,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 1952,
+    "image": "https://histography.io/images/6290.jpg"
+  },
+  {
+    "id": "h4147",
+    "title": "the world third cholera pandemic",
+    "description": "",
+    "time": [
+      1852,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1805,
+    "image": "https://histography.io/images/6291.jpg"
+  },
+  {
+    "id": "h4161",
+    "title": "Cholera epidemic of Copenhagen",
+    "description": "",
+    "time": [
+      1853,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 298,
+    "image": "https://histography.io/images/6293.jpg"
+  },
+  {
+    "id": "h4175",
+    "title": "Broad Street cholera outbreak",
+    "description": "",
+    "time": [
+      1854,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 833,
+    "link": "1854_Broad_Street_cholera_outbreak",
+    "image": "https://histography.io/images/6294.gif"
+  },
+  {
+    "id": "h4179",
+    "title": "united states yellow fever epidemic",
+    "description": "",
+    "time": [
+      1855,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 1335,
+    "image": "https://histography.io/images/6295.jpg"
+  },
+  {
+    "id": "h4202",
+    "title": "Third plague pandemic",
+    "description": "",
+    "time": [
+      1855,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1045,
+    "link": "Third_plague_pandemic",
+    "image": "https://histography.io/images/6296.jpg"
+  },
+  {
+    "id": "h4231",
+    "title": "pandemic in europe",
+    "description": "",
+    "time": [
+      1857,
+      8
+    ],
+    "emoji": "⚠️",
+    "priority": 4435,
+    "link": "2009_flu_pandemic_in_Europe",
+    "image": "https://histography.io/images/6299.jpg"
+  },
+  {
+    "id": "h4224",
+    "title": "lisbon yellow fever plague",
+    "description": "",
+    "time": [
+      1857,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 2299,
+    "image": "https://histography.io/images/6297.jpg"
+  },
+  {
+    "id": "h4228",
+    "title": "Victoria smallpox plague",
+    "description": "",
+    "time": [
+      1857,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 2234,
+    "image": "https://histography.io/images/6298.jpg"
+  },
+  {
+    "id": "h4328",
+    "title": "Church of the Company fire",
+    "description": "",
+    "time": [
+      1863,
+      7
+    ],
+    "emoji": "🔥",
+    "priority": 629,
+    "link": "Church_of_the_Company_Fire",
+    "image": "https://histography.io/images/16266.jpg"
+  },
+  {
+    "id": "h4322",
+    "title": "the world fourth cholera pandemic",
+    "description": "",
+    "time": [
+      1863,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 389,
+    "image": "https://histography.io/images/6300.png"
+  },
+  {
+    "id": "h4341",
+    "title": "Calcutta cyclone",
+    "description": "",
+    "time": [
+      1864
+    ],
+    "emoji": "🌀",
+    "priority": 618,
+    "image": "https://histography.io/images/16286.JPG"
+  },
+  {
+    "id": "h4376",
+    "title": "egypt cholera outbreak",
+    "description": "",
+    "time": [
+      1865,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 1905,
+    "image": "https://histography.io/images/6301.jpg"
+  },
+  {
+    "id": "h4401",
+    "title": "germany cholera outbreak",
+    "description": "",
+    "time": [
+      1866,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 1716,
+    "link": "Zimbabwean_cholera_outbreak",
+    "image": "https://histography.io/images/6302.jpg"
+  },
+  {
+    "id": "h4412",
+    "title": "Sydney measles plague",
+    "description": "",
+    "time": [
+      1867,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 545,
+    "image": "https://histography.io/images/6303.jpg"
+  },
+  {
+    "id": "h4408",
+    "title": "plague in iraq",
+    "description": "",
+    "time": [
+      1867,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 132,
+    "image": "https://histography.io/images/6304.jpg"
+  },
+  {
+    "id": "h4490",
+    "title": "Wisconsin massive forest fire",
+    "description": "",
+    "time": [
+      1871,
+      8
+    ],
+    "emoji": "🔥",
+    "priority": 2616,
+    "image": "https://histography.io/images/16348."
+  },
+  {
+    "id": "h4550",
+    "title": "Fiji measles plague",
+    "description": "",
+    "time": [
+      1875,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 1524,
+    "image": "https://histography.io/images/6307.jpg"
+  },
+  {
+    "id": "h4561",
+    "title": "north China drought",
+    "description": "",
+    "time": [
+      1876,
+      5
+    ],
+    "emoji": "🌾",
+    "priority": 1215,
+    "image": "https://histography.io/images/16323.gif"
+  },
+  {
+    "id": "h4574",
+    "title": "China The Deadliest Drought",
+    "description": "",
+    "time": [
+      1876,
+      11
+    ],
+    "emoji": "🌾",
+    "priority": 127,
+    "image": "https://histography.io/images/16297.jpg"
+  },
+  {
+    "id": "h4674",
+    "title": "egypt cholera outbreak",
+    "description": "",
+    "time": [
+      1881,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1905,
+    "image": "https://histography.io/images/6309.jpg"
+  },
+  {
+    "id": "h4667",
+    "title": "the world fifth cholera pandemic",
+    "description": "",
+    "time": [
+      1881,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1428,
+    "image": "https://histography.io/images/6310.jpg"
+  },
+  {
+    "id": "h4684",
+    "title": "krakatoa eruption",
+    "description": "",
+    "time": [
+      1883
+    ],
+    "emoji": "🌋",
+    "priority": 1896,
+    "image": "https://histography.io/images/16317.gif"
+  },
+  {
+    "id": "h4751",
+    "title": "Montreal smallpox plague",
+    "description": "",
+    "time": [
+      1885,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 45,
+    "image": "https://histography.io/images/6311.jpg"
+  },
+  {
+    "id": "h4815",
+    "title": "–1890 flu pandemic",
+    "description": "",
+    "time": [
+      1889,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 396,
+    "link": "1889–90_flu_pandemic",
+    "image": "https://histography.io/images/6312.jpg"
+  },
+  {
+    "id": "h4962",
+    "title": "congo trypanosomiasis plague",
+    "description": "",
+    "time": [
+      1896,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 153,
+    "image": "https://histography.io/images/6313.jpg"
+  },
+  {
+    "id": "h4974",
+    "title": "Assam earthquake",
+    "description": "",
+    "time": [
+      1897,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 1318,
+    "link": "1897_Assam_earthquake",
+    "image": "https://histography.io/images/16336.jpg"
+  },
+  {
+    "id": "h5017",
+    "title": "Indian Famine",
+    "description": "",
+    "time": [
+      1899
+    ],
+    "emoji": "🌾",
+    "priority": 269,
+    "link": "Indian_Famine_Codes",
+    "image": "https://histography.io/images/16295.jpg"
+  },
+  {
+    "id": "h5034",
+    "title": "the world sixth cholera pandemic",
+    "description": "",
+    "time": [
+      1899,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 212,
+    "image": "https://histography.io/images/6314.JPG"
+  },
+  {
+    "id": "h5042",
+    "title": "west africa yellow fever plague",
+    "description": "",
+    "time": [
+      1900,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 2062,
+    "image": "https://histography.io/images/6316.jpg"
+  },
+  {
+    "id": "h5053",
+    "title": "San Francisco bubonic plague",
+    "description": "",
+    "time": [
+      1900,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 436,
+    "image": "https://histography.io/images/6315.jpg"
+  },
+  {
+    "id": "h5056",
+    "title": "uganda trypanosomiasis plague",
+    "description": "",
+    "time": [
+      1900,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 393,
+    "image": "https://histography.io/images/6317.jpg"
+  },
+  {
+    "id": "h5092",
+    "title": "egypt cholera plague",
+    "description": "",
+    "time": [
+      1902,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 2063,
+    "image": "https://histography.io/images/6318.jpg"
+  },
+  {
+    "id": "h5123",
+    "title": "india plague",
+    "description": "",
+    "time": [
+      1903,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 102,
+    "image": "https://histography.io/images/6319.jpg"
+  },
+  {
+    "id": "h5254",
+    "title": "The First Fatal Airplane Crash",
+    "description": "",
+    "time": [
+      1908,
+      4
+    ],
+    "emoji": "💥",
+    "priority": 61,
+    "image": "https://histography.io/images/16907.jpg"
+  },
+  {
+    "id": "h5316",
+    "title": "Manchuria bubonic plague",
+    "description": "",
+    "time": [
+      1910,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1372,
+    "image": "https://histography.io/images/6320.jpg"
+  },
+  {
+    "id": "h5398",
+    "title": "Sinking of the Titanic",
+    "description": "",
+    "time": [
+      1912,
+      10
+    ],
+    "emoji": "🌊",
+    "priority": 9208,
+    "link": "Sinking_of_the_RMS_Titanic",
+    "image": "https://histography.io/images/16229.jpg",
+    "video": "GFhLpXq2cMk"
+  },
+  {
+    "id": "h5499",
+    "title": "Avezzano earthquake",
+    "description": "",
+    "time": [
+      1915,
+      12
+    ],
+    "emoji": "🌎",
+    "priority": 2360,
+    "link": "1915_Avezzano_earthquake",
+    "image": "https://histography.io/images/16322.jpg"
+  },
+  {
+    "id": "h5539",
+    "title": "Halifax Explosion",
+    "description": "",
+    "time": [
+      1917,
+      4
+    ],
+    "emoji": "💥",
+    "priority": 958,
+    "link": "Halifax_Explosion",
+    "image": "https://histography.io/images/16265.jpg"
+  },
+  {
+    "id": "h5610",
+    "title": "The Flu Pandemic",
+    "description": "",
+    "time": [
+      1918,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 5168,
+    "link": "1918_flu_pandemic",
+    "image": "https://histography.io/images/16298.jpg"
+  },
+  {
+    "id": "h5600",
+    "title": "worldwide flu pandemic",
+    "description": "",
+    "time": [
+      1918,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 2039,
+    "image": "https://histography.io/images/6321.jpg"
+  },
+  {
+    "id": "h5578",
+    "title": "Spanish Influenza",
+    "description": "",
+    "time": [
+      1918,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1163,
+    "image": "https://histography.io/images/16262.jpg"
+  },
+  {
+    "id": "h5608",
+    "title": "russia typhus plague",
+    "description": "",
+    "time": [
+      1918,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 486,
+    "image": "https://histography.io/images/6322.jpg"
+  },
+  {
+    "id": "h5661",
+    "title": "The Boston Molasses Disaster",
+    "description": "",
+    "time": [
+      1919,
+      6
+    ],
+    "emoji": "⚠️",
+    "priority": 1617,
+    "image": "https://histography.io/images/16355.jpg"
+  },
+  {
+    "id": "h5717",
+    "title": "Haiyuan Earthquake",
+    "description": "",
+    "time": [
+      1920,
+      10
+    ],
+    "emoji": "🌎",
+    "priority": 1400,
+    "link": "1920_Haiyuan_earthquake",
+    "image": "https://histography.io/images/16248.jpg"
+  },
+  {
+    "id": "h5690",
+    "title": "Gansu earthquake",
+    "description": "",
+    "time": [
+      1920,
+      2
+    ],
+    "emoji": "🌎",
+    "priority": 1157,
+    "link": "Gansu_earthquake",
+    "image": "https://histography.io/images/16324.jpg"
+  },
+  {
+    "id": "h5706",
+    "title": "gansu province earthquake",
+    "description": "",
+    "time": [
+      1920,
+      7
+    ],
+    "emoji": "🌎",
+    "priority": 229,
+    "image": "https://histography.io/images/16328.jpg"
+  },
+  {
+    "id": "h5807",
+    "title": "tokyo earthquake",
+    "description": "",
+    "time": [
+      1923,
+      2
+    ],
+    "emoji": "🌎",
+    "priority": 935,
+    "image": "https://histography.io/images/16325.jpg"
+  },
+  {
+    "id": "h5937",
+    "title": "Nanshan City earthquake",
+    "description": "",
+    "time": [
+      1927,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 1107,
+    "image": "https://histography.io/images/16326.jpg"
+  },
+  {
+    "id": "h6002",
+    "title": "Huanggutun Incident",
+    "description": "",
+    "time": [
+      1928,
+      11
+    ],
+    "emoji": "💥",
+    "priority": 792,
+    "link": "Huanggutun_incident",
+    "image": "https://histography.io/images/16238.JPG"
+  },
+  {
+    "id": "h6001",
+    "title": "St. Francis Dam Flooding",
+    "description": "",
+    "time": [
+      1928,
+      11
+    ],
+    "emoji": "🌊",
+    "priority": 62,
+    "image": "https://histography.io/images/16353.jpg"
+  },
+  {
+    "id": "h6013",
+    "title": "the great Depression",
+    "description": "",
+    "time": [
+      1929,
+      2
+    ],
+    "emoji": "🏭",
+    "priority": 14715,
+    "link": "Great_Depression",
+    "image": "https://histography.io/images/16208.jpg",
+    "video": "bCEJ65H_1XE"
+  },
+  {
+    "id": "h6010",
+    "title": "St. Valentine Day Massacre",
+    "description": "",
+    "time": [
+      1929,
+      2
+    ],
+    "emoji": "☠️",
+    "priority": 357,
+    "link": "St._Valentine's_Day_Massacre_(EP)",
+    "image": "https://histography.io/images/16914.jpg"
+  },
+  {
+    "id": "h6070",
+    "title": "R101 Airship Disaster",
+    "description": "",
+    "time": [
+      1930,
+      7
+    ],
+    "emoji": "💥",
+    "priority": 114,
+    "image": "https://histography.io/images/16357.jpg"
+  },
+  {
+    "id": "h6121",
+    "title": "floods in china",
+    "description": "",
+    "time": [
+      1931,
+      9
+    ],
+    "emoji": "🌊",
+    "priority": 2226,
+    "image": "https://histography.io/images/16332.jpg"
+  },
+  {
+    "id": "h6116",
+    "title": "china Flooding",
+    "description": "",
+    "time": [
+      1931,
+      7
+    ],
+    "emoji": "🌊",
+    "priority": 1361,
+    "image": "https://histography.io/images/16307.jpg"
+  },
+  {
+    "id": "h6132",
+    "title": "Changjiang River floods",
+    "description": "",
+    "time": [
+      1931,
+      11
+    ],
+    "emoji": "🌊",
+    "priority": 1309,
+    "image": "https://histography.io/images/16327.jpg"
+  },
+  {
+    "id": "h6133",
+    "title": "China floods",
+    "description": "",
+    "time": [
+      1931,
+      11
+    ],
+    "emoji": "🌊",
+    "priority": 1162,
+    "link": "China_floods",
+    "image": "https://histography.io/images/16282.jpg"
+  },
+  {
+    "id": "h6111",
+    "title": "Yangtze River flood",
+    "description": "",
+    "time": [
+      1931,
+      6
+    ],
+    "emoji": "🌊",
+    "priority": 242,
+    "link": "1998_Yangtze_River_floods",
+    "image": "https://histography.io/images/16321.jpg"
+  },
+  {
+    "id": "h6129",
+    "title": "China floods",
+    "description": "",
+    "time": [
+      1931,
+      11
+    ],
+    "emoji": "🌊",
+    "priority": 162,
+    "link": "China_floods",
+    "image": "https://histography.io/images/16299.jpg"
+  },
+  {
+    "id": "h6341",
+    "title": "Bombing of Chongqing",
+    "description": "",
+    "time": [
+      1938,
+      3
+    ],
+    "emoji": "💣",
+    "priority": 390,
+    "link": "Bombing_of_Chongqing",
+    "image": "https://histography.io/images/16268.jpg"
+  },
+  {
+    "id": "h6350",
+    "title": "Yellow River flood",
+    "description": "",
+    "time": [
+      1938,
+      6
+    ],
+    "emoji": "🌊",
+    "priority": 281,
+    "link": "1887_Yellow_River_flood",
+    "image": "https://histography.io/images/16283.jpg"
+  },
+  {
+    "id": "h6424",
+    "title": "Washington Bridge Disaster",
+    "description": "",
+    "time": [
+      1940,
+      2
+    ],
+    "emoji": "💥",
+    "priority": 623,
+    "image": "https://histography.io/images/16350.-Tacoma-Washington-Bridge-Disaster"
+  },
+  {
+    "id": "h6515",
+    "title": "egypt malaria plague",
+    "description": "",
+    "time": [
+      1942,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 2691,
+    "image": "https://histography.io/images/6323.jpg"
+  },
+  {
+    "id": "h6517",
+    "title": "Henan province drought",
+    "description": "",
+    "time": [
+      1942,
+      11
+    ],
+    "emoji": "🌾",
+    "priority": 1020,
+    "image": "https://histography.io/images/16334.jpg"
+  },
+  {
+    "id": "h6518",
+    "title": "Benxihu Colliery Explosion",
+    "description": "",
+    "time": [
+      1942,
+      12
+    ],
+    "emoji": "💥",
+    "priority": 349,
+    "link": "Benxihu_Colliery",
+    "image": "https://histography.io/images/16264.jpg"
+  },
+  {
+    "id": "h6564",
+    "title": "East Ohio Gas Explosion",
+    "description": "",
+    "time": [
+      1944,
+      7
+    ],
+    "emoji": "💥",
+    "priority": 384,
+    "link": "Cleveland_East_Ohio_Gas_explosion",
+    "image": "https://histography.io/images/16351.jpg"
+  },
+  {
+    "id": "h6644",
+    "title": "china bubonic plague",
+    "description": "",
+    "time": [
+      1946,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 269,
+    "image": "https://histography.io/images/6324.web"
+  },
+  {
+    "id": "h6660",
+    "title": "plague in egypt",
+    "description": "",
+    "time": [
+      1946,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 260,
+    "image": "https://histography.io/images/6325.jpg"
+  },
+  {
+    "id": "h6692",
+    "title": "egypt cholera plague",
+    "description": "",
+    "time": [
+      1947,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 2063,
+    "image": "https://histography.io/images/6326.jpg"
+  },
+  {
+    "id": "h6717",
+    "title": "Turkmenistan earthquake",
+    "description": "",
+    "time": [
+      1948,
+      4
+    ],
+    "emoji": "🌎",
+    "priority": 1184,
+    "link": "2000_Turkmenistan_earthquake",
+    "image": "https://histography.io/images/16335.jpg"
+  },
+  {
+    "id": "h6907",
+    "title": "The Great Smog",
+    "description": "",
+    "time": [
+      1952,
+      11
+    ],
+    "emoji": "🏭",
+    "priority": 2762,
+    "link": "Great_Smog",
+    "image": "https://histography.io/images/16269.jpg"
+  },
+  {
+    "id": "h6889",
+    "title": "London’s Killer Fog",
+    "description": "",
+    "time": [
+      1952,
+      5
+    ],
+    "emoji": "🏭",
+    "priority": 295,
+    "image": "https://histography.io/images/16287.jpg"
+  },
+  {
+    "id": "h6950",
+    "title": "Netherlands flooding",
+    "description": "",
+    "time": [
+      1953,
+      9
+    ],
+    "emoji": "🌊",
+    "priority": 181,
+    "image": "https://histography.io/images/16303.jpg"
+  },
+  {
+    "id": "h6978",
+    "title": "Yangtze River Floods",
+    "description": "",
+    "time": [
+      1954,
+      4
+    ],
+    "emoji": "🌊",
+    "priority": 250,
+    "link": "1998_Yangtze_River_floods",
+    "image": "https://histography.io/images/16256.jpg"
+  },
+  {
+    "id": "h7143",
+    "title": "the Asian Flu",
+    "description": "",
+    "time": [
+      1957,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 6129,
+    "link": "Asian_flu",
+    "image": "https://histography.io/images/16337.jpg"
+  },
+  {
+    "id": "h7112",
+    "title": "Asian flu epidemic",
+    "description": "",
+    "time": [
+      1957,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 343,
+    "image": "https://histography.io/images/6327.jpg"
+  },
+  {
+    "id": "h7179",
+    "title": "Chinese Famine",
+    "description": "",
+    "time": [
+      1958,
+      4
+    ],
+    "emoji": "🌾",
+    "priority": 378,
+    "image": "https://histography.io/images/16300.jpg"
+  },
+  {
+    "id": "h7300",
+    "title": "The Destruction of the Aral Sea",
+    "description": "",
+    "time": [
+      1960,
+      8
+    ],
+    "emoji": "🏭",
+    "priority": 1904,
+    "image": "https://histography.io/images/16290.jpg"
+  },
+  {
+    "id": "h7315",
+    "title": "congo AIDS pandemic",
+    "description": "",
+    "time": [
+      1960,
+      10
+    ],
+    "emoji": "⚠️",
+    "priority": 259,
+    "image": "https://histography.io/images/6334.web"
+  },
+  {
+    "id": "h7365",
+    "title": "Yucca Flat bombardment",
+    "description": "",
+    "time": [
+      1961,
+      8
+    ],
+    "emoji": "💣",
+    "priority": 1496,
+    "image": "https://histography.io/images/16279.jpg"
+  },
+  {
+    "id": "h7335",
+    "title": "seventh cholera pandemic",
+    "description": "",
+    "time": [
+      1961,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 175,
+    "link": "Seventh_cholera_pandemic_(1961–75)",
+    "image": "https://histography.io/images/6328.jpg"
+  },
+  {
+    "id": "h7486",
+    "title": "MV Dona Paz",
+    "description": "",
+    "time": [
+      1963,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 841,
+    "link": "MV_Doña_Paz",
+    "image": "https://histography.io/images/16267.jpg"
+  },
+  {
+    "id": "h7752",
+    "title": "Palomares Incident",
+    "description": "",
+    "time": [
+      1966,
+      8
+    ],
+    "emoji": "💥",
+    "priority": 1055,
+    "image": "https://histography.io/images/16281.jpg"
+  },
+  {
+    "id": "h7771",
+    "title": "Baku plague",
+    "description": "",
+    "time": [
+      1967,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 80,
+    "image": "https://histography.io/images/6308.jpg"
+  },
+  {
+    "id": "h7886",
+    "title": "Thule Accident",
+    "description": "",
+    "time": [
+      1968,
+      6
+    ],
+    "emoji": "💥",
+    "priority": 1499,
+    "image": "https://histography.io/images/16280.jpg"
+  },
+  {
+    "id": "h7903",
+    "title": "Hong Kong flu plague",
+    "description": "",
+    "time": [
+      1968,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 273,
+    "image": "https://histography.io/images/6329.jpg"
+  },
+  {
+    "id": "h8046",
+    "title": "Bhola Cyclone",
+    "description": "",
+    "time": [
+      1970,
+      7
+    ],
+    "emoji": "🌀",
+    "priority": 2292,
+    "link": "1970_Bhola_cyclone",
+    "image": "https://histography.io/images/16250.jpg"
+  },
+  {
+    "id": "h8031",
+    "title": "germany smallpox plague",
+    "description": "",
+    "time": [
+      1970,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 1418,
+    "image": "https://histography.io/images/6306.jpg"
+  },
+  {
+    "id": "h8104",
+    "title": "Staphorst Poliomyelitis epidemic",
+    "description": "",
+    "time": [
+      1971,
+      6
+    ],
+    "emoji": "☣️",
+    "priority": 1
+  },
+  {
+    "id": "h8162",
+    "title": "Munich Olympics Massacre",
+    "description": "",
+    "time": [
+      1972,
+      7
+    ],
+    "emoji": "☠️",
+    "priority": 6772,
+    "link": "Munich_massacre",
+    "image": "https://histography.io/images/16913.jpg"
+  },
+  {
+    "id": "h8158",
+    "title": "outbreak of smallpox in Yugoslavia",
+    "description": "",
+    "time": [
+      1972,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 602,
+    "link": "1972_outbreak_of_smallpox_in_Yugoslavia",
+    "image": "https://histography.io/images/6331.tif"
+  },
+  {
+    "id": "h8177",
+    "title": "London flu",
+    "description": "",
+    "time": [
+      1972,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 40,
+    "image": "https://histography.io/images/6332.jpg"
+  },
+  {
+    "id": "h8297",
+    "title": "smallpox epidemic of India",
+    "description": "",
+    "time": [
+      1974,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 208,
+    "link": "1974_smallpox_epidemic_in_India",
+    "image": "https://histography.io/images/6333.jpg"
+  },
+  {
+    "id": "h8367",
+    "title": "Typhoon Nina",
+    "description": "",
+    "time": [
+      1975,
+      11
+    ],
+    "emoji": "🌀",
+    "priority": 1148,
+    "image": "https://histography.io/images/16318.jpg"
+  },
+  {
+    "id": "h8356",
+    "title": "Banqiao Dam Collapse",
+    "description": "",
+    "time": [
+      1975,
+      9
+    ],
+    "emoji": "💥",
+    "priority": 29,
+    "image": "https://histography.io/images/16272.jpg"
+  },
+  {
+    "id": "h8384",
+    "title": "Dioxin Pollution",
+    "description": "",
+    "time": [
+      1976,
+      2
+    ],
+    "emoji": "🏭",
+    "priority": 886,
+    "image": "https://histography.io/images/16292.jpg"
+  },
+  {
+    "id": "h8404",
+    "title": "Tangshan Earthquake in China",
+    "description": "",
+    "time": [
+      1976,
+      7
+    ],
+    "emoji": "🌎",
+    "priority": 92,
+    "image": "https://histography.io/images/16244.jpg"
+  },
+  {
+    "id": "h8447",
+    "title": "Tenerife Airport Disaster",
+    "description": "",
+    "time": [
+      1977,
+      5
+    ],
+    "emoji": "💥",
+    "priority": 1030,
+    "link": "Tenerife_airport_disaster",
+    "image": "https://histography.io/images/16263.jpg"
+  },
+  {
+    "id": "h8525",
+    "title": "The Love Canal",
+    "description": "",
+    "time": [
+      1978,
+      11
+    ],
+    "emoji": "⚠️",
+    "priority": 2021,
+    "link": "Love_Canal",
+    "image": "https://histography.io/images/16293.jpg"
+  },
+  {
+    "id": "h8563",
+    "title": "Skylab crash",
+    "description": "",
+    "time": [
+      1979,
+      6
+    ],
+    "emoji": "💥",
+    "priority": 94,
+    "image": "https://histography.io/images/16356.jpg"
+  },
+  {
+    "id": "h8576",
+    "title": "DC-10 Disasters",
+    "description": "",
+    "time": [
+      1979,
+      8
+    ],
+    "emoji": "⚠️",
+    "priority": 31,
+    "image": "https://histography.io/images/16358.jpg"
+  },
+  {
+    "id": "h8699",
+    "title": "Hyatt Regency Hotel Collapse",
+    "description": "",
+    "time": [
+      1981,
+      10
+    ],
+    "emoji": "💥",
+    "priority": 1376,
+    "link": "Hyatt_Regency_walkway_collapse",
+    "image": "https://histography.io/images/16352.jpg"
+  },
+  {
+    "id": "h8828",
+    "title": "The Union Carbide Gas Leak",
+    "description": "",
+    "time": [
+      1984,
+      7
+    ],
+    "emoji": "🏭",
+    "priority": 1293,
+    "image": "https://histography.io/images/16294.jpg"
+  },
+  {
+    "id": "h8820",
+    "title": "Bhopal Disaster",
+    "description": "",
+    "time": [
+      1984,
+      2
+    ],
+    "emoji": "⚠️",
+    "priority": 386,
+    "link": "Bhopal_disaster",
+    "image": "https://histography.io/images/16270.jpg"
+  },
+  {
+    "id": "h8891",
+    "title": "Nevado del Ruiz Volcano Eruption",
+    "description": "",
+    "time": [
+      1985,
+      9
+    ],
+    "emoji": "🌋",
+    "priority": 1220,
+    "image": "https://histography.io/images/16243.gif"
+  },
+  {
+    "id": "h8880",
+    "title": "colombia volcano eruption",
+    "description": "",
+    "time": [
+      1985,
+      7
+    ],
+    "emoji": "🌋",
+    "priority": 1153,
+    "image": "https://histography.io/images/16341.gif"
+  },
+  {
+    "id": "h8863",
+    "title": "K-431 Chazhma Bay",
+    "description": "",
+    "time": [
+      1985,
+      2
+    ],
+    "emoji": "⚠️",
+    "priority": 140,
+    "image": "https://histography.io/images/16278.jpg"
+  },
+  {
+    "id": "h8921",
+    "title": "Chernobyl disaster",
+    "description": "",
+    "time": [
+      1986,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 8200,
+    "link": "Chernobyl_disaster",
+    "image": "https://histography.io/images/16218.gif"
+  },
+  {
+    "id": "h8919",
+    "title": "Space Shuttle Challenger Disaster",
+    "description": "",
+    "time": [
+      1986,
+      4
+    ],
+    "emoji": "💥",
+    "priority": 4151,
+    "link": "Space_Shuttle_Challenger_disaster",
+    "image": "https://histography.io/images/16909.jpg"
+  },
+  {
+    "id": "h8976",
+    "title": "Goiania Accident",
+    "description": "",
+    "time": [
+      1987,
+      4
+    ],
+    "emoji": "💥",
+    "priority": 1554,
+    "link": "Goiânia_accident",
+    "image": "https://histography.io/images/16277.jpg"
+  },
+  {
+    "id": "h8974",
+    "title": "cholera plague in angola",
+    "description": "",
+    "time": [
+      1987,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 1163,
+    "image": "https://histography.io/images/6350.png"
+  },
+  {
+    "id": "h9030",
+    "title": "Bangladesh flooding",
+    "description": "",
+    "time": [
+      1988,
+      7
+    ],
+    "emoji": "🌊",
+    "priority": 1327,
+    "link": "1998_Bangladesh_floods",
+    "image": "https://histography.io/images/16344.jpg"
+  },
+  {
+    "id": "h9037",
+    "title": "armenia earthquake",
+    "description": "",
+    "time": [
+      1988,
+      11
+    ],
+    "emoji": "🌎",
+    "priority": 1218,
+    "link": "1679_Armenia_earthquake",
+    "image": "https://histography.io/images/16342.jpg"
+  },
+  {
+    "id": "h9075",
+    "title": "The Exxon Valdez Oil Spill",
+    "description": "",
+    "time": [
+      1989,
+      8
+    ],
+    "emoji": "🏭",
+    "priority": 2237,
+    "link": "Exxon_Valdez_oil_spill",
+    "image": "https://histography.io/images/16291.jpg"
+  },
+  {
+    "id": "h9136",
+    "title": "earthquake in iran",
+    "description": "",
+    "time": [
+      1990,
+      7
+    ],
+    "emoji": "🌎",
+    "priority": 2137,
+    "image": "https://histography.io/images/16313.jpg"
+  },
+  {
+    "id": "h9144",
+    "title": "cholera epidemic in south america",
+    "description": "",
+    "time": [
+      1990,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 279,
+    "image": "https://histography.io/images/6335.gif"
+  },
+  {
+    "id": "h9204",
+    "title": "The Kuwait Oil Fires",
+    "description": "",
+    "time": [
+      1991,
+      7
+    ],
+    "emoji": "🔥",
+    "priority": 2022,
+    "link": "Kuwaiti_oil_fires",
+    "image": "https://histography.io/images/16289.jpg"
+  },
+  {
+    "id": "h9236",
+    "title": "bangladesh cyclone",
+    "description": "",
+    "time": [
+      1991,
+      11
+    ],
+    "emoji": "🌀",
+    "priority": 657,
+    "link": "1991_Bangladesh_cyclone",
+    "image": "https://histography.io/images/16339.jpg"
+  },
+  {
+    "id": "h9280",
+    "title": "Hurricane Andrew",
+    "description": "",
+    "time": [
+      1992,
+      11
+    ],
+    "emoji": "🌀",
+    "priority": 1108,
+    "link": "Hurricane_Andrew",
+    "image": "https://histography.io/images/16245.jpg"
+  },
+  {
+    "id": "h9266",
+    "title": "Erzincan Province drought",
+    "description": "",
+    "time": [
+      1992,
+      7
+    ],
+    "emoji": "🌾",
+    "priority": 222,
+    "image": "https://histography.io/images/16333.gif"
+  },
+  {
+    "id": "h9314",
+    "title": "Tomsk-7 Explosion",
+    "description": "",
+    "time": [
+      1993,
+      7
+    ],
+    "emoji": "💥",
+    "priority": 130,
+    "image": "https://histography.io/images/16276.jpg"
+  },
+  {
+    "id": "h9358",
+    "title": "plague epidemic in Surat",
+    "description": "",
+    "time": [
+      1994,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 309,
+    "link": "1994_plague_epidemic_in_Surat",
+    "image": "https://histography.io/images/6336.jpg"
+  },
+  {
+    "id": "h9411",
+    "title": "North Korean Famine",
+    "description": "",
+    "time": [
+      1995,
+      7
+    ],
+    "emoji": "🌾",
+    "priority": 1783,
+    "link": "North_Korean_famine",
+    "image": "https://histography.io/images/16254.png"
+  },
+  {
+    "id": "h9545",
+    "title": "the caribbean hurricane",
+    "description": "",
+    "time": [
+      1998,
+      8
+    ],
+    "emoji": "🌀",
+    "priority": 566,
+    "image": "https://histography.io/images/16347.jpg"
+  },
+  {
+    "id": "h9537",
+    "title": "Changjiang River flood",
+    "description": "",
+    "time": [
+      1998,
+      7
+    ],
+    "emoji": "🌊",
+    "priority": 287,
+    "image": "https://histography.io/images/16329.jpg"
+  },
+  {
+    "id": "h9608",
+    "title": "the Columbine Massacre",
+    "description": "",
+    "time": [
+      1999,
+      11
+    ],
+    "emoji": "☠️",
+    "priority": 2152,
+    "link": "Columbine_massacre",
+    "image": "https://histography.io/images/16911.jpg"
+  },
+  {
+    "id": "h9609",
+    "title": "Tokaimura Nuclear Accident",
+    "description": "",
+    "time": [
+      1999,
+      11
+    ],
+    "emoji": "💥",
+    "priority": 1816,
+    "link": "Tokaimura_nuclear_accident",
+    "image": "https://histography.io/images/16275.jpg"
+  },
+  {
+    "id": "h9588",
+    "title": "Golcuk earthquake",
+    "description": "",
+    "time": [
+      1999,
+      7
+    ],
+    "emoji": "🌎",
+    "priority": 1366,
+    "image": "https://histography.io/images/16349.jpg"
+  },
+  {
+    "id": "h9592",
+    "title": "Vietnam floods",
+    "description": "",
+    "time": [
+      1999,
+      8
+    ],
+    "emoji": "🌊",
+    "priority": 399,
+    "link": "2008_Vietnam_floods",
+    "image": "https://histography.io/images/16340.jpg"
+  },
+  {
+    "id": "h9628",
+    "title": "central america plague",
+    "description": "",
+    "time": [
+      2000,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 966,
+    "image": "https://histography.io/images/6338.jpg"
+  },
+  {
+    "id": "h9644",
+    "title": "Mozambique Flood",
+    "description": "",
+    "time": [
+      2000,
+      9
+    ],
+    "emoji": "🌊",
+    "priority": 247,
+    "image": "https://histography.io/images/16257.jpg"
+  },
+  {
+    "id": "h9707",
+    "title": "September 11",
+    "description": "",
+    "time": [
+      2001,
+      11
+    ],
+    "emoji": "⚠️",
+    "priority": 10917,
+    "link": "September_11",
+    "image": "https://histography.io/images/16210.jpg",
+    "video": "DIWKNNer1Cc"
+  },
+  {
+    "id": "h9658",
+    "title": "south africa cholera plague",
+    "description": "",
+    "time": [
+      2001
+    ],
+    "emoji": "☣️",
+    "priority": 1627,
+    "image": "https://histography.io/images/6340.jpg"
+  },
+  {
+    "id": "h9672",
+    "title": "Gujarat Earthquake",
+    "description": "",
+    "time": [
+      2001,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 1419,
+    "link": "2001_Gujarat_earthquake",
+    "image": "https://histography.io/images/16260.jpg"
+  },
+  {
+    "id": "h9712",
+    "title": "nigeria cholera epidemic",
+    "description": "",
+    "time": [
+      2001,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1254,
+    "image": "https://histography.io/images/6339.jpg"
+  },
+  {
+    "id": "h9665",
+    "title": "typhoon in india",
+    "description": "",
+    "time": [
+      2001,
+      4
+    ],
+    "emoji": "🌀",
+    "priority": 48,
+    "image": "https://histography.io/images/16311.jpg"
+  },
+  {
+    "id": "h9744",
+    "title": "SARS outbrake in asia",
+    "description": "",
+    "time": [
+      2002,
+      7
+    ],
+    "emoji": "⚠️",
+    "priority": 1
+  },
+  {
+    "id": "h9776",
+    "title": "Earthquake in Bam",
+    "description": "",
+    "time": [
+      2003,
+      3
+    ],
+    "emoji": "🌎",
+    "priority": 1194,
+    "image": "https://histography.io/images/16345.jpg"
+  },
+  {
+    "id": "h9794",
+    "title": "European Heat Wave",
+    "description": "",
+    "time": [
+      2003,
+      7
+    ],
+    "emoji": "⚠️",
+    "priority": 1181,
+    "link": "2003_European_heat_wave",
+    "image": "https://histography.io/images/16255.jpg"
+  },
+  {
+    "id": "h9796",
+    "title": "The Al-Mishraq Fire",
+    "description": "",
+    "time": [
+      2003,
+      8
+    ],
+    "emoji": "🔥",
+    "priority": 145,
+    "image": "https://histography.io/images/16288.jpg"
+  },
+  {
+    "id": "h9799",
+    "title": "plague in algeria",
+    "description": "",
+    "time": [
+      2003,
+      9
+    ],
+    "emoji": "☣️",
+    "priority": 70,
+    "image": "https://histography.io/images/6342.jpg"
+  },
+  {
+    "id": "h9819",
+    "title": "Indian Ocean Earthquake",
+    "description": "",
+    "time": [
+      2004
+    ],
+    "emoji": "🌎",
+    "priority": 6586,
+    "link": "2004_Indian_Ocean_earthquake_and_tsunami",
+    "image": "https://histography.io/images/16242.jpg"
+  },
+  {
+    "id": "h9832",
+    "title": "sudan Ebola epidemic",
+    "description": "",
+    "time": [
+      2004,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 4256,
+    "image": "https://histography.io/images/6347.jpg"
+  },
+  {
+    "id": "h9849",
+    "title": "bangladesh cholera plague",
+    "description": "",
+    "time": [
+      2004,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1746,
+    "image": "https://histography.io/images/6344.jpg"
+  },
+  {
+    "id": "h9862",
+    "title": "indonesia dengue fever plague",
+    "description": "",
+    "time": [
+      2004,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1630,
+    "image": "https://histography.io/images/6345.jpg"
+  },
+  {
+    "id": "h9828",
+    "title": "South Asia Earthquake",
+    "description": "",
+    "time": [
+      2004,
+      4
+    ],
+    "emoji": "🌎",
+    "priority": 565,
+    "image": "https://histography.io/images/16346.jpg"
+  },
+  {
+    "id": "h9835",
+    "title": "Queen of the Sea Rail Disaster",
+    "description": "",
+    "time": [
+      2004,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 286,
+    "image": "https://histography.io/images/16273.jpg"
+  },
+  {
+    "id": "h9821",
+    "title": "Afghanistan leishmaniasis plague",
+    "description": "",
+    "time": [
+      2004
+    ],
+    "emoji": "☣️",
+    "priority": 79,
+    "image": "https://histography.io/images/6343.jpg"
+  },
+  {
+    "id": "h9908",
+    "title": "Hurricane Katrina",
+    "description": "",
+    "time": [
+      2005,
+      11
+    ],
+    "emoji": "🌀",
+    "priority": 8788,
+    "link": "Hurricane_Katrina",
+    "image": "https://histography.io/images/16241.gif",
+    "video": "RD0-dvQfARk"
+  },
+  {
+    "id": "h9878",
+    "title": "northern peru earthquake",
+    "description": "",
+    "time": [
+      2005,
+      4
+    ],
+    "emoji": "🌎",
+    "priority": 1234,
+    "link": "2005_northern_Peru_earthquake",
+    "image": "https://histography.io/images/16338.jpg"
+  },
+  {
+    "id": "h9881",
+    "title": "dengue outbreak in Singapore",
+    "description": "",
+    "time": [
+      2005,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 1098,
+    "link": "2005_dengue_outbreak_in_Singapore",
+    "image": "https://histography.io/images/6349.jpg"
+  },
+  {
+    "id": "h9872",
+    "title": "senegal cholera plague",
+    "description": "",
+    "time": [
+      2005,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 1020,
+    "image": "https://histography.io/images/6346.jpg"
+  },
+  {
+    "id": "h9886",
+    "title": "mali yellow fever plague",
+    "description": "",
+    "time": [
+      2005,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 313,
+    "image": "https://histography.io/images/6348.jpg"
+  },
+  {
+    "id": "h9929",
+    "title": "plague in pakistan",
+    "description": "",
+    "time": [
+      2006,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 1888,
+    "image": "https://histography.io/images/6355.jpg"
+  },
+  {
+    "id": "h9952",
+    "title": "Chikungunya outbreaks",
+    "description": "",
+    "time": [
+      2006,
+      8
+    ],
+    "emoji": "⚠️",
+    "priority": 1417,
+    "link": "Chikungunya_outbreaks",
+    "image": "https://histography.io/images/6354.jpg"
+  },
+  {
+    "id": "h9923",
+    "title": "plague in the philippines",
+    "description": "",
+    "time": [
+      2006,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1121,
+    "image": "https://histography.io/images/6356.jpg"
+  },
+  {
+    "id": "h9963",
+    "title": "dengue outbreak in India",
+    "description": "",
+    "time": [
+      2006,
+      10
+    ],
+    "emoji": "⚠️",
+    "priority": 394,
+    "link": "2006_dengue_outbreak_in_India",
+    "image": "https://histography.io/images/6353.jpg"
+  },
+  {
+    "id": "h9955",
+    "title": "malaria epidemic in india",
+    "description": "",
+    "time": [
+      2006,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 61,
+    "image": "https://histography.io/images/6352.jpg"
+  },
+  {
+    "id": "h9924",
+    "title": "plague in congo",
+    "description": "",
+    "time": [
+      2006,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 24,
+    "image": "https://histography.io/images/6351.jpg"
+  },
+  {
+    "id": "h9978",
+    "title": "Ebola epidemic in uganda",
+    "description": "",
+    "time": [
+      2007,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 5008,
+    "image": "https://histography.io/images/6364.jpg"
+  },
+  {
+    "id": "h9988",
+    "title": "Poliomyelitis plague in nigeria",
+    "description": "",
+    "time": [
+      2007,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 1815,
+    "image": "https://histography.io/images/6361.jpg"
+  },
+  {
+    "id": "h10013",
+    "title": "epidemic in vietnam",
+    "description": "",
+    "time": [
+      2007,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 1247,
+    "image": "https://histography.io/images/6365.jpg"
+  },
+  {
+    "id": "h10016",
+    "title": "Iraq cholera outbreak",
+    "description": "",
+    "time": [
+      2007,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 1202,
+    "link": "2007_Iraq_cholera_outbreak",
+    "image": "https://histography.io/images/6360.PNG"
+  },
+  {
+    "id": "h9982",
+    "title": "epidemic in india",
+    "description": "",
+    "time": [
+      2007,
+      3
+    ],
+    "emoji": "☣️",
+    "priority": 1176,
+    "link": "1974_smallpox_epidemic_in_India",
+    "image": "https://histography.io/images/6359.jpg"
+  },
+  {
+    "id": "h10015",
+    "title": "plague in somalia",
+    "description": "",
+    "time": [
+      2007,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 46,
+    "image": "https://histography.io/images/6363.jpg"
+  },
+  {
+    "id": "h10004",
+    "title": "plague in puerto rico",
+    "description": "",
+    "time": [
+      2007,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 44,
+    "image": "https://histography.io/images/6362.jpg"
+  },
+  {
+    "id": "h9993",
+    "title": "plague in Ethiopia",
+    "description": "",
+    "time": [
+      2007,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 43,
+    "image": "https://histography.io/images/6358.jpg"
+  },
+  {
+    "id": "h10051",
+    "title": "Zimbabwean cholera outbreak",
+    "description": "",
+    "time": [
+      2008,
+      8
+    ],
+    "emoji": "☣️",
+    "priority": 2200,
+    "link": "Zimbabwean_cholera_outbreak",
+    "image": "https://histography.io/images/6373.jpg"
+  },
+  {
+    "id": "h10033",
+    "title": "Sichuan earthquake",
+    "description": "",
+    "time": [
+      2008,
+      4
+    ],
+    "emoji": "🌎",
+    "priority": 1680,
+    "image": "https://histography.io/images/16305.jpg"
+  },
+  {
+    "id": "h10046",
+    "title": "China mouth disease outbreak",
+    "description": "",
+    "time": [
+      2008,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1577,
+    "image": "https://histography.io/images/6369.jpg"
+  },
+  {
+    "id": "h10022",
+    "title": "Cyclone Nargis",
+    "description": "",
+    "time": [
+      2008,
+      2
+    ],
+    "emoji": "🌀",
+    "priority": 1450,
+    "link": "Cyclone_Nargis",
+    "image": "https://histography.io/images/16239.jpg"
+  },
+  {
+    "id": "h10057",
+    "title": "Madagascar bubonic plague",
+    "description": "",
+    "time": [
+      2008,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 1391,
+    "image": "https://histography.io/images/6370.jpg"
+  },
+  {
+    "id": "h10021",
+    "title": "the Afghanistan Blizzard",
+    "description": "",
+    "time": [
+      2008,
+      2
+    ],
+    "emoji": "⚠️",
+    "priority": 1200,
+    "link": "2008_Afghanistan_blizzard",
+    "image": "https://histography.io/images/16252.jpg"
+  },
+  {
+    "id": "h10062",
+    "title": "cholera epidemic in Chad",
+    "description": "",
+    "time": [
+      2008,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 900,
+    "image": "https://histography.io/images/6368.jpg"
+  },
+  {
+    "id": "h10047",
+    "title": "plague in cambodia",
+    "description": "",
+    "time": [
+      2008,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 508,
+    "image": "https://histography.io/images/6367.jpg"
+  },
+  {
+    "id": "h10061",
+    "title": "epidemic in vietnam",
+    "description": "",
+    "time": [
+      2008,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 247,
+    "image": "https://histography.io/images/6372.jpg"
+  },
+  {
+    "id": "h10065",
+    "title": "epidemic in the Philippines",
+    "description": "",
+    "time": [
+      2008,
+      11
+    ],
+    "emoji": "☣️",
+    "priority": 217,
+    "image": "https://histography.io/images/6371.jpg"
+  },
+  {
+    "id": "h10035",
+    "title": "plague in brazil",
+    "description": "",
+    "time": [
+      2008,
+      4
+    ],
+    "emoji": "☣️",
+    "priority": 122,
+    "image": "https://histography.io/images/6366.jpg"
+  },
+  {
+    "id": "h10103",
+    "title": "Mumps outbreaks",
+    "description": "",
+    "time": [
+      2009,
+      11
+    ],
+    "emoji": "⚠️",
+    "priority": 1073,
+    "image": "https://histography.io/images/6377.jpg"
+  },
+  {
+    "id": "h10090",
+    "title": "worldwide flu pandemic",
+    "description": "",
+    "time": [
+      2009,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1039,
+    "image": "https://histography.io/images/6379.jpg"
+  },
+  {
+    "id": "h10096",
+    "title": "West African meningitis outbreak",
+    "description": "",
+    "time": [
+      2009,
+      8
+    ],
+    "emoji": "⚠️",
+    "priority": 482,
+    "link": "2009–10_West_African_meningitis_outbreak",
+    "image": "https://histography.io/images/6378.png"
+  },
+  {
+    "id": "h10083",
+    "title": "Gujarat hepatitis outbreak",
+    "description": "",
+    "time": [
+      2009,
+      5
+    ],
+    "emoji": "⚠️",
+    "priority": 480,
+    "link": "2009_Gujarat_hepatitis_outbreak",
+    "image": "https://histography.io/images/6375.png"
+  },
+  {
+    "id": "h10069",
+    "title": "Bolivian dengue fever epidemic",
+    "description": "",
+    "time": [
+      2009
+    ],
+    "emoji": "☣️",
+    "priority": 344,
+    "link": "2009_Bolivian_dengue_fever_epidemic",
+    "image": "https://histography.io/images/6374.gif"
+  },
+  {
+    "id": "h10079",
+    "title": "Queensland outbreaks",
+    "description": "",
+    "time": [
+      2009,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 258,
+    "image": "https://histography.io/images/6376.jpg"
+  },
+  {
+    "id": "h10118",
+    "title": "iran earthquake",
+    "description": "",
+    "time": [
+      2010,
+      4
+    ],
+    "emoji": "🌎",
+    "priority": 2856,
+    "image": "https://histography.io/images/16343.jpg"
+  },
+  {
+    "id": "h10107",
+    "title": "Haiti cholera outbreak",
+    "description": "",
+    "time": [
+      2010,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 2257,
+    "link": "Haiti_cholera_outbreak",
+    "image": "https://histography.io/images/6380.jpg"
+  },
+  {
+    "id": "h10142",
+    "title": "earthquake in Chile",
+    "description": "",
+    "time": [
+      2010,
+      7
+    ],
+    "emoji": "🌎",
+    "priority": 1413,
+    "link": "03:34:_Earthquake_in_Chile",
+    "image": "https://histography.io/images/16331.jpg"
+  },
+  {
+    "id": "h10168",
+    "title": "volcanic eruption in iceland",
+    "description": "",
+    "time": [
+      2010,
+      10
+    ],
+    "emoji": "🌋",
+    "priority": 1316,
+    "image": "https://histography.io/images/16314.gif"
+  },
+  {
+    "id": "h10157",
+    "title": "Haiti Earthquake",
+    "description": "",
+    "time": [
+      2010,
+      8
+    ],
+    "emoji": "🌎",
+    "priority": 91,
+    "image": "https://histography.io/images/16237.jpg"
+  },
+  {
+    "id": "h10305",
+    "title": "East Africa Drought",
+    "description": "",
+    "time": [
+      2011,
+      12
+    ],
+    "emoji": "🌾",
+    "priority": 9044,
+    "link": "2011_East_Africa_drought",
+    "image": "https://histography.io/images/16253.gif",
+    "video": "iRZPMd1H7Z0"
+  },
+  {
+    "id": "h10243",
+    "title": "the African Drought",
+    "description": "",
+    "time": [
+      2011,
+      7
+    ],
+    "emoji": "🌾",
+    "priority": 5401,
+    "link": "2011_East_Africa_drought",
+    "image": "https://histography.io/images/16301.gif"
+  },
+  {
+    "id": "h10187",
+    "title": "Tsunami in Japan",
+    "description": "",
+    "time": [
+      2011
+    ],
+    "emoji": "🌊",
+    "priority": 5196,
+    "image": "https://histography.io/images/16319.jpg"
+  },
+  {
+    "id": "h10294",
+    "title": "Earthquake in japan",
+    "description": "",
+    "time": [
+      2011,
+      11
+    ],
+    "emoji": "🌎",
+    "priority": 4092,
+    "image": "https://histography.io/images/16310.jpg"
+  },
+  {
+    "id": "h10259",
+    "title": "measles plague in congo",
+    "description": "",
+    "time": [
+      2011,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 1876,
+    "image": "https://histography.io/images/6381.jpg"
+  },
+  {
+    "id": "h10234",
+    "title": "plague in vietnam",
+    "description": "",
+    "time": [
+      2011,
+      5
+    ],
+    "emoji": "☣️",
+    "priority": 934,
+    "image": "https://histography.io/images/6382.png"
+  },
+  {
+    "id": "h10227",
+    "title": "New Zealand Earthquake",
+    "description": "",
+    "time": [
+      2011,
+      5
+    ],
+    "emoji": "🌎",
+    "priority": 263,
+    "image": "https://histography.io/images/16251.0m-earthquake-may-3-2015"
+  },
+  {
+    "id": "h10265",
+    "title": "dengue outbreak in Pakistan",
+    "description": "",
+    "time": [
+      2011,
+      8
+    ],
+    "emoji": "⚠️",
+    "priority": 185,
+    "link": "2006_dengue_outbreak_in_Pakistan",
+    "image": "https://histography.io/images/6383.jpg"
+  },
+  {
+    "id": "h10202",
+    "title": "Fukushima Daichi",
+    "description": "",
+    "time": [
+      2011,
+      4
+    ],
+    "emoji": "⚠️",
+    "priority": 91,
+    "image": "https://histography.io/images/16274.png"
+  },
+  {
+    "id": "h10214",
+    "title": "Tōhoku Tsunami",
+    "description": "",
+    "time": [
+      2011,
+      4
+    ],
+    "emoji": "🌊",
+    "priority": 70,
+    "image": "https://histography.io/images/16246.JPG"
+  },
+  {
+    "id": "h10342",
+    "title": "earthquake in italy",
+    "description": "",
+    "time": [
+      2012,
+      8
+    ],
+    "emoji": "🌎",
+    "priority": 1112,
+    "image": "https://histography.io/images/16320.jpg"
+  },
+  {
+    "id": "h10379",
+    "title": "Pakistan earthquake",
+    "description": "",
+    "time": [
+      2013,
+      8
+    ],
+    "emoji": "🌎",
+    "priority": 1515,
+    "image": "https://histography.io/images/16330.jpg"
+  },
+  {
+    "id": "h10394",
+    "title": "Ebola virus disease outbreak",
+    "description": "",
+    "time": [
+      2013,
+      12
+    ],
+    "emoji": "☣️",
+    "priority": 62,
+    "image": "https://histography.io/images/6384.jpg"
+  },
+  {
+    "id": "h10400",
+    "title": "India cyclone",
+    "description": "",
+    "time": [
+      2014,
+      2
+    ],
+    "emoji": "🌀",
+    "priority": 760,
+    "link": "2001_India_cyclone",
+    "image": "https://histography.io/images/16285.jpg"
+  },
+  {
+    "id": "h10422",
+    "title": "Odisha jaundice outbreak",
+    "description": "",
+    "time": [
+      2014,
+      11
+    ],
+    "emoji": "⚠️",
+    "priority": 518,
+    "link": "2014_Odisha_jaundice_outbreak",
+    "image": "https://histography.io/images/6386.jpg"
+  },
+  {
+    "id": "h10401",
+    "title": "Madagascar plague outbreak",
+    "description": "",
+    "time": [
+      2014,
+      2
+    ],
+    "emoji": "☣️",
+    "priority": 233,
+    "link": "2014_Madagascar_plague_outbreak",
+    "image": "https://histography.io/images/6385.jpg"
+  },
+  {
+    "id": "h10419",
+    "title": "Ebola epidemic in congo",
+    "description": "",
+    "time": [
+      2014,
+      10
+    ],
+    "emoji": "☣️",
+    "priority": 179,
+    "image": "https://histography.io/images/6357.jpg"
+  },
+  {
+    "id": "h10433",
+    "title": "india Swine flu plague",
+    "description": "",
+    "time": [
+      2015,
+      7
+    ],
+    "emoji": "☣️",
+    "priority": 2283,
+    "image": "https://histography.io/images/6387.jpg"
+  },
+  {
+    "id": "h10442",
+    "title": "earthquake strikes offshore Chile",
+    "description": "",
+    "time": [
+      2015,
+      11
+    ],
+    "emoji": "🌎",
+    "priority": 1
+  },
+  {
+    "id": "h10436",
+    "title": "major earthquake in Nepal",
+    "description": "",
+    "time": [
+      2015,
+      8
+    ],
+    "emoji": "🌎",
+    "priority": 1
+  },
+  {
+    "id": "h10443",
+    "title": "stampede during the Hajj pilgrimage",
+    "description": "",
+    "time": [
+      2015,
+      11
+    ],
+    "emoji": "⚠️",
+    "priority": 1,
+    "image": "https://histography.io/images/16979.jpg"
+  }
+]
