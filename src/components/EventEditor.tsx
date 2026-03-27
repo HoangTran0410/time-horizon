@@ -1,11 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Event,
-  EventCollectionMeta,
-  normalizeEventTimeParts,
-} from "../constants/types";
+import { Event, EventCollectionMeta } from "../constants/types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
 import { ChevronDown, X } from "lucide-react";
+import { normalizeEventTimeParts } from "../helpers";
 
 interface EventEditorProps {
   event: Event;

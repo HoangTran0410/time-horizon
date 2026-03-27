@@ -53,7 +53,7 @@ export const AutoFitPanel: React.FC<AutoFitPanelProps> = ({
     <div className="ui-popover" data-open={isOpen}>
       <form
         onSubmit={handleRangeSubmit}
-        className="mt-0.5 w-64 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-2.5 shadow-lg"
+        className="mt-0.5 w-64 rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 shadow-lg"
       >
         <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
           Auto Fit

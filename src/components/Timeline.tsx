@@ -48,7 +48,6 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     collectionEventsById,
     visibleCollectionIds,
     downloadingCollectionIds,
-    collectionColorPreferences,
     collectionColors,
     writableCollections,
     timelineEvents,
@@ -65,12 +64,17 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     handleAddEvent,
     handleCreateCollection,
     handleSetCollectionColor,
-    handleResetCollectionColor,
   } = useTimelineCollections();
 
   const searchQuery = useTimelineSearchStore((state) => state.searchQuery);
   const activeMediaFilters = useTimelineSearchStore(
     (state) => state.activeMediaFilters,
+  );
+  const timeRangeStartInput = useTimelineSearchStore(
+    (state) => state.timeRangeStartInput,
+  );
+  const timeRangeEndInput = useTimelineSearchStore(
+    (state) => state.timeRangeEndInput,
   );
   const showOnlyResultsOnTimeline = useTimelineSearchStore(
     (state) => state.showOnlyResultsOnTimeline,
@@ -84,12 +88,18 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
             timelineEvents,
             deferredTimelineSearchQuery,
             activeMediaFilters,
+            {
+              startTimeInput: timeRangeStartInput,
+              endTimeInput: timeRangeEndInput,
+            },
           )
         : timelineEvents,
     [
       activeMediaFilters,
       deferredTimelineSearchQuery,
       showOnlyResultsOnTimeline,
+      timeRangeEndInput,
+      timeRangeStartInput,
       timelineEvents,
     ],
   );
@@ -100,6 +110,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     zoom,
     ticks,
     collapsedGroups,
+    expandedCollapsedGroup,
     visibleBounds,
     eventLayouts,
     logicFps,
@@ -221,12 +232,8 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
         downloadingCollectionIds={downloadingCollectionIds}
         collectionEventsById={collectionEventsById}
         collectionColors={collectionColors}
-        collectionColorPreferences={collectionColorPreferences}
         onSetCollectionColor={handleSetCollectionColor}
-        onResetCollectionColor={handleResetCollectionColor}
         onDeleteCollection={handleSidebarDeleteCollection}
-        onFocusEvent={handleFocusEvent}
-        onEditEvent={setEditingEvent}
         onAddEvent={handleStartAddEvent}
         onAddCollection={() => setIsCreatingCollection(true)}
       />
@@ -240,6 +247,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
         ticks={ticks}
         timelineEvents={renderedTimelineEvents}
         collapsedGroups={collapsedGroups}
+        expandedCollapsedGroup={expandedCollapsedGroup}
         visibleBounds={visibleBounds}
         eventLayouts={eventLayouts}
         focusedEventId={selectedEventInfo?.id ?? null}

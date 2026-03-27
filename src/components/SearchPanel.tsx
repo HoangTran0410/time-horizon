@@ -1,11 +1,13 @@
 import React from "react";
-import { Event } from "../../constants/types";
-import { MEDIA_FILTERS, MediaFilter } from "../../constants/types";
+import { Event } from "../constants/types";
+import { MEDIA_FILTERS, MediaFilter } from "../constants/types";
 import { SearchResultItem } from "./SearchResultItem";
 import {
   filterTimelineSearchEvents,
+  getTimelineSearchDateInputError,
+  SEARCH_SORT_OPTIONS,
   useTimelineSearchStore,
-} from "../../stores/timelineSearchStore";
+} from "../stores/timelineSearchStore";
 
 interface SearchPanelProps {
   isOpen: boolean;
@@ -15,12 +17,16 @@ interface SearchPanelProps {
 
 const INITIAL_VISIBLE_RESULTS = 16;
 const RESULTS_BATCH_SIZE = 24;
+const SEARCH_PANEL_MAX_HEIGHT = "min(400px, calc(100vh - 3rem))";
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
   isOpen,
   searchableEvents,
   onSearchSelect,
 }) => {
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] =
+    React.useState(true);
+  const [advancedFiltersHeight, setAdvancedFiltersHeight] = React.useState(0);
   const [isResultsReady, setIsResultsReady] = React.useState(false);
   const [visibleResultCount, setVisibleResultCount] = React.useState(
     INITIAL_VISIBLE_RESULTS,
@@ -28,6 +34,15 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const searchQuery = useTimelineSearchStore((state) => state.searchQuery);
   const activeMediaFilters = useTimelineSearchStore(
     (state) => state.activeMediaFilters,
+  );
+  const searchSortMode = useTimelineSearchStore(
+    (state) => state.searchSortMode,
+  );
+  const timeRangeStartInput = useTimelineSearchStore(
+    (state) => state.timeRangeStartInput,
+  );
+  const timeRangeEndInput = useTimelineSearchStore(
+    (state) => state.timeRangeEndInput,
   );
   const showOnlyResultsOnTimeline = useTimelineSearchStore(
     (state) => state.showOnlyResultsOnTimeline,
@@ -38,9 +53,19 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const toggleStoredMediaFilter = useTimelineSearchStore(
     (state) => state.toggleMediaFilter,
   );
+  const setSearchSortMode = useTimelineSearchStore(
+    (state) => state.setSearchSortMode,
+  );
+  const setTimeRangeStartInput = useTimelineSearchStore(
+    (state) => state.setTimeRangeStartInput,
+  );
+  const setTimeRangeEndInput = useTimelineSearchStore(
+    (state) => state.setTimeRangeEndInput,
+  );
   const setShowOnlyResultsOnTimeline = useTimelineSearchStore(
     (state) => state.setShowOnlyResultsOnTimeline,
   );
+  const advancedFiltersContentRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const resultsListRef = React.useRef<HTMLDivElement>(null);
   const resultsSentinelRef = React.useRef<HTMLDivElement>(null);
@@ -54,8 +79,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
     let hydrateFrame = 0;
     const frame = window.requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
+      // searchInputRef.current?.focus();
+      // searchInputRef.current?.select();
       if (resultsListRef.current) {
         resultsListRef.current.scrollTop = 0;
       }
@@ -73,14 +98,65 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     };
   }, [isOpen]);
 
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(
+      "(max-width: 640px), (max-height: 760px)",
+    );
+    const syncAdvancedFiltersState = () => {
+      setIsAdvancedFiltersOpen(!mediaQuery.matches);
+    };
+
+    syncAdvancedFiltersState();
+    mediaQuery.addEventListener("change", syncAdvancedFiltersState);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncAdvancedFiltersState);
+    };
+  }, []);
+
   const filteredResults = React.useMemo(() => {
     return filterTimelineSearchEvents(
       searchableEvents,
       deferredSearchQuery,
       activeMediaFilters,
-      { sortByRelevance: true },
+      {
+        sortMode: searchSortMode,
+        startTimeInput: timeRangeStartInput,
+        endTimeInput: timeRangeEndInput,
+      },
     );
-  }, [activeMediaFilters, deferredSearchQuery, searchableEvents]);
+  }, [
+    activeMediaFilters,
+    deferredSearchQuery,
+    searchSortMode,
+    searchableEvents,
+    timeRangeEndInput,
+    timeRangeStartInput,
+  ]);
+
+  const dateRangeError = React.useMemo(
+    () =>
+      getTimelineSearchDateInputError(timeRangeStartInput, timeRangeEndInput),
+    [timeRangeEndInput, timeRangeStartInput],
+  );
+
+  React.useLayoutEffect(() => {
+    const content = advancedFiltersContentRef.current;
+    if (!content) return;
+
+    const updateHeight = () => {
+      setAdvancedFiltersHeight(content.scrollHeight);
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(content);
+
+    return () => observer.disconnect();
+  }, [dateRangeError]);
 
   React.useEffect(() => {
     setVisibleResultCount(INITIAL_VISIBLE_RESULTS);
@@ -123,6 +199,24 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     });
   };
 
+  const handleSortModeChange = (value: string) => {
+    React.startTransition(() => {
+      setSearchSortMode(value as (typeof SEARCH_SORT_OPTIONS)[number]["value"]);
+    });
+  };
+
+  const handleTimeRangeStartChange = (value: string) => {
+    React.startTransition(() => {
+      setTimeRangeStartInput(value);
+    });
+  };
+
+  const handleTimeRangeEndChange = (value: string) => {
+    React.startTransition(() => {
+      setTimeRangeEndInput(value);
+    });
+  };
+
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -135,97 +229,174 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     <div
       className="ui-popover"
       data-open={isOpen}
-      style={isOpen ? { maxHeight: "calc(100vh - 1.5rem)" } : undefined}
+      style={isOpen ? { maxHeight: SEARCH_PANEL_MAX_HEIGHT } : undefined}
     >
       <form
         onSubmit={handleSearchSubmit}
-        className="mt-0.5 w-[20rem] rounded-2xl border border-zinc-700 bg-zinc-950/95 p-2.5 shadow-lg"
+        className="flex w-[24rem] max-w-[calc(100vw-4rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 shadow-lg"
+        style={{ maxHeight: SEARCH_PANEL_MAX_HEIGHT }}
       >
-        <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-          Search Events
-        </div>
-        <input
-          ref={searchInputRef}
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Name or description"
-          className="mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
-        />
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {MEDIA_FILTERS.map((filter) => {
-            const isActive = activeMediaFilters.includes(filter);
-            const label =
-              filter === "image"
-                ? "Image"
-                : filter === "video"
-                  ? "Video"
-                  : "Link";
-
-            return (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => toggleMediaFilter(filter)}
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                  isActive
-                    ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-200"
-                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
-          {filteredResults.length}
-          {filteredResults.length != searchableEvents.length
-            ? `/${searchableEvents.length}`
-            : ""}{" "}
-          visible events
-        </div>
-        <label className="mb-2 flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-2 text-[11px] text-zinc-300">
+        <div
+          ref={resultsListRef}
+          className="min-h-0 flex-1 overflow-y-auto pr-1"
+        >
+          <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+            Search Events
+          </div>
           <input
-            type="checkbox"
-            checked={showOnlyResultsOnTimeline}
-            onChange={(e) => setShowOnlyResultsOnTimeline(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500 focus:ring-emerald-500/40"
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Name or description"
+            className="mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
           />
-          <span>Only show matched events on timeline</span>
-        </label>
-
-        {!isResultsReady ? (
-          <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/60 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
-            Loading events...
-          </div>
-        ) : filteredResults.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/60 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
-            No visible events matched your search.
-          </div>
-        ) : (
-          <div
-            ref={resultsListRef}
-            className="max-h-64 space-y-1 overflow-y-auto pr-1"
-          >
-            {visibleResults.map((event) => (
-              <SearchResultItem
-                key={event.id}
-                event={event}
-                onSelect={onSearchSelect}
-              />
-            ))}
-            {visibleResultCount < filteredResults.length && (
-              <div
-                ref={resultsSentinelRef}
-                className="flex items-center justify-center py-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500"
-              >
-                Loading more...
+          <div className="mb-2 rounded-xl border border-zinc-800  p-2">
+            <button
+              type="button"
+              onClick={() => setIsAdvancedFiltersOpen((current) => !current)}
+              className="flex w-full items-center justify-between rounded-lg text-left"
+              aria-expanded={isAdvancedFiltersOpen}
+            >
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
+                Filters
               </div>
-            )}
+              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400">
+                {isAdvancedFiltersOpen ? "Hide" : "Show"}
+              </span>
+            </button>
+            <div
+              className="overflow-hidden transition-[max-height,opacity,margin-top] duration-200 ease-out"
+              style={{
+                maxHeight: isAdvancedFiltersOpen
+                  ? `${advancedFiltersHeight}px`
+                  : "0px",
+                opacity: isAdvancedFiltersOpen ? 1 : 0,
+                // marginTop: isAdvancedFiltersOpen ? "0.5rem" : "0rem",
+              }}
+              aria-hidden={!isAdvancedFiltersOpen}
+            >
+              <div
+                ref={advancedFiltersContentRef}
+                className="pt-2 flex flex-col gap-1"
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {MEDIA_FILTERS.map((filter) => {
+                    const isActive = activeMediaFilters.includes(filter);
+                    const label =
+                      filter === "image"
+                        ? "Image"
+                        : filter === "video"
+                          ? "Video"
+                          : "Link";
+
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => toggleMediaFilter(filter)}
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                          isActive
+                            ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-200"
+                            : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <select
+                  value={searchSortMode}
+                  onChange={(e) => handleSortModeChange(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                >
+                  {SEARCH_SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={timeRangeStartInput}
+                    onChange={(e) => handleTimeRangeStartChange(e.target.value)}
+                    placeholder="From: 2024-03"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={timeRangeEndInput}
+                    onChange={(e) => handleTimeRangeEndChange(e.target.value)}
+                    placeholder="To: 2024-03-27"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div className="mt-1.5 text-[10px] font-mono text-zinc-500">
+                  Use <span className="text-zinc-400">YYYY</span>,{" "}
+                  <span className="text-zinc-400">YYYY-MM</span>, or{" "}
+                  <span className="text-zinc-400">YYYY-MM-DD</span>.
+                </div>
+
+                {dateRangeError && (
+                  <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-4 text-amber-200">
+                    {dateRangeError}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        )}
+
+          <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
+            {filteredResults.length}
+            {filteredResults.length != searchableEvents.length
+              ? `/${searchableEvents.length}`
+              : ""}{" "}
+            visible events
+          </div>
+          {filteredResults.length > 0 && (
+            <label className="mb-2 flex items-center gap-2 rounded-lg border border-zinc-800 px-2.5 py-2 text-[11px] text-zinc-300">
+              <input
+                type="checkbox"
+                checked={showOnlyResultsOnTimeline}
+                onChange={(e) => setShowOnlyResultsOnTimeline(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500 focus:ring-emerald-500/40"
+              />
+              <span>Only show matched events on timeline</span>
+            </label>
+          )}
+
+          {!isResultsReady ? (
+            <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
+              Loading events...
+            </div>
+          ) : filteredResults.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
+              No visible events matched your search.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {visibleResults.map((event) => (
+                <SearchResultItem
+                  key={event.id}
+                  event={event}
+                  onSelect={onSearchSelect}
+                />
+              ))}
+              {visibleResultCount < filteredResults.length && (
+                <div
+                  ref={resultsSentinelRef}
+                  className="flex items-center justify-center py-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500"
+                >
+                  Loading more...
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </form>
     </div>
   );

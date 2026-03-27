@@ -6,7 +6,7 @@ import {
   loadEventCollection,
 } from "../data/collections";
 import { Event, EventCollectionMeta } from "../constants/types";
-import { buildCustomCollectionMeta } from "../components/timeline/helpers";
+import { buildCustomCollectionMeta } from "../helpers";
 import {
   persistCollectionCache,
   persistCollectionColorPreferences,

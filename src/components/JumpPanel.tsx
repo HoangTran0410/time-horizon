@@ -1,5 +1,5 @@
 import React from "react";
-import { DateJumpTarget } from "../../constants/types";
+import { DateJumpTarget } from "../constants/types";
 
 interface JumpPanelProps {
   isOpen: boolean;
@@ -74,7 +74,7 @@ export const JumpPanel: React.FC<JumpPanelProps> = ({
     <div className="ui-popover" data-open={isOpen}>
       <form
         onSubmit={handleJumpSubmit}
-        className="mt-0.5 w-56 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-2.5 shadow-lg"
+        className="mt-0.5 w-56 rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 shadow-lg"
       >
         <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
           Jump To

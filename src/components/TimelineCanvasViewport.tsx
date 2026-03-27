@@ -1,19 +1,22 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { MotionValue } from "motion/react";
-import { Event, getEventTimelineYear } from "../../constants/types";
-import { BIG_BANG_YEAR } from "../../constants";
+import { Event } from "../constants/types";
+import { BIG_BANG_YEAR } from "../constants";
 import {
   formatElapsedTimelineTime,
   getEventDisplayLabel,
   formatTimelineTick,
   withAlpha,
-} from "../../helpers";
-import { ThemeMode } from "../../constants/theme";
+  getCollapsedGroupOffset,
+  getEventTimelineYear,
+} from "../helpers";
+import { ThemeMode } from "../constants/theme";
 import {
   CollapsedEventGroup,
+  ExpandedCollapsedGroup,
   EventLayoutState,
   TimelineTick,
-} from "./TimelineMarkers";
+} from "../constants/types";
 
 interface TimelineCanvasViewportProps {
   theme: ThemeMode;
@@ -24,6 +27,7 @@ interface TimelineCanvasViewportProps {
   ticks: TimelineTick[];
   timelineEvents: Event[];
   collapsedGroups: CollapsedEventGroup[];
+  expandedCollapsedGroup: ExpandedCollapsedGroup | null;
   visibleBounds: {
     startYear: number;
     endYear: number;
@@ -61,6 +65,9 @@ interface VisibleCanvasTick {
 
 const EVENT_RADIUS = 24;
 const COLLAPSED_RADIUS = 22;
+const EXPANDED_COLLAPSED_EVENT_RADIUS = 18;
+const EXPANDED_COLLAPSED_MIN_SPACING = 42;
+const EXPANDED_COLLAPSED_MAX_SPACING = 70;
 const MAX_CANVAS_DPR = 1.5;
 const TICK_LABEL_OFFSET_Y = 18;
 const EVENT_LABEL_MAX_WIDTH = 120;
@@ -266,6 +273,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   ticks,
   timelineEvents,
   collapsedGroups,
+  expandedCollapsedGroup,
   visibleBounds,
   eventLayouts,
   focusedEventId,
@@ -287,6 +295,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     ticks: [] as VisibleCanvasTick[],
     timelineEvents,
     collapsedGroups,
+    expandedCollapsedGroup,
     visibleBounds,
     visibleEvents: [] as VisibleCanvasEvent[],
     eventLayouts,
@@ -369,6 +378,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       ticks: nextTicks,
       timelineEvents,
       collapsedGroups,
+      expandedCollapsedGroup,
       visibleBounds,
       visibleEvents: nextVisibleEvents,
       eventLayouts,
@@ -380,6 +390,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     ticks,
     timelineEvents,
     collapsedGroups,
+    expandedCollapsedGroup,
     visibleBounds,
     eventLayouts,
     focusedEventId,
@@ -393,6 +404,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     ticks,
     timelineEvents,
     collapsedGroups,
+    expandedCollapsedGroup,
     visibleBounds,
     eventLayouts,
     focusedEventId,
@@ -427,6 +439,51 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   const getScreenX = (year: number) =>
     focusPixel.get() + (year - focusYear.get()) * zoom.get();
 
+  const getExpandedCollapsedEventPositions = (
+    group: ExpandedCollapsedGroup,
+    width: number,
+    centerY: number,
+    viewportHeight: number,
+  ) => {
+    const events = group.eventIds
+      .map((eventId) => timelineEvents.find((event) => event.id === eventId))
+      .filter((event): event is Event => event !== undefined);
+    const anchorX = getScreenX(group.year);
+    const rowY = centerY + group.side * getCollapsedGroupOffset(viewportHeight);
+
+    if (events.length === 0) {
+      return {
+        anchorX,
+        rowY,
+        events: [] as Array<{ event: Event; x: number; y: number }>,
+      };
+    }
+
+    const availableWidth = Math.max(200, width - 120);
+    const spacing =
+      events.length <= 1
+        ? 0
+        : Math.max(
+            EXPANDED_COLLAPSED_MIN_SPACING,
+            Math.min(
+              EXPANDED_COLLAPSED_MAX_SPACING,
+              availableWidth / (events.length - 1),
+            ),
+          );
+    const totalWidth = spacing * Math.max(0, events.length - 1);
+    const startX = anchorX - totalWidth / 2;
+
+    return {
+      anchorX,
+      rowY,
+      events: events.map((event, index) => ({
+        event,
+        x: startX + index * spacing,
+        y: rowY,
+      })),
+    };
+  };
+
   const getPointerPosition = (clientX: number, clientY: number) => {
     const container = containerRef.current;
     if (!container) return null;
@@ -452,12 +509,46 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     const {
       visibleEvents: currentVisibleEvents,
       collapsedGroups: currentCollapsedGroups,
+      expandedCollapsedGroup: currentExpandedCollapsedGroup,
       eventLayouts: currentEventLayouts,
     } = latestRef.current;
 
+    if (currentExpandedCollapsedGroup) {
+      const expandedLayout = getExpandedCollapsedEventPositions(
+        currentExpandedCollapsedGroup,
+        width,
+        centerY,
+        height,
+      );
+
+      for (const item of expandedLayout.events) {
+        if (
+          Math.hypot(x - item.x, y - item.y) <= EXPANDED_COLLAPSED_EVENT_RADIUS
+        ) {
+          return { type: "event", event: item.event };
+        }
+      }
+
+      if (
+        Math.hypot(x - expandedLayout.anchorX, y - expandedLayout.rowY) <=
+        COLLAPSED_RADIUS
+      ) {
+        return {
+          type: "collapsed",
+          group: {
+            id: currentExpandedCollapsedGroup.id,
+            year: currentExpandedCollapsedGroup.year,
+            side: currentExpandedCollapsedGroup.side,
+            count: currentExpandedCollapsedGroup.eventIds.length,
+            eventIds: currentExpandedCollapsedGroup.eventIds,
+          },
+        };
+      }
+    }
+
     for (const group of currentCollapsedGroups) {
       const groupX = getScreenX(group.year);
-      const groupY = centerY + group.side * 320;
+      const groupY = centerY + group.side * getCollapsedGroupOffset(height);
       if (Math.hypot(x - groupX, y - groupY) <= COLLAPSED_RADIUS) {
         return { type: "collapsed", group };
       }
@@ -503,6 +594,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ticks: currentTicks,
         visibleEvents: currentVisibleEvents,
         collapsedGroups: currentCollapsedGroups,
+        expandedCollapsedGroup: currentExpandedCollapsedGroup,
         eventLayouts: currentEventLayouts,
         focusedEventId: currentFocusedEventId,
         rulerEvent: currentRulerEvent,
@@ -562,8 +654,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       }
 
       for (const group of currentCollapsedGroups) {
+        const isExpanded =
+          currentExpandedCollapsedGroup?.side === group.side &&
+          Math.abs(currentExpandedCollapsedGroup.year - group.year) < 1e-9;
         const x = getScreenX(group.year);
-        const y = centerY + group.side * 320;
+        const y = centerY + group.side * getCollapsedGroupOffset(height);
         const groupX = snap(x);
         const groupY = snap(y);
         const isHovered =
@@ -576,6 +671,72 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.moveTo(groupX, snap(centerY));
         ctx.lineTo(groupX, groupY);
         ctx.stroke();
+
+        if (isExpanded && currentExpandedCollapsedGroup) {
+          const expandedLayout = getExpandedCollapsedEventPositions(
+            currentExpandedCollapsedGroup,
+            width,
+            centerY,
+            height,
+          );
+
+          if (expandedLayout.events.length > 0) {
+            ctx.strokeStyle = isHovered
+              ? canvasTheme.collapsedLineHover
+              : canvasTheme.collapsedLine;
+            ctx.beginPath();
+            ctx.moveTo(snap(expandedLayout.events[0]!.x), groupY);
+            ctx.lineTo(
+              snap(expandedLayout.events[expandedLayout.events.length - 1]!.x),
+              groupY,
+            );
+            ctx.stroke();
+          }
+
+          for (const item of expandedLayout.events) {
+            const itemX = snap(item.x);
+            const itemY = snap(item.y);
+            const isItemHovered =
+              hoveredTarget.type === "event" &&
+              hoveredTarget.id === item.event.id;
+            const isItemFocused = item.event.id === currentFocusedEventId;
+            const isItemHighlighted = isItemHovered || isItemFocused;
+            const accentColor =
+              currentEventAccentColors[item.event.id] ??
+              canvasTheme.defaultActiveBorder;
+
+            ctx.beginPath();
+            ctx.moveTo(groupX, groupY);
+            ctx.lineTo(itemX, itemY);
+            ctx.strokeStyle = withAlpha(accentColor, 0.35);
+            ctx.stroke();
+
+            ctx.fillStyle = canvasTheme.eventFill;
+            ctx.strokeStyle = isItemHighlighted
+              ? accentColor
+              : withAlpha(accentColor, 0.7);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(
+              itemX,
+              itemY,
+              isItemHighlighted
+                ? EXPANDED_COLLAPSED_EVENT_RADIUS + 2
+                : EXPANDED_COLLAPSED_EVENT_RADIUS,
+              0,
+              Math.PI * 2,
+            );
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.font =
+              "18px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(item.event.emoji, itemX, snap(itemY + 1));
+          }
+        }
 
         ctx.fillStyle = canvasTheme.collapsedFill;
         ctx.strokeStyle = isHovered
@@ -593,7 +754,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(
-          `+${group.count > 99 ? "99+" : group.count}`,
+          isExpanded ? "−" : `+${group.count > 99 ? "99+" : group.count}`,
           groupX,
           groupY,
         );
@@ -907,19 +1068,30 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   }, [canvasTheme, containerRef, focusPixel, focusYear, zoom]);
 
   useEffect(() => {
-    if (
-      timelineEvents.length === 0 &&
-      collapsedGroups.length === 0 &&
-      rulerEvent === null
-    ) {
+    const unsubscribeFocusPixel = focusPixel.on("change", requestRender);
+    const unsubscribeFocusYear = focusYear.on("change", requestRender);
+    const unsubscribeZoom = zoom.on("change", requestRender);
+
+    return () => {
+      unsubscribeFocusPixel();
+      unsubscribeFocusYear();
+      unsubscribeZoom();
+    };
+  }, [focusPixel, focusYear, zoom]);
+
+  useEffect(() => {
+    const needsAnimationLoop =
+      timelineEvents.length > 0 ||
+      collapsedGroups.length > 0 ||
+      expandedCollapsedGroup !== null ||
+      rulerEvent !== null;
+
+    if (!needsAnimationLoop) {
       return;
     }
 
-    // Continuous RAF loop — needed because canvas has no native animation mechanism.
-    // layout.y / layout.opacity MotionValues are animated by Motion during
-    // collapse/uncollapse, but canvas won't redraw unless explicitly told to.
-    // requestRender() has its own RAF coalescing so multiple calls per frame
-    // produce exactly one render.
+    // Canvas needs an explicit RAF loop while Motion animates event layout values.
+    // Camera-only movement is handled by the MotionValue subscriptions above.
     let frameId = 0;
     const loop = () => {
       requestRender();
@@ -927,24 +1099,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     };
     frameId = requestAnimationFrame(loop);
 
-    // Also re-render immediately on camera changes (not just on next RAF cycle).
-    const unsubscribeFocusPixel = focusPixel.on("change", requestRender);
-    const unsubscribeFocusYear = focusYear.on("change", requestRender);
-    const unsubscribeZoom = zoom.on("change", requestRender);
-
     return () => {
       cancelAnimationFrame(frameId);
-      unsubscribeFocusPixel();
-      unsubscribeFocusYear();
-      unsubscribeZoom();
     };
   }, [
     collapsedGroups.length,
-    focusPixel,
-    focusYear,
+    expandedCollapsedGroup,
     rulerEvent,
     timelineEvents.length,
-    zoom,
   ]);
 
   const handleCanvasPointerMove = (e: React.PointerEvent) => {

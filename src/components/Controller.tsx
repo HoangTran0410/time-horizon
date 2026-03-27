@@ -1,11 +1,7 @@
 import React from "react";
 import { MotionValue } from "motion/react";
 import { CalendarSearch, Focus, Search, ZoomIn } from "lucide-react";
-import {
-  Event,
-  AutoFitRangeTarget,
-  DateJumpTarget,
-} from "../../constants/types";
+import { Event, AutoFitRangeTarget, DateJumpTarget } from "../constants/types";
 import { AutoFitPanel } from "./AutoFitPanel";
 import { JumpPanel } from "./JumpPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
@@ -51,7 +47,6 @@ export const Controller: React.FC<ControllerProps> = ({
 
   const handleSearchSelect = (event: Event) => {
     onSearchSelect(event);
-    // setActivePanel(null);
   };
 
   return (
@@ -96,7 +91,7 @@ export const Controller: React.FC<ControllerProps> = ({
         <Focus width={18} height={18} />
       </PanelToggleButton>
 
-      <div className="pointer-events-none fixed right-14 top-1/2 -translate-y-1/2">
+      <div className="pointer-events-none fixed right-12 md:right-14 top-1/2 -translate-y-1/2">
         <div className="pointer-events-auto">
           <ZoomPanel
             isOpen={activePanel === "zoom"}
@@ -113,7 +108,6 @@ export const Controller: React.FC<ControllerProps> = ({
             searchableEvents={searchableEvents}
             onSearchSelect={handleSearchSelect}
           />
-
           <JumpPanel
             isOpen={activePanel === "jump"}
             onJumpToDate={onJumpToDate}

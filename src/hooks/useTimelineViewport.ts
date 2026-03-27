@@ -21,7 +21,6 @@ import {
 import { BIG_BANG_YEAR } from "../constants";
 import {
   Event,
-  getEventTimelineYear,
   AutoFitRangeTarget,
   DateJumpTarget,
   ActivePointer,
@@ -29,12 +28,14 @@ import {
   PinchGestureState,
   StoppableAnimation,
   CollapsedEventGroup,
+  ExpandedCollapsedGroup,
   EventLayoutState,
   TimelineTick,
   WarpOverlayMode,
 } from "../constants/types";
 import {
   generateCalendarTimelineTickYears,
+  getEventTimelineYear,
   getNiceInterval,
   getTimelineHighlightStep,
   isHighlightedTimelineTick,
@@ -45,7 +46,6 @@ import {
   CAMERA_SPRING,
   FOCUS_SPRING,
   FPS_SAMPLE_WINDOW_MS,
-  LAYOUT_LEVELS,
   LAYOUT_MARGIN_RATIO,
   LAYOUT_MIN_DISTANCE_PX,
   LAYOUT_ROW_OFFSET,
@@ -64,6 +64,7 @@ import {
   formatZoomRangeLabel,
   getAbsoluteYearFromDateJump,
   getStableTickLabelWidthEstimate,
+  getTimelineLayoutLevels,
 } from "../helpers";
 
 type UseTimelineViewportParams = {
@@ -87,6 +88,8 @@ export const useTimelineViewport = ({
   const [collapsedGroups, setCollapsedGroups] = useState<CollapsedEventGroup[]>(
     [],
   );
+  const [expandedCollapsedGroup, setExpandedCollapsedGroup] =
+    useState<ExpandedCollapsedGroup | null>(null);
   const [isWarping, setIsWarping] = useState(false);
   const [warpMode, setWarpMode] = useState<WarpOverlayMode>("travel");
   const [warpDirection, setWarpDirection] = useState<1 | -1>(1);
@@ -124,6 +127,7 @@ export const useTimelineViewport = ({
   const zoomSettleTimeoutRef = useRef<number | null>(null);
   const pendingZoomLabelRef = useRef(DEFAULT_LOG_ZOOM);
   const hasBootstrappedRef = useRef(false);
+  const collapsedGroupCycleRef = useRef<Record<string, number>>({});
 
   const focusPixel = useMotionValue(
     typeof window !== "undefined" ? window.innerWidth / 2 : 500,
@@ -166,6 +170,10 @@ export const useTimelineViewport = ({
   const getViewportWidth = () =>
     containerRef.current?.clientWidth ??
     (typeof window !== "undefined" ? window.innerWidth : 1000);
+
+  const getViewportHeight = () =>
+    containerRef.current?.clientHeight ??
+    (typeof window !== "undefined" ? window.innerHeight : 800);
 
   const getViewportCenter = () => getViewportWidth() / 2;
 
@@ -244,6 +252,7 @@ export const useTimelineViewport = ({
   const updateLayout = (immediate = false) => {
     const currentZoom = Math.exp(logZoom.get());
     const minDistYears = LAYOUT_MIN_DISTANCE_PX / currentZoom;
+    const layoutLevels = getTimelineLayoutLevels(getViewportHeight());
     const { startYear, endYear } = visibleBoundsRef.current;
     const margin = (endYear - startYear) * LAYOUT_MARGIN_RATIO;
     const layoutStart = startYear - margin;
@@ -277,7 +286,7 @@ export const useTimelineViewport = ({
       const side = originalIndex % 2 === 0 ? 1 : -1;
 
       let placedLevel: number | null = null;
-      for (const level of LAYOUT_LEVELS) {
+      for (const level of layoutLevels) {
         const actualLevel = level * side;
         const collision = occupied.some(
           (occupiedEvent) =>
@@ -595,6 +604,7 @@ export const useTimelineViewport = ({
     setSelectedEventInfo(null);
     setIsRulerActive(false);
     focusedEventIdRef.current = null;
+    setExpandedCollapsedGroup(null);
   };
 
   const handleFocusCollapsedGroup = (group: CollapsedEventGroup) => {
@@ -604,12 +614,74 @@ export const useTimelineViewport = ({
       )
       .filter((event): event is Event => event !== undefined);
 
-    animateCameraToEvents(groupedEvents);
+    if (groupedEvents.length === 0) return;
+
+    const sortedGroupEvents = [...groupedEvents].sort((left, right) => {
+      const leftIndex = timelineEventIndexMap.get(left.id) ?? 0;
+      const rightIndex = timelineEventIndexMap.get(right.id) ?? 0;
+      return leftIndex - rightIndex;
+    });
+
+    const minYear = Math.min(
+      ...sortedGroupEvents.map((event) => getEventTimelineYear(event)),
+    );
+    const maxYear = Math.max(
+      ...sortedGroupEvents.map((event) => getEventTimelineYear(event)),
+    );
+
+    if (Math.abs(maxYear - minYear) < 1e-9) {
+      const shouldExpandHorizontally = sortedGroupEvents.length > 0;
+      if (shouldExpandHorizontally) {
+        setExpandedCollapsedGroup((currentGroup) => {
+          if (
+            currentGroup &&
+            currentGroup.side === group.side &&
+            Math.abs(currentGroup.year - group.year) < 1e-9
+          ) {
+            return null;
+          }
+
+          return {
+            id: `${group.side}:${group.year}`,
+            year: group.year,
+            side: group.side,
+            eventIds: sortedGroupEvents.map((event) => event.id),
+          };
+        });
+        return;
+      }
+
+      const cycleKey = `${group.side}:${group.year}`;
+      const nextIndex = collapsedGroupCycleRef.current[cycleKey] ?? 0;
+      const nextEvent = sortedGroupEvents[nextIndex % sortedGroupEvents.length];
+      if (!nextEvent) return;
+
+      collapsedGroupCycleRef.current[cycleKey] = nextIndex + 1;
+
+      setSelectedEventInfo(nextEvent);
+      setIsRulerActive(false);
+      focusedEventIdRef.current = nextEvent.id;
+      setExpandedCollapsedGroup(null);
+
+      const width = getViewportWidth();
+      stopCameraAnimations();
+      animateFocusPixel(width / 2, FOCUS_SPRING);
+      animateFocusYear(group.year, FOCUS_SPRING);
+
+      const boostedZoom = Math.max(zoom.get(), MAX_ZOOM);
+      targetLogZoom.current = Math.log(boostedZoom);
+      animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
+      return;
+    }
+
+    setExpandedCollapsedGroup(null);
+    animateCameraToEvents(sortedGroupEvents);
   };
 
   const handleFocusEvent = (event: Event) => {
     setSelectedEventInfo(event);
     focusedEventIdRef.current = event.id;
+    setExpandedCollapsedGroup(null);
 
     const container = containerRef.current;
     if (!container) return;
@@ -1172,6 +1244,21 @@ export const useTimelineViewport = ({
     });
   }, [renderedTimelineEvents]);
 
+  useEffect(() => {
+    setExpandedCollapsedGroup((currentGroup) => {
+      if (!currentGroup) return currentGroup;
+
+      const nextEventIds = new Set(
+        renderedTimelineEvents.map((event) => event.id),
+      );
+      const hasAllEvents = currentGroup.eventIds.every((eventId) =>
+        nextEventIds.has(eventId),
+      );
+
+      return hasAllEvents ? currentGroup : null;
+    });
+  }, [renderedTimelineEvents]);
+
   useMotionValueEvent(panX, "change", () => {
     const bounds = updateVisibleBounds();
     const tickState = tickStateRef.current;
@@ -1321,6 +1408,7 @@ export const useTimelineViewport = ({
     zoom,
     ticks,
     collapsedGroups,
+    expandedCollapsedGroup,
     visibleBounds: visibleBoundsRef.current,
     eventLayouts: eventLayouts.current,
     logicFps,

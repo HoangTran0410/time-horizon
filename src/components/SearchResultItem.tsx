@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, Link2, Play } from "lucide-react";
-import { Event } from "../../constants/types";
-import { getEventDisplayLabel } from "../../helpers";
+import { Event } from "../constants/types";
+import { getEventDisplayLabel } from "../helpers";
 
 interface SearchResultItemProps {
   event: Event;

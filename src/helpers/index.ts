@@ -1,12 +1,73 @@
-import { BIG_BANG_YEAR } from "../constants";
+import {
+  BIG_BANG_YEAR,
+  LAYOUT_EDGE_PADDING,
+  LAYOUT_MAX_LEVELS_PER_SIDE,
+  LAYOUT_ROW_OFFSET,
+} from "../constants";
 import {
   CollapsedEventGroup,
   DateJumpTarget,
   Event,
   EventCollectionMeta,
-  getEventTimelineYear,
-  normalizeEventTimeParts,
+  EventTime,
 } from "../constants/types";
+
+export const normalizeEventTimeParts = (time: EventTime): Required<EventTime> =>
+  [
+    time[0],
+    time[1] ?? null,
+    time[2] ?? null,
+    time[3] ?? null,
+    time[4] ?? null,
+    time[5] ?? null,
+  ] as Required<EventTime>;
+
+// Cache: event time is immutable, so the timeline year is deterministic.
+// WeakMap avoids memory leaks — entries disappear when Event is GC'd.
+const _timelineYearCache = new WeakMap<Event, number>();
+
+export const getEventTimelineYear = (event: Event): number => {
+  const cached = _timelineYearCache.get(event);
+  if (cached !== undefined) return cached;
+
+  const [year, month, day, hour, minute, seconds] = normalizeEventTimeParts(
+    event.time,
+  );
+
+  if (
+    month == null &&
+    day == null &&
+    hour == null &&
+    minute == null &&
+    seconds == null
+  ) {
+    _timelineYearCache.set(event, year);
+    return year;
+  }
+
+  const d = new Date(
+    year,
+    (month ?? 1) - 1,
+    day ?? 1,
+    hour ?? 0,
+    minute ?? 0,
+    seconds ?? 0,
+  );
+
+  if (isNaN(d.getTime())) {
+    _timelineYearCache.set(event, year);
+    return year;
+  }
+
+  const y = d.getFullYear();
+  const start = new Date(y, 0, 1).getTime();
+  const end = new Date(y + 1, 0, 1).getTime();
+  const frac = (d.getTime() - start) / (end - start);
+  const result = y + frac;
+
+  _timelineYearCache.set(event, result);
+  return result;
+};
 
 // Cache: event time is immutable — label never changes.
 // WeakMap avoids memory leaks.
@@ -549,6 +610,23 @@ export const formatZoomRangeLabel = (
   }
   return "1 Day";
 };
+
+export const getTimelineLayoutLevelCount = (viewportHeight: number): number => {
+  const halfHeight = Math.max(0, viewportHeight / 2);
+  const usableHalfHeight = Math.max(0, halfHeight - LAYOUT_EDGE_PADDING);
+  const levelCount = Math.floor(usableHalfHeight / LAYOUT_ROW_OFFSET);
+
+  return Math.max(1, Math.min(LAYOUT_MAX_LEVELS_PER_SIDE, levelCount));
+};
+
+export const getTimelineLayoutLevels = (viewportHeight: number): number[] =>
+  Array.from(
+    { length: getTimelineLayoutLevelCount(viewportHeight) },
+    (_, index) => index + 1,
+  );
+
+export const getCollapsedGroupOffset = (viewportHeight: number): number =>
+  (getTimelineLayoutLevelCount(viewportHeight) + 1) * LAYOUT_ROW_OFFSET;
 
 export const areCollapsedGroupsEqual = (
   prevGroups: CollapsedEventGroup[],

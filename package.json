@@ -10,8 +10,9 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "generate:histography:data": "node scripts/convert-histography-to-collections.js",
+    "generate:histography:emojis": "node scripts/update-histography-emojis.js",
     "generate:histography:ts": "node scripts/generate-histography-collections-ts.js",
-    "generate:histography": "npm run generate:histography:data && npm run generate:histography:ts"
+    "generate:histography": "npm run generate:histography:data && npm run generate:histography:emojis && npm run generate:histography:ts"
   },
   "dependencies": {
     "emoji-picker-react": "^4.18.0",

@@ -13,8 +13,8 @@ import {
   X,
   ZoomIn,
 } from "lucide-react";
-import { Event } from "../../constants/types";
-import { getEventDisplayLabel } from "../../helpers";
+import { Event } from "../constants/types";
+import { getEventDisplayLabel } from "../helpers";
 
 interface EventInfoPanelProps {
   event: Event;

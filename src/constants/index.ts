@@ -30,4 +30,6 @@ export const LAYOUT_LEVELS = [1, 2, 3] as const;
 export const LAYOUT_ROW_OFFSET = 80;
 export const LAYOUT_MARGIN_RATIO = 0.3;
 export const LAYOUT_MIN_DISTANCE_PX = 90;
+export const LAYOUT_EDGE_PADDING = 96;
+export const LAYOUT_MAX_LEVELS_PER_SIDE = 4;
 export const LONG_TRAVEL_VIEWPORT_MULTIPLIER = 2.5;
