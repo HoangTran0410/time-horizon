@@ -414,7 +414,7 @@ export const ExploreCollectionsModal: React.FC<
                                     : collection.id,
                                 );
                               }}
-                              className={`ui-button ui-button-secondary ui-button-square-compact shrink-0 rounded-[0.95rem] ${
+                              className={`ui-icon-button h-9 w-9 shrink-0 rounded-[0.95rem] ${
                                 isCollectionMenuOpen
                                   ? "border-zinc-600 bg-zinc-800"
                                   : ""
@@ -422,7 +422,7 @@ export const ExploreCollectionsModal: React.FC<
                               aria-label={`More actions for ${collection.name}`}
                               title={`More actions for ${collection.name}`}
                             >
-                              <MoreHorizontal />
+                              <MoreHorizontal size={15} />
                             </button>
                           </>
                         )}

@@ -139,24 +139,24 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsImagePreviewOpen(true)}
-                  className="block overflow-hidden rounded-[1.2rem] border border-zinc-800"
+                  className="flex h-36 w-full items-center justify-center overflow-hidden"
                 >
                   <img
                     src={imageUrl}
                     alt={event.title}
-                    className="h-36 w-full object-cover"
+                    className="max-h-full max-w-full rounded-[1rem] object-contain object-center"
                     loading="lazy"
                   />
                 </button>
               ) : null}
 
-              <p className="text-[0.84rem] leading-6 text-zinc-300">
+              <p className="text-[0.84rem] leading-6 text-zinc-300 text-center">
                 {event.description || "This event has no description yet."}
               </p>
 
-              {(videoUrl || linkUrl || imageUrl) && (
-                <div className="flex flex-wrap gap-2">
-                  {imageUrl ? (
+              {(videoUrl || linkUrl) && (
+                <div className="flex flex-wrap gap-2 item-center justify-center">
+                  {/* {imageUrl ? (
                     <button
                       type="button"
                       onClick={() => setIsImagePreviewOpen(true)}
@@ -165,7 +165,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                       <FileImage width={14} height={14} />
                       <span>Image</span>
                     </button>
-                  ) : null}
+                  ) : null} */}
                   {videoUrl ? (
                     <button
                       type="button"
@@ -190,7 +190,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 pb-2">
                 <button
                   type="button"
                   onClick={onFocus}
