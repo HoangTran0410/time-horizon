@@ -1,5 +1,41 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-white: var(--ui-zinc-050);
+  --color-zinc-50: var(--ui-zinc-050);
+  --color-zinc-100: var(--ui-zinc-100);
+  --color-zinc-200: var(--ui-zinc-200);
+  --color-zinc-300: var(--ui-zinc-300);
+  --color-zinc-400: var(--ui-zinc-400);
+  --color-zinc-500: var(--ui-zinc-500);
+  --color-zinc-600: var(--ui-zinc-600);
+  --color-zinc-700: var(--ui-zinc-700);
+  --color-zinc-800: var(--ui-zinc-800);
+  --color-zinc-900: var(--ui-zinc-900);
+  --color-zinc-950: var(--ui-zinc-950);
+
+  --color-emerald-50: var(--ui-emerald-100);
+  --color-emerald-100: var(--ui-emerald-100);
+  --color-emerald-200: var(--ui-emerald-200);
+  --color-emerald-300: var(--ui-emerald-300);
+  --color-emerald-400: var(--ui-emerald-300);
+  --color-emerald-500: var(--ui-emerald-500);
+  --color-emerald-600: var(--ui-emerald-600);
+
+  --color-amber-100: var(--ui-amber-100);
+  --color-amber-200: var(--ui-amber-200);
+  --color-amber-500: var(--ui-amber-500);
+
+  --color-red-300: var(--ui-rose-200);
+  --color-red-400: var(--ui-rose-200);
+  --color-red-500: var(--ui-rose-500);
+  --color-ink-subtle: var(--ui-zinc-600-text);
+
+  --shadow-lg: var(--app-shadow-lg);
+  --shadow-xl: var(--app-shadow-lg);
+  --shadow-2xl: var(--app-shadow-lg);
+}
+
 html,
 body,
 #root {
@@ -37,6 +73,7 @@ body,
   --app-shadow-lg: 0 28px 80px rgba(2, 6, 23, 0.3);
   --overlay-60: rgba(0, 0, 0, 0.6);
   --overlay-70: rgba(0, 0, 0, 0.7);
+  --overlay-80: rgba(0, 0, 0, 0.8);
   --overlay-hover: rgba(255, 255, 255, 0.08);
 
   --ui-zinc-950: #0f171d;
@@ -85,6 +122,7 @@ body,
   --ui-amber-500-20: rgba(217, 143, 65, 0.22);
   --ui-amber-500-15: rgba(217, 143, 65, 0.15);
   --ui-amber-500-10: rgba(217, 143, 65, 0.1);
+  --ui-amber-500: #d98f41;
   --ui-border-amber-500-30: rgba(217, 143, 65, 0.3);
   --ui-border-amber-400-60: rgba(236, 184, 118, 0.6);
   --ui-amber-200: #f1c98e;
@@ -129,6 +167,7 @@ body,
   --app-shadow-lg: 0 28px 74px rgba(71, 85, 105, 0.14);
   --overlay-60: rgba(15, 23, 42, 0.38);
   --overlay-70: rgba(15, 23, 42, 0.5);
+  --overlay-80: rgba(15, 23, 42, 0.62);
   --overlay-hover: rgba(15, 23, 42, 0.08);
 
   --ui-zinc-950: #fffaf3;
@@ -177,6 +216,7 @@ body,
   --ui-amber-500-20: rgba(168, 100, 31, 0.18);
   --ui-amber-500-15: rgba(168, 100, 31, 0.14);
   --ui-amber-500-10: rgba(168, 100, 31, 0.1);
+  --ui-amber-500: #a8641f;
   --ui-border-amber-500-30: rgba(168, 100, 31, 0.28);
   --ui-border-amber-400-60: rgba(168, 100, 31, 0.48);
   --ui-amber-200: #8a4e12;
@@ -333,6 +373,16 @@ select {
   box-shadow: var(--ui-shadow-card);
 }
 
+.ui-sidebar-shell {
+  border-right: 1px solid var(--ui-border-zinc-800);
+  background:
+    linear-gradient(180deg, var(--ui-surface-highlight), transparent 46%),
+    var(--ui-zinc-950-95);
+  box-shadow: var(--ui-shadow-soft);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
 .ui-card {
   border: 1px solid var(--ui-border-zinc-800);
   background:
@@ -406,6 +456,27 @@ select {
     border-color 180ms ease,
     color 180ms ease,
     box-shadow 180ms ease;
+}
+
+.ui-button-compact {
+  gap: 0.38rem;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.ui-button-compact svg {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
+.ui-button-square-compact {
+  width: 1.8rem;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  gap: 0;
 }
 
 .ui-button:hover {
@@ -624,6 +695,56 @@ select {
   box-shadow: var(--ui-shadow-soft);
 }
 
+.ui-floating-menu {
+  border: 1px solid var(--ui-border-zinc-800);
+  background:
+    linear-gradient(180deg, var(--ui-surface-highlight), transparent 48%),
+    var(--ui-zinc-950-95);
+  box-shadow: var(--ui-shadow-soft);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.ui-guidance-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+  border: 1px solid var(--ui-border-amber-500-30);
+  background:
+    radial-gradient(circle at top, var(--ui-amber-500-15), transparent 45%),
+    linear-gradient(180deg, var(--ui-surface-highlight), transparent 46%),
+    var(--ui-zinc-950-95);
+  box-shadow: var(--ui-shadow-soft);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.ui-guidance-panel::before {
+  content: "";
+  position: absolute;
+  inset-inline: 2rem;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--ui-border-amber-400-60) 50%,
+    transparent 100%
+  );
+}
+
+.ui-guidance-eyebrow {
+  color: var(--ui-amber-200);
+}
+
+.ui-guidance-title {
+  color: var(--ui-zinc-050);
+}
+
+.ui-guidance-copy {
+  color: var(--ui-zinc-300);
+}
+
 /* ── Global scrollbar styling ─────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;
@@ -654,88 +775,19 @@ select {
   background: var(--ui-zinc-950);
 }
 
-.bg-zinc-950 {
-  background-color: var(--ui-zinc-950) !important;
-}
-
-.bg-zinc-950\/95 {
-  background-color: var(--ui-zinc-950-95) !important;
-}
-
-.bg-zinc-950\/70 {
-  background-color: var(--ui-zinc-950-70) !important;
-}
-
-.bg-zinc-950\/60 {
-  background-color: var(--ui-zinc-950-60) !important;
-}
-
-.bg-zinc-950\/50 {
-  background-color: var(--ui-zinc-950-50) !important;
-}
-
-.bg-zinc-950\/40 {
-  background-color: var(--ui-zinc-950-40) !important;
-}
-
-.bg-zinc-900 {
-  background-color: var(--ui-zinc-900) !important;
-}
-
-.bg-zinc-900\/95 {
-  background-color: var(--ui-zinc-900-95) !important;
-}
-
-.bg-zinc-900\/80 {
-  background-color: var(--ui-zinc-900-80) !important;
-}
-
-.bg-zinc-800 {
-  background-color: var(--ui-zinc-800) !important;
-}
-
-.bg-zinc-700 {
-  background-color: var(--ui-zinc-700) !important;
-}
-
-.bg-emerald-600 {
-  background-color: var(--ui-emerald-600) !important;
-}
-
-.bg-emerald-500 {
-  background-color: var(--ui-emerald-500) !important;
-}
-
-.bg-emerald-500\/15 {
-  background-color: var(--ui-emerald-500-15) !important;
-}
-
-.bg-emerald-500\/10 {
-  background-color: var(--ui-emerald-500-10) !important;
-}
-
-.bg-emerald-500\/5 {
-  background-color: var(--ui-emerald-500-05) !important;
-}
-
-.bg-amber-500\/20 {
-  background-color: var(--ui-amber-500-20) !important;
-}
-
-.bg-amber-500\/15 {
-  background-color: var(--ui-amber-500-15) !important;
-}
-
-.bg-amber-500\/10 {
-  background-color: var(--ui-amber-500-10) !important;
-}
-
+/* Tailwind handles most of the palette via @theme.
+   Keep a slim compatibility layer for overlay and border tones that intentionally
+   don't match the background/text scale one-to-one. */
 .bg-black\/60 {
   background-color: var(--overlay-60) !important;
 }
 
 .bg-black\/70 {
   background-color: var(--overlay-70) !important;
+}
+
+.bg-black\/80 {
+  background-color: var(--overlay-80) !important;
 }
 
 .border-zinc-800 {
@@ -766,142 +818,12 @@ select {
   border-color: var(--ui-border-zinc-500-90) !important;
 }
 
-.border-emerald-500 {
-  border-color: var(--ui-border-emerald-500) !important;
-}
-
-.border-emerald-500\/50 {
-  border-color: var(--ui-border-emerald-500-50) !important;
-}
-
-.border-emerald-500\/40 {
-  border-color: var(--ui-border-emerald-500-40) !important;
-}
-
-.border-emerald-500\/30 {
-  border-color: var(--ui-border-emerald-500-30) !important;
-}
-
-.border-emerald-500\/20 {
-  border-color: var(--ui-border-emerald-500-20) !important;
-}
-
-.border-amber-500\/30 {
-  border-color: var(--ui-border-amber-500-30) !important;
-}
-
 .border-amber-400\/60 {
   border-color: var(--ui-border-amber-400-60) !important;
 }
 
-.text-white {
-  color: var(--ui-zinc-050) !important;
-}
-
-.text-zinc-600 {
-  color: var(--ui-zinc-600-text) !important;
-}
-
-.text-zinc-500 {
-  color: var(--ui-zinc-500) !important;
-}
-
-.text-zinc-400 {
-  color: var(--ui-zinc-400) !important;
-}
-
-.text-zinc-300 {
-  color: var(--ui-zinc-300) !important;
-}
-
-.text-zinc-200 {
-  color: var(--ui-zinc-200) !important;
-}
-
-.text-zinc-100 {
-  color: var(--ui-zinc-100) !important;
-}
-
-.text-emerald-500 {
-  color: var(--ui-emerald-500) !important;
-}
-
-.text-emerald-300 {
-  color: var(--ui-emerald-300) !important;
-}
-
-.text-emerald-200 {
-  color: var(--ui-emerald-200) !important;
-}
-
-.text-emerald-100 {
-  color: var(--ui-emerald-100) !important;
-}
-
-.text-amber-200 {
-  color: var(--ui-amber-200) !important;
-}
-
-.text-amber-100 {
-  color: var(--ui-amber-100) !important;
-}
-
-.placeholder-zinc-500::placeholder {
-  color: var(--ui-zinc-500) !important;
-}
-
-.hover\:bg-zinc-800:hover {
-  background-color: var(--ui-zinc-800) !important;
-}
-
-.hover\:bg-zinc-700:hover {
-  background-color: var(--ui-zinc-700) !important;
-}
-
-.hover\:bg-zinc-600:hover {
-  background-color: var(--ui-zinc-600) !important;
-}
-
-.hover\:bg-emerald-600:hover {
-  background-color: var(--ui-emerald-600) !important;
-}
-
-.hover\:bg-emerald-500:hover {
-  background-color: var(--ui-emerald-500) !important;
-}
-
-.hover\:bg-emerald-500\/15:hover {
-  background-color: var(--ui-emerald-500-15) !important;
-}
-
-.hover\:bg-amber-500\/20:hover {
-  background-color: var(--ui-amber-500-20) !important;
-}
-
 .hover\:bg-black\/20:hover {
   background-color: var(--overlay-hover) !important;
-}
-
-.bg-red-500\/10 {
-  background-color: var(--ui-rose-500-10) !important;
-}
-
-.border-red-500\/20,
-.border-red-400\/20 {
-  border-color: var(--ui-border-rose-500-20) !important;
-}
-
-.hover\:bg-red-500\/15:hover {
-  background-color: var(--ui-rose-500-15) !important;
-}
-
-.hover\:border-red-500\/35:hover {
-  border-color: var(--ui-border-rose-500-35) !important;
-}
-
-.text-red-400,
-.text-red-300 {
-  color: var(--ui-rose-200) !important;
 }
 
 .hover\:border-zinc-700:hover {
@@ -910,33 +832,6 @@ select {
 
 .hover\:border-zinc-600:hover {
   border-color: var(--ui-border-zinc-600) !important;
-}
-
-.hover\:text-white:hover {
-  color: var(--ui-zinc-050) !important;
-}
-
-.hover\:text-emerald-500:hover {
-  color: var(--ui-emerald-500) !important;
-}
-
-.focus\:border-emerald-500:focus {
-  border-color: var(--ui-border-emerald-500) !important;
-}
-
-.shadow-lg,
-.shadow-xl,
-.shadow-2xl {
-  box-shadow: var(--app-shadow-lg) !important;
-}
-
-.shadow-black\/30 {
-  --tw-shadow-color: transparent !important;
-}
-
-.backdrop-blur-sm {
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
 }
 
 @keyframes ui-overlay-in {
@@ -1057,6 +952,17 @@ select {
 
   .ui-button {
     padding: 0.82rem 1rem;
+  }
+
+  .ui-button-compact {
+    padding: 0.38rem 0.62rem;
+    font-size: 0.72rem;
+  }
+
+  .ui-button-square-compact {
+    width: 1.72rem;
+    min-width: 1.72rem;
+    height: 1.72rem;
   }
 }
 

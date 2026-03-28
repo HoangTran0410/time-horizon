@@ -94,6 +94,8 @@ export const useTimelineViewport = ({
   const [logicFps, setLogicFps] = useState(0);
   const [renderFps, setRenderFps] = useState(0);
   const [zoomRangeLabel, setZoomRangeLabel] = useState("");
+  const [isViewportBeforeBigBang, setIsViewportBeforeBigBang] =
+    useState(false);
 
   const logicFpsSampleRef = useRef<FpsSampleState>({
     sampleStart: 0,
@@ -243,6 +245,10 @@ export const useTimelineViewport = ({
     const startYear = (-width - currentX) / currentZoom;
     const endYear = (width * 2 - currentX) / currentZoom;
     visibleBoundsRef.current = { startYear, endYear };
+    setIsViewportBeforeBigBang((prev) => {
+      const nextValue = endYear < BIG_BANG_YEAR;
+      return prev === nextValue ? prev : nextValue;
+    });
 
     return { width, currentZoom, startYear, endYear };
   };
@@ -1416,6 +1422,7 @@ export const useTimelineViewport = ({
     zoomRangeLabel,
     zoomTrackRef,
     zoomThumbY,
+    isViewportBeforeBigBang,
     isWarping,
     warpMode,
     warpDirection,

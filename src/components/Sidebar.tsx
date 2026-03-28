@@ -2,14 +2,17 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Event, EventCollectionMeta, MediaFilter } from "../constants/types";
 import {
   Compass,
+  Download,
   Eye,
   EyeOff,
   FolderPlus,
   Menu,
+  MoreHorizontal,
   Plus,
   RefreshCw,
   Search,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import { ConfirmDialogOptions } from "./ConfirmDialog";
@@ -37,6 +40,12 @@ interface SidebarProps {
   onDeleteEvent: (event: Event) => void;
   onAddEvent: (collectionId?: string) => void;
   onAddCollection: () => void;
+  onImportCollections: (file: File) => Promise<string> | string;
+  onExportCollection: (
+    collectionId: string,
+  ) => Promise<string | void> | string | void;
+  openRequestKey?: number;
+  openExploreRequestKey?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -56,13 +65,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteEvent,
   onAddEvent,
   onAddCollection,
+  onImportCollections,
+  onExportCollection,
+  openRequestKey = 0,
+  openExploreRequestKey = 0,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isExploreOpen, setIsExploreOpen] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [collectionQuery, setCollectionQuery] = useState("");
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
     null,
   );
+  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<
+    string | null
+  >(null);
   const [sessionPinnedCollectionIds, setSessionPinnedCollectionIds] = useState<
     string[]
   >([]);
@@ -79,7 +96,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [collectionEventEndInput, setCollectionEventEndInput] = useState("");
   const [showCollectionMatchesOnTimeline, setShowCollectionMatchesOnTimeline] =
     useState(false);
+  const [libraryTransferStatus, setLibraryTransferStatus] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
   const prevIsOpenRef = useRef(false);
+  const prevOpenRequestKeyRef = useRef(openRequestKey);
+  const prevOpenExploreRequestKeyRef = useRef(openExploreRequestKey);
 
   const normalizedCollectionQuery = collectionQuery.trim().toLowerCase();
 
@@ -165,12 +188,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!isOpen && prevIsOpenRef.current) {
       setSessionPinnedCollectionIds([]);
       setActiveCollectionId(null);
+      setOpenCollectionMenuId(null);
       setBrowsingCollectionId(null);
+      setLibraryTransferStatus(null);
       resetCollectionSearchState();
     }
 
     prevIsOpenRef.current = isOpen;
   }, [isOpen, visibleCollectionIds]);
+
+  useEffect(() => {
+    if (!libraryTransferStatus) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setLibraryTransferStatus(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [libraryTransferStatus]);
+
+  useEffect(() => {
+    if (openRequestKey === prevOpenRequestKeyRef.current) return;
+    prevOpenRequestKeyRef.current = openRequestKey;
+    setIsOpen(true);
+  }, [openRequestKey]);
+
+  useEffect(() => {
+    if (openExploreRequestKey === prevOpenExploreRequestKeyRef.current) return;
+    prevOpenExploreRequestKeyRef.current = openExploreRequestKey;
+    setIsOpen(true);
+    setIsExploreOpen(true);
+  }, [openExploreRequestKey]);
 
   const togglePinnedCollection = async (collectionId: string) => {
     const isVisible = visibleCollectionIds.includes(collectionId);
@@ -201,11 +249,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const toggleCollectionBrowser = (collectionId: string) => {
     setActiveCollectionId(collectionId);
+    setOpenCollectionMenuId(null);
     setBrowsingCollectionId((current) => {
       const nextCollectionId = current === collectionId ? null : collectionId;
       resetCollectionSearchState();
       return nextCollectionId;
     });
+  };
+
+  const toggleCollectionMenu = (collectionId: string) => {
+    setActiveCollectionId(collectionId);
+    setOpenCollectionMenuId((current) =>
+      current === collectionId ? null : collectionId,
+    );
   };
 
   useEffect(() => {
@@ -251,6 +307,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
     resetCollectionSearchState();
   };
 
+  const handleExportCollection = async (collectionId: string) => {
+    try {
+      const message = await onExportCollection(collectionId);
+      setLibraryTransferStatus({
+        tone: "success",
+        message: message || "Collection export is ready.",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to export collection.";
+      setLibraryTransferStatus({ tone: "error", message });
+    }
+  };
+
+  const handleImportCollections = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const message = await onImportCollections(file);
+      setLibraryTransferStatus({
+        tone: "success",
+        message: message || `Imported ${file.name}.`,
+      });
+      setIsOpen(true);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to import collections.";
+      setLibraryTransferStatus({ tone: "error", message });
+    }
+  };
+
   return (
     <>
       <button
@@ -263,13 +356,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         onPointerDown={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
-        className={`fixed left-0 top-0 z-90 flex h-full w-screen max-w-[26rem] transform flex-col border-r border-zinc-800 bg-zinc-950/96 shadow-[0_24px_90px_rgba(2,6,23,0.36)] backdrop-blur-xl transition-transform duration-300 ease-in-out ${
+        className={`ui-sidebar-shell fixed left-0 top-0 z-90 flex h-full w-screen max-w-[26rem] transform flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-20">
           <div className="mb-5">
-            <div className="ui-kicker mb-2">Timeline Atlas</div>
+            {/* <div className="ui-kicker mb-2">Timeline Atlas</div> */}
             <h2 className="ui-display-title text-[2rem] leading-none text-white">
               Time Horizon
             </h2>
@@ -310,15 +403,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="ui-button ui-button-secondary mt-2 w-full rounded-[1.1rem] px-4 py-3"
             >
               <Compass size={16} />
-              <span>Browse Collections</span>
+              <span>Public Collections</span>
             </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => void handleImportCollections(event)}
+            />
+            {libraryTransferStatus ? (
+              <div
+                className={`mt-3 rounded-[1rem] border px-3 py-2.5 text-[0.78rem] leading-6 ${
+                  libraryTransferStatus.tone === "success"
+                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
+                    : "border-rose-500/20 bg-rose-500/10 text-rose-100"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 flex-1">
+                    {libraryTransferStatus.message}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLibraryTransferStatus(null)}
+                    className="mt-0.5 shrink-0 rounded-full p-1 transition-colors hover:bg-black/20"
+                    aria-label="Dismiss library transfer status"
+                    title="Dismiss"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="mb-8">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="ui-kicker">
+              <h3 className="ui-display-title">
                 My Collections ({downloadedCollections.length})
               </h3>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                className="ui-button ui-button-compact ui-button-secondary shrink-0"
+              >
+                <Upload />
+                <span>Import</span>
+              </button>
             </div>
             <div className="mb-3">
               <input
@@ -429,6 +560,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     );
                     const isCollectionActive =
                       activeCollectionId === collection.id;
+                    const isCollectionMenuOpen =
+                      openCollectionMenuId === collection.id;
                     const isCollectionBrowserOpen =
                       browsingCollectionId === collection.id;
                     const isLoading = downloadingCollectionIds.includes(
@@ -474,8 +607,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           setActiveCollectionId((current) =>
                             current === collection.id ? null : current,
                           );
+                          setOpenCollectionMenuId((current) =>
+                            current === collection.id ? null : current,
+                          );
                         }}
-                        className={`ui-card group rounded-[1.45rem] p-3.5 outline-none focus-visible:border-emerald-500/45 focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${
+                        className={`ui-card group relative rounded-[1.45rem] p-3.5 outline-none focus-visible:border-emerald-500/45 focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${
                           isVisibleOnTimeline
                             ? "border-emerald-500/30 bg-emerald-500/10"
                             : "border-zinc-800"
@@ -512,116 +648,158 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               </div>
                             </div>
                           </div>
-                          <div
-                            className={`flex items-center gap-1 opacity-100 transition-opacity duration-150 md:opacity-0 ${
-                              isCollectionActive
-                                ? "pointer-events-auto opacity-100"
-                                : "pointer-events-auto md:pointer-events-none md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100"
-                            }`}
-                          >
-                            <label className="relative inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 transition-colors hover:border-zinc-700">
-                              <input
-                                type="color"
-                                value={collectionColor}
-                                onChange={(event) =>
-                                  onSetCollectionColor(
-                                    collection.id,
-                                    event.target.value,
-                                  )
-                                }
-                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                aria-label={`Set color for ${collection.name}`}
-                              />
-                              <span
-                                className="h-2.5 w-2.5 rounded-full"
-                                style={{ backgroundColor: collectionColor }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleCollectionBrowser(collection.id);
-                              }}
-                              className={`rounded-full border p-2 transition-colors ${
-                                isCollectionBrowserOpen
-                                  ? "border-sky-500/40 bg-sky-500/10 text-sky-200 hover:bg-sky-500/15"
-                                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-white"
-                              }`}
-                              aria-label={`Browse events in ${collection.name}`}
-                              title={`Browse events in ${collection.name}`}
-                            >
-                              <Search size={14} />
-                            </button>
-                            <button
-                              onClick={() =>
-                                void togglePinnedCollection(collection.id)
-                              }
-                              className={`rounded-full border p-2 transition-colors ${
-                                isVisibleOnTimeline
-                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"
-                                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-white"
-                              }`}
-                              aria-label={
-                                isVisibleOnTimeline
-                                  ? `Hide ${collection.name} from timeline`
-                                  : `Show ${collection.name} on timeline`
-                              }
-                            >
-                              {isVisibleOnTimeline ? (
-                                <Eye size={14} />
-                              ) : (
-                                <EyeOff size={14} />
-                              )}
-                            </button>
-                          </div>
                         </div>
 
                         <p className="mt-3 line-clamp-2 text-[0.84rem] leading-6 text-zinc-400">
                           {collection.description}
                         </p>
 
-                        <div
-                          className={`overflow-hidden transition-all duration-150 ${
-                            isCollectionActive
-                              ? "pointer-events-auto mt-3 max-h-24 opacity-100"
-                              : "pointer-events-none mt-0 max-h-0 opacity-0 group-hover:pointer-events-auto group-hover:mt-3 group-hover:max-h-[32rem] group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:mt-3 group-focus-within:max-h-[32rem] group-focus-within:opacity-100"
-                          }`}
-                        >
-                          <div className="flex flex-wrap gap-1.5">
-                            <button
-                              onClick={() => onAddEvent(collection.id)}
-                              className="ui-button ui-button-primary gap-1.5 px-2.5 py-1.5 text-[0.68rem]"
-                            >
-                              <Plus size={12} />
-                              <span>Add</span>
-                            </button>
-                            {isSyncable ? (
-                              <button
-                                onClick={() =>
-                                  void onSyncCollection(collection.id)
-                                }
-                                disabled={isLoading}
-                                className="ui-button ui-button-secondary gap-1.5 px-2.5 py-1.5 text-[0.68rem] disabled:cursor-wait disabled:opacity-60"
-                              >
-                                <RefreshCw
-                                  size={12}
-                                  className={isLoading ? "animate-spin" : ""}
-                                />
-                                <span>Sync</span>
-                              </button>
-                            ) : null}
-                            <button
-                              onClick={() => handleDeleteCollection(collection)}
-                              className="ui-button ui-button-danger gap-1.5 px-2.5 py-1.5 text-[0.68rem]"
-                              aria-label={`Delete ${collection.name}`}
-                              title={`Delete ${collection.name}`}
-                            >
-                              <Trash2 size={12} />
-                              <span>Delete</span>
-                            </button>
-                          </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleCollectionBrowser(collection.id);
+                            }}
+                            className={`ui-button ${
+                              isCollectionBrowserOpen
+                                ? "ui-button-primary"
+                                : "ui-button-secondary"
+                            } flex-1 rounded-[0.95rem] px-3 py-2.5 text-[0.8rem]`}
+                            aria-label={`Browse events in ${collection.name}`}
+                            title={`Browse events in ${collection.name}`}
+                          >
+                            <Search size={14} />
+                            <span>Browse</span>
+                          </button>
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void togglePinnedCollection(collection.id);
+                            }}
+                            className={`ui-button ${
+                              isVisibleOnTimeline
+                                ? "ui-button-primary"
+                                : "ui-button-secondary"
+                            } flex-1 rounded-[0.95rem] px-3 py-2.5 text-[0.8rem]`}
+                            aria-label={
+                              isVisibleOnTimeline
+                                ? `Hide ${collection.name} from timeline`
+                                : `Show ${collection.name} on timeline`
+                            }
+                            title={
+                              isVisibleOnTimeline
+                                ? `Hide ${collection.name} from timeline`
+                                : `Show ${collection.name} on timeline`
+                            }
+                          >
+                            {isVisibleOnTimeline ? (
+                              <Eye size={14} />
+                            ) : (
+                              <EyeOff size={14} />
+                            )}
+                            <span>{isVisibleOnTimeline ? "Hide" : "Show"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleCollectionMenu(collection.id);
+                            }}
+                            className={`ui-button ui-button-secondary ui-button-square-compact shrink-0 rounded-[0.95rem] ${
+                              isCollectionMenuOpen
+                                ? "border-zinc-600 bg-zinc-800"
+                                : ""
+                            }`}
+                            aria-label={`More actions for ${collection.name}`}
+                            title={`More actions for ${collection.name}`}
+                          >
+                            <MoreHorizontal />
+                          </button>
                         </div>
+
+                        {isCollectionMenuOpen ? (
+                          <div className="ui-floating-menu absolute bottom-15 right-3 z-20 w-[13rem] rounded-[1rem] p-2">
+                            <div className="mb-1.5 px-1.5 font-mono text-[0.56rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                              More Actions
+                            </div>
+                            <div className="grid gap-1.5">
+                              <label
+                                className="ui-button ui-button-compact ui-button-secondary relative w-full cursor-pointer justify-start rounded-[0.85rem]"
+                                title={`Set color for ${collection.name}`}
+                              >
+                                <input
+                                  type="color"
+                                  value={collectionColor}
+                                  onChange={(event) =>
+                                    onSetCollectionColor(
+                                      collection.id,
+                                      event.target.value,
+                                    )
+                                  }
+                                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                  aria-label={`Set color for ${collection.name}`}
+                                />
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: collectionColor }}
+                                />
+                                <span>Color</span>
+                              </label>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenCollectionMenuId(null);
+                                  onAddEvent(collection.id);
+                                }}
+                                className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
+                              >
+                                <Plus />
+                                <span>Add Event</span>
+                              </button>
+                              {isSyncable ? (
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenCollectionMenuId(null);
+                                    void onSyncCollection(collection.id);
+                                  }}
+                                  disabled={isLoading}
+                                  className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem] disabled:cursor-wait disabled:opacity-60"
+                                >
+                                  <RefreshCw
+                                    className={isLoading ? "animate-spin" : ""}
+                                  />
+                                  <span>Sync</span>
+                                </button>
+                              ) : null}
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenCollectionMenuId(null);
+                                  void handleExportCollection(collection.id);
+                                }}
+                                className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
+                              >
+                                <Download />
+                                <span>Export</span>
+                              </button>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenCollectionMenuId(null);
+                                  handleDeleteCollection(collection);
+                                }}
+                                className="ui-button ui-button-compact ui-button-danger w-full justify-start rounded-[0.85rem]"
+                                aria-label={`Delete ${collection.name}`}
+                                title={`Delete ${collection.name}`}
+                              >
+                                <Trash2 />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -657,7 +835,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               resultLabel="collection events"
               showTimelineToggle={false}
               wrapperClassName="w-full"
-              panelClassName="w-full max-w-none rounded-[1.6rem] border-zinc-800 bg-zinc-950/95 shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+              panelClassName="w-full max-w-none rounded-[1.6rem] border-zinc-800 bg-zinc-950/95 shadow-2xl"
               maxHeight="min(82vh, calc(100vh - 3rem))"
               onClose={handleCloseSidebarSearch}
             />

@@ -27,7 +27,12 @@ import {
   SYNCABLE_COLLECTION_IDS,
   loadEventCollection,
 } from "../data/collections";
-import { buildCustomCollectionMeta, normalizeEventTimeParts } from "../helpers";
+import {
+  buildCustomCollectionMeta,
+  createLocalDateStamp,
+  normalizeEventTimeParts,
+  slugifyCollectionId,
+} from "../helpers";
 
 export type SearchSortMode =
   | "best-match"
@@ -88,11 +93,17 @@ type TimelineStoreState = {
   setTimeRangeStartInput: (value: string) => void;
   setTimeRangeEndInput: (value: string) => void;
   setShowOnlyResultsOnTimeline: (value: boolean) => void;
+  showCollections: (collectionIds: string[]) => void;
   addVisibleCollection: (collectionId: string) => void;
   ensurePlaygroundCollection: () => void;
   downloadCollection: (collectionId: string) => Promise<void>;
   syncCollection: (collectionId: string) => Promise<void>;
   setCollectionVisibility: (collectionId: string, visible: boolean) => void;
+  importCollections: (
+    collections: ImportedCollectionInput[],
+  ) => {
+    importedCollectionIds: string[];
+  };
   deleteCollection: (collectionId: string) => void;
   saveEvent: (updatedEvent: Event) => void;
   addEvent: (newEvent: Event, targetCollectionId: string) => void;
@@ -115,6 +126,13 @@ type TimelineStoreState = {
   closeCollectionCreator: () => void;
 };
 
+type ImportedCollectionInput = {
+  meta?: Partial<EventCollectionMeta> | null;
+  events?: unknown;
+  color?: string | null;
+  visible?: boolean;
+};
+
 const createInitialTimelineSearchState = (): Pick<
   TimelineStoreState,
   | "searchQuery"
@@ -131,6 +149,23 @@ const createInitialTimelineSearchState = (): Pick<
   timeRangeEndInput: "",
   showOnlyResultsOnTimeline: false,
 });
+
+const createUniqueCollectionId = (
+  baseValue: string,
+  existingIds: Set<string>,
+) => {
+  const baseId = slugifyCollectionId(baseValue);
+  let nextId = baseId;
+  let suffix = 2;
+
+  while (existingIds.has(nextId)) {
+    nextId = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  existingIds.add(nextId);
+  return nextId;
+};
 
 type TimelinePersistedState = Pick<
   TimelineStoreState,
@@ -194,6 +229,82 @@ const sanitizeCollectionColorPreferences = (value: unknown) => {
   );
 
   return Object.fromEntries(entries) as Record<string, string>;
+};
+
+const sanitizeImportedEventTime = (value: unknown): Event["time"] | null => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const normalized = value.slice(0, 6).map((part) => {
+    if (part === null || part === undefined) return null;
+    if (typeof part !== "number" || !Number.isFinite(part)) return null;
+    return part;
+  });
+
+  const year = normalized[0];
+  if (typeof year !== "number") {
+    return null;
+  }
+
+  return normalizeEventTimeParts([
+    year,
+    normalized[1],
+    normalized[2],
+    normalized[3],
+    normalized[4],
+    normalized[5],
+  ]);
+};
+
+const sanitizeImportedEvents = (value: unknown): Event[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((event) => {
+    if (!event || typeof event !== "object") return [];
+
+    const candidate = event as Partial<Event>;
+    const time = sanitizeImportedEventTime(candidate.time);
+    if (
+      !isNonEmptyString(candidate.title) ||
+      !isNonEmptyString(candidate.description) ||
+      !isNonEmptyString(candidate.emoji) ||
+      !time
+    ) {
+      return [];
+    }
+
+    const eventId =
+      isNonEmptyString(candidate.id) && candidate.id.trim().length > 0
+        ? candidate.id.trim()
+        : typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    return [
+      {
+        id: eventId,
+        title: candidate.title.trim(),
+        description: candidate.description.trim(),
+        emoji: candidate.emoji.trim(),
+        time,
+        priority:
+          typeof candidate.priority === "number" &&
+          Number.isFinite(candidate.priority)
+            ? candidate.priority
+            : 50,
+        duration:
+          typeof candidate.duration === "number" &&
+          Number.isFinite(candidate.duration)
+            ? candidate.duration
+            : undefined,
+        color: typeof candidate.color === "string" ? candidate.color : null,
+        image: typeof candidate.image === "string" ? candidate.image : undefined,
+        video: typeof candidate.video === "string" ? candidate.video : undefined,
+        link: typeof candidate.link === "string" ? candidate.link : undefined,
+      },
+    ];
+  });
 };
 
 const sanitizeCustomCollections = (
@@ -854,6 +965,30 @@ export const useTimelineStore = create<TimelineStoreState>()(
         setTimeRangeEndInput: (value) => set({ timeRangeEndInput: value }),
         setShowOnlyResultsOnTimeline: (value) =>
           set({ showOnlyResultsOnTimeline: value }),
+        showCollections: (collectionIds) =>
+          set((state) => {
+            const nextVisibleCollectionIds = collectionIds.reduce<string[]>(
+              (visibleIds, collectionId) => {
+                if (
+                  !Object.prototype.hasOwnProperty.call(
+                    state.collectionEventsById,
+                    collectionId,
+                  ) ||
+                  visibleIds.includes(collectionId)
+                ) {
+                  return visibleIds;
+                }
+
+                return [...visibleIds, collectionId];
+              },
+              state.visibleCollectionIds,
+            );
+
+            return {
+              ...createInitialTimelineSearchState(),
+              visibleCollectionIds: nextVisibleCollectionIds,
+            };
+          }),
         addVisibleCollection: (collectionId) =>
           set((state) => ({
             visibleCollectionIds: state.visibleCollectionIds.includes(
@@ -956,6 +1091,96 @@ export const useTimelineStore = create<TimelineStoreState>()(
                 : [...state.visibleCollectionIds, collectionId]
               : state.visibleCollectionIds.filter((id) => id !== collectionId),
           })),
+        importCollections: (collections) => {
+          const currentState = get();
+          const existingCollections = [
+            ...EVENT_COLLECTIONS,
+            ...currentState.customCollections,
+            PLAYGROUND_COLLECTION,
+          ];
+          const existingIds = new Set(existingCollections.map((item) => item.id));
+          const nextCustomCollections = [...currentState.customCollections];
+          const nextCollectionEventsById = { ...currentState.collectionEventsById };
+          const nextCollectionColorPreferences = {
+            ...currentState.collectionColorPreferences,
+          };
+          const nextVisibleCollectionIds = [...currentState.visibleCollectionIds];
+          const importedCollectionIds: string[] = [];
+
+          collections.forEach((collection) => {
+            const candidateMeta = collection.meta;
+            if (!candidateMeta) return;
+
+            const name = isNonEmptyString(candidateMeta.name)
+              ? candidateMeta.name.trim()
+              : "";
+            const emoji = isNonEmptyString(candidateMeta.emoji)
+              ? candidateMeta.emoji.trim()
+              : "";
+            const description =
+              typeof candidateMeta.description === "string"
+                ? candidateMeta.description.trim()
+                : "";
+
+            if (!name || !emoji) {
+              return;
+            }
+
+            const importedEvents = sanitizeImportedEvents(collection.events);
+            const preferredId =
+              isNonEmptyString(candidateMeta.id) && candidateMeta.id.trim().length > 0
+                ? candidateMeta.id.trim()
+                : name;
+            const nextId = createUniqueCollectionId(preferredId, existingIds);
+            const nextCollection: EventCollectionMeta = {
+              id: nextId,
+              name,
+              emoji,
+              description,
+              author: isNonEmptyString(candidateMeta.author)
+                ? candidateMeta.author.trim()
+                : "Imported",
+              createdAt: isNonEmptyString(candidateMeta.createdAt)
+                ? candidateMeta.createdAt.trim()
+                : createLocalDateStamp(),
+              color:
+                typeof candidateMeta.color === "string"
+                  ? candidateMeta.color
+                  : null,
+            };
+
+            nextCustomCollections.push(nextCollection);
+            nextCollectionEventsById[nextId] = importedEvents;
+            importedCollectionIds.push(nextId);
+
+            if (typeof collection.color === "string" && collection.color.trim()) {
+              nextCollectionColorPreferences[nextId] = collection.color;
+            } else if (nextCollection.color) {
+              nextCollectionColorPreferences[nextId] = nextCollection.color;
+            }
+
+            if (
+              collection.visible !== false &&
+              !nextVisibleCollectionIds.includes(nextId)
+            ) {
+              nextVisibleCollectionIds.push(nextId);
+            }
+          });
+
+          if (importedCollectionIds.length === 0) {
+            return { importedCollectionIds };
+          }
+
+          set({
+            ...createInitialTimelineSearchState(),
+            customCollections: nextCustomCollections,
+            collectionEventsById: nextCollectionEventsById,
+            collectionColorPreferences: nextCollectionColorPreferences,
+            visibleCollectionIds: nextVisibleCollectionIds,
+          });
+
+          return { importedCollectionIds };
+        },
         deleteCollection: (collectionId) =>
           set((state) => {
             const selectedInCollection =

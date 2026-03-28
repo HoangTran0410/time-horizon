@@ -314,9 +314,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       >
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <div className="ui-kicker mb-2">
+            {/* <div className="ui-kicker mb-2">
               {mode === "create" ? "Collection Entry" : "Event Details"}
-            </div>
+            </div> */}
             <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
               {mode === "create" ? "New Event" : "Edit Event"}
             </h2>
@@ -547,7 +547,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(1)}
                   title="Clear month and below"
-                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
@@ -574,7 +574,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(2)}
                   title="Clear day and below"
-                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
@@ -601,7 +601,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(3)}
                   title="Clear hour and below"
-                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
@@ -628,7 +628,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(4)}
                   title="Clear minute and below"
-                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>
@@ -655,7 +655,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   type="button"
                   onClick={() => handleClearTimeField(5)}
                   title="Clear seconds"
-                  className="mt-5 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
                 </button>

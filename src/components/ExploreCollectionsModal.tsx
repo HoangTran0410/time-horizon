@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download, Eye, EyeOff, Trash2, X } from "lucide-react";
+import {
+  Check,
+  Download,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { Event, EventCollectionMeta } from "../constants/types";
 
 interface ExploreCollectionsModalProps {
@@ -55,6 +63,9 @@ export const ExploreCollectionsModal: React.FC<
     useState<CollectionInstallFilter>("all");
   const [isClosing, setIsClosing] = useState(false);
   const [isLowHeightViewport, setIsLowHeightViewport] = useState(false);
+  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<
+    string | null
+  >(null);
 
   const normalizedQuery = query.trim().toLowerCase();
   const installedCollectionIds = useMemo(
@@ -306,6 +317,8 @@ export const ExploreCollectionsModal: React.FC<
                   const isDownloaded = installedCollectionIds.has(
                     collection.id,
                   );
+                  const isCollectionMenuOpen =
+                    openCollectionMenuId === collection.id;
                   const isVisibleOnTimeline = visibleCollectionIds.includes(
                     collection.id,
                   );
@@ -318,10 +331,10 @@ export const ExploreCollectionsModal: React.FC<
                   return (
                     <div
                       key={`explore-${collection.id}`}
-                      className={`ui-card rounded-[1.45rem] p-3.5 ${
+                      className={`ui-card relative rounded-[1.45rem] p-3.5 ${
                         isVisibleOnTimeline
-                          ? "border-emerald-500/40 bg-emerald-500/8"
-                          : "border-zinc-800 bg-zinc-950/55"
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-zinc-800 bg-zinc-950/50"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -339,7 +352,7 @@ export const ExploreCollectionsModal: React.FC<
                               by {collection.author}
                             </span>
                             {isVisibleOnTimeline ? (
-                              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-emerald-200">
+                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-emerald-200">
                                 On Timeline
                               </span>
                             ) : null}
@@ -358,18 +371,14 @@ export const ExploreCollectionsModal: React.FC<
                         </span>
                       </div>
 
-                      <div
-                        className={`mt-3 grid gap-1.5 ${
-                          isDownloaded ? "grid-cols-3" : "grid-cols-1"
-                        }`}
-                      >
+                      <div className="mt-3 flex items-center gap-2">
                         {!isDownloaded && (
                           <button
                             onClick={() =>
                               void onDownloadCollection(collection.id)
                             }
                             disabled={isLoading}
-                            className={`ui-button w-full min-w-0 px-2.5 py-2 text-[0.68rem] ui-button-primary disabled:cursor-wait disabled:opacity-60`}
+                            className="ui-button ui-button-primary w-full rounded-[0.95rem] px-3 py-2.5 text-[0.8rem] disabled:cursor-wait disabled:opacity-60"
                           >
                             <Download size={14} />
                             <span>
@@ -381,31 +390,72 @@ export const ExploreCollectionsModal: React.FC<
                         {isDownloaded && (
                           <>
                             <button
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 void onSetCollectionVisibility(
                                   collection.id,
                                   !isVisibleOnTimeline,
                                 );
                               }}
-                              className="ui-button ui-button-secondary w-full min-w-0 px-2.5 py-2 text-[0.68rem]"
+                              className={`ui-button ${
+                                isVisibleOnTimeline
+                                  ? "ui-button-primary"
+                                  : "ui-button-secondary"
+                              } flex-1 rounded-[0.95rem] px-3 py-2.5 text-[0.8rem]`}
                             >
                               {isVisibleOnTimeline ? (
                                 <EyeOff size={14} />
                               ) : (
                                 <Eye size={14} />
                               )}
+                              <span>
+                                {isVisibleOnTimeline ? "Hide" : "Show"}
+                              </span>
                             </button>
                             <button
-                              onClick={() => onDeleteCollection(collection)}
-                              className="ui-button ui-button-danger w-full min-w-0 px-2.5 py-2 text-[0.68rem]"
-                              aria-label={`Delete ${collection.name}`}
-                              title={`Delete ${collection.name}`}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenCollectionMenuId((current) =>
+                                  current === collection.id
+                                    ? null
+                                    : collection.id,
+                                );
+                              }}
+                              className={`ui-button ui-button-secondary ui-button-square-compact shrink-0 rounded-[0.95rem] ${
+                                isCollectionMenuOpen
+                                  ? "border-zinc-600 bg-zinc-800"
+                                  : ""
+                              }`}
+                              aria-label={`More actions for ${collection.name}`}
+                              title={`More actions for ${collection.name}`}
                             >
-                              <Trash2 size={14} />
+                              <MoreHorizontal />
                             </button>
                           </>
                         )}
                       </div>
+
+                      {isCollectionMenuOpen ? (
+                        <div className="ui-floating-menu absolute bottom-15 right-3 z-20 w-[12rem] rounded-[1rem] p-2">
+                          <div className="mb-1.5 px-1.5 font-mono text-[0.56rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                            More Actions
+                          </div>
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenCollectionMenuId(null);
+                              onDeleteCollection(collection);
+                            }}
+                            className="ui-button ui-button-compact ui-button-danger w-full justify-start rounded-[0.85rem]"
+                            aria-label={`Delete ${collection.name}`}
+                            title={`Delete ${collection.name}`}
+                          >
+                            <Trash2 />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

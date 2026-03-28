@@ -13,9 +13,10 @@ import { Controller } from "./Controller";
 import { ConfirmDialog, type ConfirmDialogOptions } from "./ConfirmDialog";
 import { EventInfoPanel } from "./EventInfoPanel";
 import { FpsBadge } from "./FpsBadge";
+import { TimelineGuidanceOverlay } from "./TimelineGuidanceOverlay";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
 import { WarpOverlay } from "./TimelineMarkers";
-import { createNewTimelineEvent } from "../helpers";
+import { createLocalDateStamp, createNewTimelineEvent } from "../helpers";
 import { useTimelineCollections } from "../hooks/useTimelineCollections";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
 import {
@@ -29,8 +30,22 @@ interface TimelineProps {
   onToggleTheme: () => void;
 }
 
+type CollectionTransferPayload = {
+  version: number;
+  source: "time-horizon";
+  exportedAt: string;
+  collections: Array<{
+    meta: EventCollectionMeta;
+    events: Event[];
+    color?: string | null;
+    visible?: boolean;
+  }>;
+};
+
 export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [sidebarOpenRequestKey, setSidebarOpenRequestKey] = useState(0);
+  const [exploreOpenRequestKey, setExploreOpenRequestKey] = useState(0);
   const [confirmDialog, setConfirmDialog] =
     useState<ConfirmDialogOptions | null>(null);
   const {
@@ -91,6 +106,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     handleDownloadCollection,
     handleSyncCollection,
     handleSetCollectionVisibility,
+    handleImportCollections,
     handleDeleteCollection,
     handleSaveEvent,
     handleAddEvent,
@@ -165,6 +181,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
     zoomRangeLabel,
     zoomTrackRef,
     zoomThumbY,
+    isViewportBeforeBigBang,
     isWarping,
     warpMode,
     warpDirection,
@@ -202,6 +219,103 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
 
   const handleSidebarDeleteCollection = (collection: EventCollectionMeta) => {
     handleDeleteCollection(collection.id);
+  };
+
+  const downloadedCollectionIds = useMemo(
+    () => Object.keys(collectionEventsById),
+    [collectionEventsById],
+  );
+  const hiddenDownloadedCollectionIds = useMemo(
+    () =>
+      downloadedCollectionIds.filter(
+        (collectionId) => !visibleCollectionIds.includes(collectionId),
+      ),
+    [downloadedCollectionIds, visibleCollectionIds],
+  );
+  const shouldShowEmptyTimelineGuidance =
+    !isViewportBeforeBigBang && timelineEvents.length === 0;
+
+  const requestOpenCollections = () => {
+    setSidebarOpenRequestKey((current) => current + 1);
+  };
+
+  const requestOpenExploreCollections = () => {
+    setExploreOpenRequestKey((current) => current + 1);
+  };
+
+  const handleExportCollection = (collectionId: string) => {
+    const collectionMeta = collections.find(
+      (collection) => collection.id === collectionId,
+    );
+    if (!collectionMeta) {
+      throw new Error("That collection could not be found for export.");
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(collectionEventsById, collectionId)) {
+      throw new Error("Only downloaded collections can be exported.");
+    }
+
+    const payload: CollectionTransferPayload = {
+      version: 1,
+      source: "time-horizon",
+      exportedAt: new Date().toISOString(),
+      collections: [
+        {
+          meta: collectionMeta,
+          events: collectionEventsById[collectionId] ?? [],
+          color: collectionColors[collectionId] ?? null,
+          visible: visibleCollectionIds.includes(collectionId),
+        },
+      ],
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = `${collectionMeta.id}-${createLocalDateStamp()}.json`;
+    link.click();
+    URL.revokeObjectURL(blobUrl);
+
+    return `Exported "${collectionMeta.name}".`;
+  };
+
+  const handleImportCollectionFile = async (file: File) => {
+    const rawText = await file.text();
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      throw new Error("That file is not valid JSON.");
+    }
+
+    const rawCollections = Array.isArray(parsed)
+      ? parsed
+      : parsed &&
+          typeof parsed === "object" &&
+          Array.isArray((parsed as CollectionTransferPayload).collections)
+        ? (parsed as CollectionTransferPayload).collections
+        : parsed && typeof parsed === "object" && "meta" in parsed
+          ? [parsed]
+          : [];
+
+    if (rawCollections.length === 0) {
+      throw new Error(
+        "No collections were found in that file. Export from Time Horizon and try again.",
+      );
+    }
+
+    const { importedCollectionIds } = handleImportCollections(rawCollections);
+    if (importedCollectionIds.length === 0) {
+      throw new Error(
+        "The file loaded, but none of its collections matched the expected format.",
+      );
+    }
+
+    requestOpenCollections();
+    return `Imported ${importedCollectionIds.length} collection${importedCollectionIds.length === 1 ? "" : "s"}.`;
   };
 
   const handleStartAddEvent = (targetCollectionId?: string) => {
@@ -309,7 +423,61 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
         onDeleteEvent={handleDeleteTimelineEvent}
         onAddEvent={handleStartAddEvent}
         onAddCollection={openCollectionCreator}
+        onImportCollections={handleImportCollectionFile}
+        onExportCollection={handleExportCollection}
+        openRequestKey={sidebarOpenRequestKey}
+        openExploreRequestKey={exploreOpenRequestKey}
       />
+
+      {shouldShowEmptyTimelineGuidance ? (
+        <TimelineGuidanceOverlay
+          eyebrow="Timeline Empty"
+          title={
+            hiddenDownloadedCollectionIds.length > 0
+              ? "Nothing is visible right now."
+              : downloadedCollectionIds.length > 0
+                ? "Your visible timeline is empty."
+                : "Start by bringing in a collection."
+          }
+          description={
+            hiddenDownloadedCollectionIds.length > 0
+              ? `You already have ${hiddenDownloadedCollectionIds.length} collection${
+                  hiddenDownloadedCollectionIds.length === 1 ? "" : "s"
+                } downloaded, but they are currently hidden from the timeline.`
+              : downloadedCollectionIds.length > 0
+                ? "Open the collections panel to browse what is installed, toggle visibility, or pull in a different collection."
+                : "Browse the catalog or import a collection file to populate the timeline with events."
+          }
+          actions={[
+            {
+              label:
+                downloadedCollectionIds.length > 0
+                  ? "Open Collections"
+                  : "Browse Collections",
+              onClick:
+                downloadedCollectionIds.length > 0 ||
+                hiddenDownloadedCollectionIds.length > 0
+                  ? requestOpenCollections
+                  : requestOpenExploreCollections,
+            },
+          ]}
+        />
+      ) : null}
+
+      {isViewportBeforeBigBang ? (
+        <TimelineGuidanceOverlay
+          eyebrow="Beyond Big Bang"
+          position="top"
+          title="There is nothing earlier than this horizon."
+          description="You have moved the camera before the beginning of this timeline, so ticks and events stop rendering here. Jump back to the Big Bang to continue exploring."
+          actions={[
+            {
+              label: "Return To Big Bang",
+              onClick: handleFocusBigBang,
+            },
+          ]}
+        />
+      ) : null}
 
       <TimelineCanvasViewport
         theme={theme}

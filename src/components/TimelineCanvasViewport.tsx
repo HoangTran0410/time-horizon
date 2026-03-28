@@ -625,10 +625,6 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
       const centerY = height / 2;
       const snap = (value: number) => Math.round(value * dpr) / dpr;
-      let activeFont = "";
-      let activeFillStyle = "";
-      let activeTextAlign: CanvasTextAlign = "start";
-      let activeTextBaseline: CanvasTextBaseline = "alphabetic";
       const setTextStyle = ({
         font,
         fillStyle,
@@ -640,21 +636,17 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         textAlign?: CanvasTextAlign;
         textBaseline?: CanvasTextBaseline;
       }) => {
-        if (font && font !== activeFont) {
+        if (font && ctx.font !== font) {
           ctx.font = font;
-          activeFont = font;
         }
-        if (fillStyle && fillStyle !== activeFillStyle) {
+        if (fillStyle && ctx.fillStyle !== fillStyle) {
           ctx.fillStyle = fillStyle;
-          activeFillStyle = fillStyle;
         }
-        if (textAlign && textAlign !== activeTextAlign) {
+        if (textAlign && ctx.textAlign !== textAlign) {
           ctx.textAlign = textAlign;
-          activeTextAlign = textAlign;
         }
-        if (textBaseline && textBaseline !== activeTextBaseline) {
+        if (textBaseline && ctx.textBaseline !== textBaseline) {
           ctx.textBaseline = textBaseline;
-          activeTextBaseline = textBaseline;
         }
       };
       const getWrappedEventTitle = (event: Event) => {
@@ -833,7 +825,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           textBaseline: "middle",
         });
         ctx.fillText(
-          isExpanded ? "−" : `+${group.count > 99 ? "99+" : group.count}`,
+          isExpanded ? "−" : group.count > 99 ? "+99" : `+${group.count}`,
           groupX,
           groupY,
         );

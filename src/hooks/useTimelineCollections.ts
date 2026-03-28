@@ -22,11 +22,13 @@ export const useTimelineCollections = () => {
   );
 
   const {
+    showCollections,
     addVisibleCollection,
     ensurePlaygroundCollection,
     downloadCollection,
     syncCollection,
     setCollectionVisibility,
+    importCollections,
     deleteCollection,
     saveEvent,
     addEvent,
@@ -36,11 +38,13 @@ export const useTimelineCollections = () => {
     resetCollectionColor,
   } = useTimelineStore(
     useShallow((state) => ({
+      showCollections: state.showCollections,
       addVisibleCollection: state.addVisibleCollection,
       ensurePlaygroundCollection: state.ensurePlaygroundCollection,
       downloadCollection: state.downloadCollection,
       syncCollection: state.syncCollection,
       setCollectionVisibility: state.setCollectionVisibility,
+      importCollections: state.importCollections,
       deleteCollection: state.deleteCollection,
       saveEvent: state.saveEvent,
       addEvent: state.addEvent,
@@ -122,12 +126,14 @@ export const useTimelineCollections = () => {
     timelineEvents,
     eventAccentColors,
     singleVisibleCollectionId,
+    showCollections,
     addVisibleCollection,
     ensurePlaygroundCollection,
     findEventCollectionId,
     handleDownloadCollection: downloadCollection,
     handleSyncCollection: syncCollection,
     handleSetCollectionVisibility: setCollectionVisibility,
+    handleImportCollections: importCollections,
     handleDeleteCollection: deleteCollection,
     handleSaveEvent: saveEvent,
     handleAddEvent: addEvent,
