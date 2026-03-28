@@ -15,6 +15,10 @@ export const getInitialTheme = (): ThemeMode => {
   return getSystemTheme();
 };
 
+export const resolveThemeMode = (theme: unknown): ThemeMode => {
+  return theme === "light" ? "light" : "dark";
+};
+
 export const applyThemeToDocument = (theme: ThemeMode) => {
   if (typeof document === "undefined") return;
 

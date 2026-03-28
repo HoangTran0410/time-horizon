@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { MotionValue } from "motion/react";
 import { Event } from "../constants/types";
 import { BIG_BANG_YEAR } from "../constants";
-import { ThemeMode } from "../constants/theme";
+import { resolveThemeMode, ThemeMode } from "../constants/theme";
 import { CANVAS_FONT_PRESETS } from "../constants/typography";
 import {
   formatElapsedTimelineTime,
@@ -38,7 +38,7 @@ interface TimelineCanvasViewportProps {
   rulerEvent: Event | null;
   eventAccentColors: Record<string, string | null>;
   onRenderFrame: (now: number) => void;
-  onWheel: (e: React.WheelEvent) => void;
+  onWheel: (e: globalThis.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
@@ -290,7 +290,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   onFocusEvent,
   onFocusCollapsedGroup,
 }) => {
-  const canvasTheme = CANVAS_THEME[theme];
+  const canvasTheme = CANVAS_THEME[resolveThemeMode(theme)];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const latestRef = useRef({
     ticks: [] as VisibleCanvasTick[],
@@ -456,6 +456,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     observer.observe(container);
     return () => observer.disconnect();
   }, [containerRef, requestRender]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleNativeWheel = (event: globalThis.WheelEvent) => {
+      onWheel(event);
+    };
+
+    container.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [containerRef, onWheel]);
 
   const getScreenX = (year: number) =>
     focusPixel.get() + (year - focusYear.get()) * zoom.get();
@@ -1269,7 +1283,6 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     <div
       ref={containerRef}
       className="timeline-viewport relative h-screen w-full overflow-hidden bg-zinc-950 text-white touch-none select-none"
-      onWheel={onWheel}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={handleCanvasPointerUp}

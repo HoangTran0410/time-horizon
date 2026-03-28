@@ -1,23 +1,24 @@
 import { startTransition, useEffect } from "react";
 import { Timeline } from "./components/Timeline";
-import { applyThemeToDocument } from "./constants/theme";
+import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
 import { useTimelineStore } from "./stores";
 
 export default function App() {
   const theme = useTimelineStore((state) => state.theme);
   const setTheme = useTimelineStore((state) => state.setTheme);
+  const resolvedTheme = resolveThemeMode(theme);
 
   useEffect(() => {
-    applyThemeToDocument(theme);
-  }, [theme]);
+    applyThemeToDocument(resolvedTheme);
+  }, [resolvedTheme]);
 
   return (
     <div className="app-shell w-full h-screen">
       <Timeline
-        theme={theme}
+        theme={resolvedTheme}
         onToggleTheme={() => {
           startTransition(() => {
-            setTheme(theme === "dark" ? "light" : "dark");
+            setTheme(resolvedTheme === "dark" ? "light" : "dark");
           });
         }}
       />

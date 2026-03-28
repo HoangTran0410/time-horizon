@@ -2,7 +2,6 @@ import {
   ChangeEvent,
   PointerEvent,
   RefObject,
-  WheelEvent,
   startTransition,
   useEffect,
   useMemo,
@@ -766,7 +765,7 @@ export const useTimelineViewport = ({
     animateFocusYear(BIG_BANG_YEAR, FOCUS_SPRING);
   };
 
-  const handleWheel = (event: WheelEvent) => {
+  const handleWheel = (event: globalThis.WheelEvent) => {
     event.preventDefault();
 
     if (inertiaFrame.current !== null) {

@@ -142,7 +142,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setTimeRangeEndInput,
     setShowOnlyResultsOnTimeline,
   } = effectiveState;
-  const deferredSearchQuery = React.useDeferredValue(searchQuery);
+  const safeSearchQuery = searchQuery ?? "";
+  const safeActiveMediaFilters = activeMediaFilters ?? [];
+  const safeTimeRangeStartInput = timeRangeStartInput ?? "";
+  const safeTimeRangeEndInput = timeRangeEndInput ?? "";
+  const deferredSearchQuery = React.useDeferredValue(safeSearchQuery);
   const shouldHydrateResults = isOpen && isResultsReady;
 
   React.useEffect(() => {
@@ -180,54 +184,57 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     return filterTimelineSearchEvents(
       searchableEvents,
       deferredSearchQuery,
-      activeMediaFilters,
+      safeActiveMediaFilters,
       {
         sortMode: searchSortMode,
-        startTimeInput: timeRangeStartInput,
-        endTimeInput: timeRangeEndInput,
+        startTimeInput: safeTimeRangeStartInput,
+        endTimeInput: safeTimeRangeEndInput,
       },
     );
   }, [
-    activeMediaFilters,
+    safeActiveMediaFilters,
     deferredSearchQuery,
     searchSortMode,
     searchableEvents,
     shouldHydrateResults,
-    timeRangeEndInput,
-    timeRangeStartInput,
+    safeTimeRangeEndInput,
+    safeTimeRangeStartInput,
   ]);
 
   const dateRangeError = React.useMemo(
     () =>
-      getTimelineSearchDateInputError(timeRangeStartInput, timeRangeEndInput),
-    [timeRangeEndInput, timeRangeStartInput],
+      getTimelineSearchDateInputError(
+        safeTimeRangeStartInput,
+        safeTimeRangeEndInput,
+      ),
+    [safeTimeRangeEndInput, safeTimeRangeStartInput],
   );
   const hasActiveFilters = React.useMemo(
     () =>
       hasActiveTimelineSearchFilters({
-        activeMediaFilters,
+        activeMediaFilters: safeActiveMediaFilters,
         searchSortMode,
-        timeRangeStartInput,
-        timeRangeEndInput,
+        timeRangeStartInput: safeTimeRangeStartInput,
+        timeRangeEndInput: safeTimeRangeEndInput,
       }),
     [
-      activeMediaFilters,
+      safeActiveMediaFilters,
       searchSortMode,
-      timeRangeEndInput,
-      timeRangeStartInput,
+      safeTimeRangeEndInput,
+      safeTimeRangeStartInput,
     ],
   );
   const activeFilterCount = React.useMemo(() => {
-    let count = activeMediaFilters.length;
+    let count = safeActiveMediaFilters.length;
     if (searchSortMode !== SEARCH_SORT_OPTIONS[0]?.value) count += 1;
-    if (timeRangeStartInput.trim()) count += 1;
-    if (timeRangeEndInput.trim()) count += 1;
+    if (safeTimeRangeStartInput.trim()) count += 1;
+    if (safeTimeRangeEndInput.trim()) count += 1;
     return count;
   }, [
-    activeMediaFilters.length,
+    safeActiveMediaFilters.length,
     searchSortMode,
-    timeRangeEndInput,
-    timeRangeStartInput,
+    safeTimeRangeEndInput,
+    safeTimeRangeStartInput,
   ]);
 
   React.useLayoutEffect(() => {
@@ -357,7 +364,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           <input
             ref={searchInputRef}
             type="search"
-            value={searchQuery}
+            value={safeSearchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={searchPlaceholder}
             className="ui-field mb-3"
@@ -407,7 +414,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               >
                 <div className="flex flex-wrap gap-1.5">
                   {MEDIA_FILTERS.map((filter) => {
-                    const isActive = activeMediaFilters.includes(filter);
+                    const isActive = safeActiveMediaFilters.includes(filter);
                     const label =
                       filter === "image"
                         ? "Image"

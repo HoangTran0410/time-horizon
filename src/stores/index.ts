@@ -205,6 +205,18 @@ const isThemeMode = (value: unknown): value is ThemeMode =>
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
+const normalizeOptionalTextInput = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+const normalizeOptionalMediaFilters = (value: unknown): MediaFilter[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (filter): filter is MediaFilter =>
+          typeof filter === "string" &&
+          (MEDIA_FILTERS as readonly string[]).includes(filter),
+      )
+    : [];
+
 const sanitizeCollectionEventsById = (collections: unknown) => {
   if (
     !collections ||
@@ -778,10 +790,12 @@ export const getTimelineSearchDateInputError = (
   startTimeInput: string,
   endTimeInput: string,
 ) => {
-  const startResult = parsePartialDateInput(startTimeInput);
+  const safeStartTimeInput = normalizeOptionalTextInput(startTimeInput);
+  const safeEndTimeInput = normalizeOptionalTextInput(endTimeInput);
+  const startResult = parsePartialDateInput(safeStartTimeInput);
   if (startResult.error) return `From date: ${startResult.error}`;
 
-  const endResult = parsePartialDateInput(endTimeInput);
+  const endResult = parsePartialDateInput(safeEndTimeInput);
   if (endResult.error) return `To date: ${endResult.error}`;
 
   if (startResult.parsed && endResult.parsed) {
@@ -807,9 +821,9 @@ export const hasActiveTimelineSearchFilters = ({
   | "timeRangeStartInput"
   | "timeRangeEndInput"
 >) =>
-  activeMediaFilters.length > 0 ||
-  timeRangeStartInput.trim().length > 0 ||
-  timeRangeEndInput.trim().length > 0;
+  normalizeOptionalMediaFilters(activeMediaFilters).length > 0 ||
+  normalizeOptionalTextInput(timeRangeStartInput).trim().length > 0 ||
+  normalizeOptionalTextInput(timeRangeEndInput).trim().length > 0;
 
 export const hasActiveTimelineSearch = ({
   searchQuery,
@@ -825,7 +839,7 @@ export const hasActiveTimelineSearch = ({
   | "timeRangeStartInput"
   | "timeRangeEndInput"
 >) =>
-  searchQuery.trim().length > 0 ||
+  normalizeOptionalTextInput(searchQuery).trim().length > 0 ||
   hasActiveTimelineSearchFilters({
     activeMediaFilters,
     searchSortMode,
@@ -856,11 +870,15 @@ export const filterTimelineSearchEvents = (
     endTimeInput?: string;
   },
 ) => {
-  const normalizedQuery = normalizeSearchText(searchQuery);
+  const normalizedQuery = normalizeSearchText(
+    normalizeOptionalTextInput(searchQuery),
+  );
   const searchTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const normalizedMediaFilters =
+    normalizeOptionalMediaFilters(activeMediaFilters);
   const effectiveTimeRange = getEffectiveTimeRange(
-    options?.startTimeInput,
-    options?.endTimeInput,
+    normalizeOptionalTextInput(options?.startTimeInput),
+    normalizeOptionalTextInput(options?.endTimeInput),
   );
 
   const matches = events.filter((event) => {
@@ -871,7 +889,7 @@ export const filterTimelineSearchEvents = (
       searchTerms.every(
         (term) => title.includes(term) || description.includes(term),
       );
-    const matchesFilters = activeMediaFilters.every((filter) => {
+    const matchesFilters = normalizedMediaFilters.every((filter) => {
       if (filter === "image") return Boolean(event.image);
       if (filter === "video") return Boolean(event.video);
       return Boolean(event.link);
