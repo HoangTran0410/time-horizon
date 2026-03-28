@@ -347,12 +347,33 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
       <Controller
         zoomRangeLabel={zoomRangeLabel}
         searchableEvents={timelineEvents}
+        selectedEvent={selectedEventInfo}
+        isRulerActive={isRulerActive}
         onQuickZoom={handleQuickZoom}
         onJumpToDate={handleJumpToDate}
         onSearchSelect={handleFocusEvent}
         onDeleteEvent={handleDeleteTimelineEvent}
         onAutoFitAll={() => handleAutoFit()}
         onAutoFitRange={handleAutoFitRange}
+        onFocusSelectedEvent={() => {
+          if (selectedEventInfo) {
+            handleFocusEvent(selectedEventInfo);
+          }
+        }}
+        onEditSelectedEvent={() => {
+          if (selectedEventInfo) {
+            openEventEditor(selectedEventInfo.id);
+          }
+        }}
+        onDeleteSelectedEvent={() => {
+          if (selectedEventInfo) {
+            handleDeleteTimelineEvent(selectedEventInfo);
+          }
+        }}
+        onToggleSelectedEventRuler={() => {
+          setIsRulerActive(!isRulerActive);
+        }}
+        onCloseSelectedEvent={clearFocusedEventFromViewport}
         zoomTrackRef={zoomTrackRef}
         zoomThumbY={zoomThumbY}
         onZoomDragStart={handleZoomDragStart}
@@ -365,6 +386,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
           event={selectedEventInfo}
           isRulerActive={isRulerActive}
           isCollapsed={isEventInfoCollapsed}
+          hideOnMobile
           onFocus={() => {
             handleFocusEvent(selectedEventInfo);
           }}

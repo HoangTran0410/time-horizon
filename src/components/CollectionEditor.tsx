@@ -99,17 +99,22 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="ui-modal-surface w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8"
+        className="ui-modal-surface ui-panel w-full max-w-md rounded-[1.9rem] p-6 sm:p-8"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">New Collection</h2>
+          <div>
+            <div className="ui-kicker mb-2">Library Builder</div>
+            <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
+              New Collection
+            </h2>
+          </div>
           <button
             onClick={requestClose}
-            className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
+            className="ui-icon-button h-10 w-10"
             aria-label="Close"
           >
             <X width={20} height={20} />
@@ -118,13 +123,11 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Icon
-            </label>
+            <label className="ui-label">Icon</label>
             <div className="relative">
               <button
                 type="button"
-                className="collection-emoji-trigger flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
+                className="collection-emoji-trigger ui-field flex items-center justify-between text-left"
                 onClick={() => setShowEmojiPicker((value) => !value)}
               >
                 <span className="text-lg">{draft.emoji}</span>
@@ -147,9 +150,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Name
-            </label>
+            <label className="ui-label">Name</label>
             <input
               type="text"
               value={draft.name}
@@ -157,15 +158,13 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
                 setDraft((prev) => ({ ...prev, name: e.target.value }));
                 setError(null);
               }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+              className="ui-field"
               placeholder="Renaissance, Space Missions, Ancient Egypt..."
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Description
-            </label>
+            <label className="ui-label">Description</label>
             <textarea
               value={draft.description}
               onChange={(e) => {
@@ -173,13 +172,13 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
                 setError(null);
               }}
               rows={4}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+              className="ui-field min-h-28 resize-y"
               placeholder="A short description for what this collection covers."
             />
           </div>
 
           {error && (
-            <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+            <p className="rounded-2xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-300">
               {error}
             </p>
           )}
@@ -188,13 +187,13 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
         <div className="mt-8 flex justify-end gap-3">
           <button
             onClick={requestClose}
-            className="rounded-full bg-zinc-800 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+            className="ui-button ui-button-secondary px-6 py-3"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            className="rounded-full bg-emerald-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+            className="ui-button ui-button-primary px-6 py-3"
           >
             Create Collection
           </button>

@@ -1,23 +1,29 @@
 import React from "react";
-import { MotionValue } from "motion/react";
-import { CalendarSearch, Focus, Search, ZoomIn } from "lucide-react";
+import { AnimatePresence, motion, MotionValue } from "motion/react";
+import { Compass, FileText, Search } from "lucide-react";
 import { Event, AutoFitRangeTarget, DateJumpTarget } from "../constants/types";
-import { AutoFitPanel } from "./AutoFitPanel";
-import { JumpPanel } from "./JumpPanel";
+import { MobileEventInfoPanel } from "./MobileEventInfoPanel";
+import { NavigationPanel } from "./NavigationPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
 import { SearchPanel } from "./SearchPanel";
-import { ZoomPanel } from "./ZoomPanel";
 import { hasActiveTimelineSearch, useTimelineStore } from "../stores";
 
 interface ControllerProps {
   zoomRangeLabel: string;
   searchableEvents: Event[];
+  selectedEvent: Event | null;
+  isRulerActive: boolean;
   onQuickZoom: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onJumpToDate: (target: DateJumpTarget) => void;
   onSearchSelect: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
   onAutoFitAll: () => void;
   onAutoFitRange: (target: AutoFitRangeTarget) => void;
+  onFocusSelectedEvent: () => void;
+  onEditSelectedEvent: () => void;
+  onDeleteSelectedEvent: () => void;
+  onToggleSelectedEventRuler: () => void;
+  onCloseSelectedEvent: () => void;
   zoomTrackRef: React.RefObject<HTMLDivElement | null>;
   zoomThumbY: MotionValue<number>;
   onZoomDragStart: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -25,17 +31,24 @@ interface ControllerProps {
   onZoomDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
-type ActivePanel = "zoom" | "jump" | "search" | "autofit" | null;
+type ActivePanel = "navigate" | "search" | "info" | null;
 
 export const Controller: React.FC<ControllerProps> = ({
   zoomRangeLabel,
   searchableEvents,
+  selectedEvent,
+  isRulerActive,
   onQuickZoom,
   onJumpToDate,
   onSearchSelect,
   onDeleteEvent,
   onAutoFitAll,
   onAutoFitRange,
+  onFocusSelectedEvent,
+  onEditSelectedEvent,
+  onDeleteSelectedEvent,
+  onToggleSelectedEventRuler,
+  onCloseSelectedEvent,
   zoomTrackRef,
   zoomThumbY,
   onZoomDragStart,
@@ -43,6 +56,7 @@ export const Controller: React.FC<ControllerProps> = ({
   onZoomDragEnd,
 }) => {
   const [activePanel, setActivePanel] = React.useState<ActivePanel>(null);
+  const previousSelectedEventIdRef = React.useRef<string | null>(null);
   const searchQuery = useTimelineStore((state) => state.searchQuery);
   const activeMediaFilters = useTimelineStore(
     (state) => state.activeMediaFilters,
@@ -70,79 +84,118 @@ export const Controller: React.FC<ControllerProps> = ({
     onSearchSelect(event);
   };
 
+  React.useEffect(() => {
+    if (selectedEvent || activePanel !== "info") return;
+    setActivePanel(null);
+  }, [activePanel, selectedEvent]);
+
+  React.useEffect(() => {
+    const nextSelectedEventId = selectedEvent?.id ?? null;
+    const previousSelectedEventId = previousSelectedEventIdRef.current;
+
+    if (
+      nextSelectedEventId &&
+      nextSelectedEventId !== previousSelectedEventId &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    ) {
+      setActivePanel("info");
+    }
+
+    previousSelectedEventIdRef.current = nextSelectedEventId;
+  }, [selectedEvent]);
+
   return (
     <div
-      className="fixed right-2 top-1/2 z-40 flex -translate-y-1/2 flex-col items-end gap-2"
+      className="fixed bottom-4 left-1/2 z-40 flex w-[calc(100vw-1.5rem)] max-w-max -translate-x-1/2 items-end gap-2 md:bottom-auto md:left-auto md:right-3 md:top-1/2 md:w-auto md:translate-x-0 md:-translate-y-1/2"
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <PanelToggleButton
-        isOpen={activePanel === "zoom"}
-        onClick={() => togglePanel("zoom")}
-        openLabel="Expand zoom controls"
-        closeLabel="Collapse zoom controls"
-      >
-        <ZoomIn width={18} height={18} />
-      </PanelToggleButton>
+      <div className="flex flex-row items-center gap-2 rounded-[1.6rem] md:flex-col md:items-end">
+        <PanelToggleButton
+          isOpen={activePanel === "navigate"}
+          onClick={() => togglePanel("navigate")}
+          openLabel="Open timeline navigation"
+          closeLabel="Close timeline navigation"
+        >
+          <Compass width={18} height={18} />
+        </PanelToggleButton>
 
-      <PanelToggleButton
-        isOpen={activePanel === "search"}
-        onClick={() => togglePanel("search")}
-        openLabel="Open event search"
-        closeLabel="Close event search"
-        showIndicator={hasActiveSearch}
-      >
-        <Search width={16} height={16} />
-      </PanelToggleButton>
+        <PanelToggleButton
+          isOpen={activePanel === "search"}
+          onClick={() => togglePanel("search")}
+          openLabel="Open event search"
+          closeLabel="Close event search"
+          showIndicator={hasActiveSearch}
+        >
+          <Search width={16} height={16} />
+        </PanelToggleButton>
 
-      <PanelToggleButton
-        isOpen={activePanel === "jump"}
-        onClick={() => togglePanel("jump")}
-        openLabel="Open jump form"
-        closeLabel="Close jump form"
-      >
-        <CalendarSearch width={16} height={16} />
-      </PanelToggleButton>
+        {selectedEvent ? (
+          <div className="md:hidden">
+            <PanelToggleButton
+              isOpen={activePanel === "info"}
+              onClick={() => togglePanel("info")}
+              openLabel="Open selected event info"
+              closeLabel="Close selected event info"
+            >
+              <FileText width={16} height={16} />
+            </PanelToggleButton>
+          </div>
+        ) : null}
+      </div>
 
-      <PanelToggleButton
-        isOpen={activePanel === "autofit"}
-        onClick={() => togglePanel("autofit")}
-        openLabel="Open auto-fit controls"
-        closeLabel="Close auto-fit controls"
-      >
-        <Focus width={18} height={18} />
-      </PanelToggleButton>
-
-      <div className="pointer-events-none fixed right-12 md:right-14 top-1/2 -translate-y-1/2">
-        <div className="pointer-events-auto">
-          <ZoomPanel
-            isOpen={activePanel === "zoom"}
-            zoomRangeLabel={zoomRangeLabel}
-            onQuickZoom={onQuickZoom}
-            zoomTrackRef={zoomTrackRef}
-            zoomThumbY={zoomThumbY}
-            onZoomDragStart={onZoomDragStart}
-            onZoomDragMove={onZoomDragMove}
-            onZoomDragEnd={onZoomDragEnd}
-          />
-          <SearchPanel
-            isOpen={activePanel === "search"}
-            searchableEvents={searchableEvents}
-            onSearchSelect={handleSearchSelect}
-            onDeleteEvent={onDeleteEvent}
-          />
-          <JumpPanel
-            isOpen={activePanel === "jump"}
-            onJumpToDate={onJumpToDate}
-            onJumpComplete={() => setActivePanel(null)}
-          />
-
-          <AutoFitPanel
-            isOpen={activePanel === "autofit"}
-            onAutoFitRange={onAutoFitRange}
-            onAutoFitAll={onAutoFitAll}
-            onComplete={() => setActivePanel(null)}
-          />
+      <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-1/2 z-30 flex w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 items-end justify-center px-0 md:absolute md:bottom-auto md:left-auto md:right-[calc(100%+0.9rem)] md:top-1/2 md:z-auto md:w-auto md:max-w-none md:translate-x-0 md:-translate-y-1/2">
+        <div className="pointer-events-auto flex items-end justify-end">
+          <AnimatePresence initial={false} mode="wait">
+            {activePanel ? (
+              <motion.div
+                key={activePanel}
+                initial={{ opacity: 0, y: 10, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.985 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+              >
+                {activePanel === "navigate" ? (
+                  <NavigationPanel
+                    isOpen
+                    zoomRangeLabel={zoomRangeLabel}
+                    onQuickZoom={onQuickZoom}
+                    onJumpToDate={onJumpToDate}
+                    onAutoFitRange={onAutoFitRange}
+                    onAutoFitAll={onAutoFitAll}
+                    zoomTrackRef={zoomTrackRef}
+                    zoomThumbY={zoomThumbY}
+                    onZoomDragStart={onZoomDragStart}
+                    onZoomDragMove={onZoomDragMove}
+                    onZoomDragEnd={onZoomDragEnd}
+                    onComplete={() => setActivePanel(null)}
+                  />
+                ) : null}
+                {activePanel === "search" ? (
+                  <SearchPanel
+                    isOpen
+                    searchableEvents={searchableEvents}
+                    onSearchSelect={handleSearchSelect}
+                    onDeleteEvent={onDeleteEvent}
+                  />
+                ) : null}
+                {activePanel === "info" ? (
+                  <MobileEventInfoPanel
+                    isOpen
+                    onClose={() => setActivePanel(null)}
+                    event={selectedEvent}
+                    isRulerActive={isRulerActive}
+                    onFocus={onFocusSelectedEvent}
+                    onEdit={onEditSelectedEvent}
+                    onDelete={onDeleteSelectedEvent}
+                    onToggleRuler={onToggleSelectedEventRuler}
+                    onCloseSelection={onCloseSelectedEvent}
+                  />
+                ) : null}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
     </div>

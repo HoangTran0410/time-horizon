@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download, Eye, EyeOff, Search, Trash2, X } from "lucide-react";
+import { Check, Download, Eye, EyeOff, Trash2, X } from "lucide-react";
 import type { Event, EventCollectionMeta } from "../constants/types";
 
 interface ExploreCollectionsModalProps {
@@ -194,7 +194,7 @@ export const ExploreCollectionsModal: React.FC<
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="ui-modal-surface w-full max-w-5xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900"
+        className="ui-modal-surface ui-panel w-full max-w-5xl overflow-hidden rounded-[2rem]"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
@@ -212,21 +212,22 @@ export const ExploreCollectionsModal: React.FC<
           >
             <div className={`flex items-start justify-between mb-2 gap-3`}>
               <div className="max-w-2xl">
+                {/* <div className="ui-kicker mb-2">Curated Catalog</div> */}
                 <h2
-                  className={`font-bold text-white ${
-                    isLowHeightViewport ? "text-xl" : "text-2xl"
+                  className={`ui-display-title text-white ${
+                    isLowHeightViewport ? "text-[1.9rem]" : "text-[2.3rem]"
                   }`}
                 >
                   Public Collections
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-zinc-400">
+                {/* <p className="text-[0.92rem] leading-7 text-zinc-400">
                   Browse the catalog, then filter down to what is already in
                   your library.
-                </p>
+                </p> */}
               </div>
               <button
                 onClick={requestClose}
-                className={`rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400 transition-colors hover:border-zinc-700 hover:text-white ${
+                className={`ui-icon-button ${
                   isLowHeightViewport ? "p-1.5" : "p-2"
                 }`}
                 aria-label="Close Explore modal"
@@ -237,16 +238,16 @@ export const ExploreCollectionsModal: React.FC<
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1">
-                <Search
+                {/* <Search
                   size={16}
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-                />
+                /> */}
                 <input
                   type="text"
                   placeholder="Search the catalog by title, author, or description…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className={`w-full rounded-lg border border-zinc-700 bg-zinc-950 pl-11 pr-4 text-sm text-white placeholder-zinc-500 transition-colors focus:border-emerald-500 focus:outline-none ${
+                  className={`ui-field pl-11 pr-4 ${
                     isLowHeightViewport ? "py-2.5" : "py-3"
                   }`}
                 />
@@ -260,7 +261,7 @@ export const ExploreCollectionsModal: React.FC<
                       key={option.value}
                       type="button"
                       onClick={() => setActiveFilter(option.value)}
-                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition-colors ${
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.78rem] font-semibold transition-colors ${
                         isActive
                           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
                           : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-100"
@@ -291,11 +292,11 @@ export const ExploreCollectionsModal: React.FC<
             }
           >
             {filteredCollections.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center">
-                <div className="text-lg font-medium text-white">
+              <div className="rounded-[1.4rem] border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center">
+                <div className="text-lg font-semibold text-white">
                   {emptyStateTitle}
                 </div>
-                <p className="mt-2 text-sm text-zinc-500">
+                <p className="mt-2 text-[0.9rem] text-zinc-500">
                   {emptyStateDescription}
                 </p>
               </div>
@@ -314,38 +315,26 @@ export const ExploreCollectionsModal: React.FC<
                   const totalLoadedEvents =
                     collectionEventsById[collection.id]?.length ?? 0;
 
-                  let primaryActionLabel = "Add to Library";
-                  if (isLoading) {
-                    primaryActionLabel = "Adding…";
-                  } else if (isDownloaded) {
-                    primaryActionLabel = "Added";
-                  }
-
                   return (
                     <div
                       key={`explore-${collection.id}`}
-                      className={`rounded-2xl border p-3 transition-colors ${
+                      className={`ui-card rounded-[1.45rem] p-3.5 ${
                         isVisibleOnTimeline
                           ? "border-emerald-500/40 bg-emerald-500/8"
-                          : "border-zinc-800 bg-zinc-950/55 hover:border-zinc-700"
+                          : "border-zinc-800 bg-zinc-950/55"
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-2xl">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] border border-zinc-800 bg-zinc-900 text-2xl">
                           {collection.emoji}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <div className="truncate text-sm font-semibold text-white">
+                            <div className="truncate text-[0.96rem] font-semibold text-white">
                               {collection.name}
                             </div>
-                            {/* {isDownloaded ? (
-                              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-emerald-200">
-                                Installed
-                              </span>
-                            ) : null} */}
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.76rem] text-zinc-500">
                             <span className="truncate">
                               by {collection.author}
                             </span>
@@ -358,7 +347,7 @@ export const ExploreCollectionsModal: React.FC<
                         </div>
                       </div>
 
-                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-zinc-400">
+                      <p className="mt-3 line-clamp-2 text-[0.84rem] leading-6 text-zinc-400">
                         {collection.description}
                       </p>
 
@@ -369,25 +358,25 @@ export const ExploreCollectionsModal: React.FC<
                         </span>
                       </div>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                        <button
-                          onClick={() =>
-                            void onDownloadCollection(collection.id)
-                          }
-                          disabled={isLoading || isDownloaded}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                            isDownloaded
-                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15 disabled:cursor-default disabled:opacity-80"
-                              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15 disabled:cursor-wait disabled:opacity-60"
-                          }`}
-                        >
-                          {isDownloaded ? (
-                            <Check size={12} />
-                          ) : (
-                            <Download size={12} />
-                          )}
-                          <span>{primaryActionLabel}</span>
-                        </button>
+                      <div
+                        className={`mt-3 grid gap-1.5 ${
+                          isDownloaded ? "grid-cols-3" : "grid-cols-1"
+                        }`}
+                      >
+                        {!isDownloaded && (
+                          <button
+                            onClick={() =>
+                              void onDownloadCollection(collection.id)
+                            }
+                            disabled={isLoading}
+                            className={`ui-button w-full min-w-0 px-2.5 py-2 text-[0.68rem] ui-button-primary disabled:cursor-wait disabled:opacity-60`}
+                          >
+                            <Download size={14} />
+                            <span>
+                              {isLoading ? "Downloading..." : "Download"}
+                            </span>
+                          </button>
+                        )}
 
                         {isDownloaded && (
                           <>
@@ -398,25 +387,21 @@ export const ExploreCollectionsModal: React.FC<
                                   !isVisibleOnTimeline,
                                 );
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white"
+                              className="ui-button ui-button-secondary w-full min-w-0 px-2.5 py-2 text-[0.68rem]"
                             >
                               {isVisibleOnTimeline ? (
-                                <EyeOff size={12} />
+                                <EyeOff size={14} />
                               ) : (
-                                <Eye size={12} />
+                                <Eye size={14} />
                               )}
-                              <span>
-                                {isVisibleOnTimeline ? "Hide" : "Show"}
-                              </span>
                             </button>
                             <button
                               onClick={() => onDeleteCollection(collection)}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[11px] font-medium text-red-300 transition-colors hover:border-red-500/35 hover:bg-red-500/15 hover:text-red-200"
+                              className="ui-button ui-button-danger w-full min-w-0 px-2.5 py-2 text-[0.68rem]"
                               aria-label={`Delete ${collection.name}`}
                               title={`Delete ${collection.name}`}
                             >
-                              <Trash2 size={12} />
-                              <span>Delete</span>
+                              <Trash2 size={14} />
                             </button>
                           </>
                         )}

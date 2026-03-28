@@ -306,19 +306,24 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className={`ui-modal-surface max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900 md:p-8 p-4 max-w-md`}
+        className="ui-modal-surface ui-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[1.9rem] p-4 md:p-8"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">
-            {mode === "create" ? "New Event" : "Edit Event"}
-          </h2>
+          <div>
+            <div className="ui-kicker mb-2">
+              {mode === "create" ? "Collection Entry" : "Event Details"}
+            </div>
+            <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
+              {mode === "create" ? "New Event" : "Edit Event"}
+            </h2>
+          </div>
           <button
             onClick={requestClose}
-            className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
+            className="ui-icon-button h-10 w-10"
             aria-label="Close"
           >
             <X width={20} height={20} />
@@ -328,14 +333,12 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         {mode === "create" && (
           <div className="mb-6">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-sm font-medium text-zinc-400">
-                Save To Collection
-              </label>
+              <label className="ui-label mb-0">Save To Collection</label>
               {onAddCollection && (
                 <button
                   type="button"
                   onClick={onAddCollection}
-                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+                  className="ui-button ui-button-secondary px-3 py-2 text-[0.72rem]"
                 >
                   + New Collection
                 </button>
@@ -347,7 +350,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 setSelectedCollectionId(e.target.value);
                 setCollectionError(null);
               }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+              className="ui-field"
             >
               {availableCollections.map((collection) => (
                 <option key={collection.id} value={collection.id}>
@@ -685,9 +688,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                 placeholder="https://upload.wikimedia.org/..."
               />
-              <p className="mt-1 text-xs text-zinc-500">
+              {/* <p className="mt-1 text-xs text-zinc-500">
                 Paste any direct image URL.
-              </p>
+              </p> */}
             </div>
 
             <div>
@@ -697,12 +700,12 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 value={editedEvent.video ?? ""}
                 onChange={handleOptionalFieldChange("video")}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                placeholder="dQw4w9WgXcQ or https://youtu.be/dQw4w9WgXcQ"
+                placeholder="id or https://youtu.be/<id>"
               />
-              <p className="mt-1 text-xs text-zinc-500">
+              {/* <p className="mt-1 text-xs text-zinc-500">
                 Supports YouTube IDs, `youtu.be`, and full YouTube links. Other
                 video URLs still work as-is.
-              </p>
+              </p> */}
             </div>
 
             <div>
@@ -716,10 +719,10 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                 placeholder="Apollo_11 or https://en.wikipedia.org/wiki/Apollo_11"
               />
-              <p className="mt-1 text-xs text-zinc-500">
+              {/* <p className="mt-1 text-xs text-zinc-500">
                 Paste any URL, or enter a Wikipedia article name and it will be
                 expanded automatically when you save.
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -763,13 +766,13 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         <div className="mt-8 flex justify-end gap-3">
           <button
             onClick={requestClose}
-            className="rounded-full bg-zinc-800 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+            className="ui-button ui-button-secondary px-6 py-3"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="rounded-full bg-emerald-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+            className="ui-button ui-button-primary px-6 py-3"
           >
             {mode === "create" ? "Add Event" : "Save"}
           </button>

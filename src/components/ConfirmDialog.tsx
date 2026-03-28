@@ -80,7 +80,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           onWheel={(event) => event.stopPropagation()}
         >
           <motion.div
-            className="ui-modal-surface w-full max-w-md overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl"
+            className="ui-modal-surface ui-panel w-full max-w-md overflow-hidden rounded-[2rem]"
             initial={{ opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -101,13 +101,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   <AlertTriangle size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
+                  <div className="ui-kicker">
                     Confirm Action
                   </div>
-                  <h2 className="mt-2 text-lg font-semibold text-white">
+                  <h2 className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white">
                     {title}
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  <p className="mt-2 text-[0.92rem] leading-7 text-zinc-400">
                     {description}
                   </p>
                 </div>
@@ -118,17 +118,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="inline-flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
+                className="ui-button ui-button-secondary"
               >
                 {cancelLabel}
               </button>
               <button
                 type="button"
                 onClick={onConfirm}
-                className={`inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
-                  isDangerTone
-                    ? "border-red-500/30 bg-red-500/12 text-red-100 hover:border-red-500/40 hover:bg-red-500/18"
-                    : "border-emerald-500/30 bg-emerald-500/12 text-emerald-100 hover:border-emerald-500/40 hover:bg-emerald-500/18"
+                className={`ui-button ${
+                  isDangerTone ? "ui-button-danger" : "ui-button-primary"
                 }`}
               >
                 {confirmLabel}

@@ -51,11 +51,11 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
 
   return (
     <div
-      className="fixed top-4 right-4 z-40 flex items-center gap-2"
+      className="fixed right-4 top-4 z-40 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-2 sm:max-w-none"
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <div className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono text-zinc-300">
+      <div className="ui-badge font-mono text-[0.72rem]">
         Logic {logicFps} | Canvas {renderFps}
       </div>
       {supportsFullscreen ? (
@@ -64,7 +64,7 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
           onClick={() => {
             void handleToggleFullscreen();
           }}
-          className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
+          className="ui-button ui-button-secondary h-10 px-4 text-[0.82rem]"
           aria-label={
             isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"
           }
@@ -85,7 +85,7 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
       <button
         type="button"
         onClick={onToggleTheme}
-        className="flex h-9 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
+        className="ui-button ui-button-secondary h-10 px-4 text-[0.82rem]"
         aria-label={
           theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
         }

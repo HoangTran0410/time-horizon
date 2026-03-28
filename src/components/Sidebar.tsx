@@ -255,7 +255,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-95 rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-white transition-colors hover:bg-zinc-800"
+        className="ui-panel fixed left-4 top-4 z-95 flex h-12 w-12 items-center justify-center rounded-[1.25rem] text-white"
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
@@ -263,14 +263,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         onPointerDown={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
-        className={`fixed left-0 top-0 z-90 flex h-full w-screen transform flex-col border-r border-zinc-800 bg-zinc-950 transition-transform duration-300 ease-in-out sm:w-90 ${
+        className={`fixed left-0 top-0 z-90 flex h-full w-screen max-w-[26rem] transform flex-col border-r border-zinc-800 bg-zinc-950/96 shadow-[0_24px_90px_rgba(2,6,23,0.36)] backdrop-blur-xl transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex-1 overflow-y-auto p-4 pt-20">
-          <h2 className="mb-4 text-xl font-bold text-white">Time Horizon</h2>
+        <div className="flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-20">
+          <div className="mb-5">
+            <div className="ui-kicker mb-2">Timeline Atlas</div>
+            <h2 className="ui-display-title text-[2rem] leading-none text-white">
+              Time Horizon
+            </h2>
+            <p className="mt-2 max-w-sm text-[0.9rem] leading-6 text-zinc-400">
+              Curate collections, search events, and compose a cleaner view of
+              history across every scale.
+            </p>
+          </div>
 
-          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-3">
+          <div className="ui-panel-soft mb-6 rounded-[1.5rem] p-3.5">
             {/* <div className="mb-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
                 Library
@@ -283,14 +292,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => onAddEvent()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="ui-button ui-button-primary rounded-[1.1rem] px-4 py-3"
               >
                 <Plus size={16} />
                 <span>Event</span>
               </button>
               <button
                 onClick={onAddCollection}
-                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+                className="ui-button ui-button-secondary rounded-[1.1rem] px-4 py-3"
               >
                 <FolderPlus size={16} />
                 <span>Collection</span>
@@ -298,7 +307,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <button
               onClick={() => setIsExploreOpen(true)}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+              className="ui-button ui-button-secondary mt-2 w-full rounded-[1.1rem] px-4 py-3"
             >
               <Compass size={16} />
               <span>Browse Collections</span>
@@ -307,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="mb-8">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              <h3 className="ui-kicker">
                 My Collections ({downloadedCollections.length})
               </h3>
             </div>
@@ -317,41 +326,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 placeholder="Search my collections…"
                 value={collectionQuery}
                 onChange={(event) => setCollectionQuery(event.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-white placeholder-zinc-500 transition-colors focus:border-emerald-500 focus:outline-none"
+                className="ui-field"
               />
             </div>
 
             <div className="space-y-2">
               {downloadedCollections.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/50 p-4">
-                  <div className="mb-2 text-sm font-medium text-zinc-200">
+                <div className="rounded-[1.5rem] border border-dashed border-zinc-800 bg-zinc-950/50 p-4.5">
+                  <div className="mb-2 text-base font-semibold text-zinc-200">
                     Your library is empty
                   </div>
-                  <p className="text-sm leading-6 text-zinc-500">
+                  <p className="text-[0.9rem] leading-6 text-zinc-500">
                     Add a collection from the catalog, or create your own local
                     collection to start organizing events.
                   </p>
                   <button
                     onClick={() => setIsExploreOpen(true)}
-                    className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+                    className="ui-button ui-button-secondary mt-4 px-4 py-2.5 text-[0.84rem]"
                   >
                     <Compass size={14} />
                     <span>Open Catalog</span>
                   </button>
                 </div>
               ) : filteredCollections.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-3 text-sm text-zinc-500">
+                <div className="rounded-[1.2rem] border border-dashed border-zinc-800 bg-zinc-950/40 p-3.5 text-[0.88rem] text-zinc-500">
                   No collections in your library match that search.
                 </div>
               ) : (
                 <>
                   {showPinnedVisibleSection && (
-                    <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <div className="mb-3 rounded-[1.35rem] border border-emerald-500/20 bg-emerald-500/5 p-3.5">
                       <div className="mb-2 flex items-center justify-between">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                        <div className="ui-kicker text-emerald-300">
                           Visible on timeline
                         </div>
-                        <div className="text-[11px] text-emerald-200">
+                        <div className="text-[0.76rem] font-semibold text-emerald-200">
                           {visibleCollections.length}
                         </div>
                       </div>
@@ -366,7 +375,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           return (
                             <div
                               key={`visible-${collection.id}`}
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors ${
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[0.78rem] transition-colors ${
                                 isVisible
                                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
                                   : "border-zinc-700 bg-zinc-900 text-zinc-300"
@@ -466,31 +475,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             current === collection.id ? null : current,
                           );
                         }}
-                        className={`group rounded-2xl border bg-zinc-950/50 p-3 transition-colors outline-none focus-visible:border-emerald-500/45 focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${
+                        className={`ui-card group rounded-[1.45rem] p-3.5 outline-none focus-visible:border-emerald-500/45 focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${
                           isVisibleOnTimeline
                             ? "border-emerald-500/30 bg-emerald-500/10"
-                            : "border-zinc-800 hover:border-zinc-700"
+                            : "border-zinc-800"
                         }`}
                       >
                         <div className="flex items-start gap-2.5">
                           <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-xl leading-none">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] border border-zinc-800 bg-zinc-900 text-2xl leading-none">
                               {collection.emoji}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <h4 className="truncate text-sm font-semibold text-white">
+                                <h4 className="truncate text-[0.98rem] font-semibold text-white">
                                   {collection.name}
                                 </h4>
                                 {statusLabel ? (
                                   <span
-                                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] ${statusClassName}`}
+                                    className={`rounded-full border px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.18em] ${statusClassName}`}
                                   >
                                     {statusLabel}
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.76rem] text-zinc-500">
                                 <span>{totalLoadedEvents} events</span>
                                 <span>by {collection.author}</span>
                                 {/* <span className="inline-flex items-center gap-1">
@@ -504,10 +513,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                           </div>
                           <div
-                            className={`flex items-center gap-1.5 transition-opacity duration-150 ${
+                            className={`flex items-center gap-1 opacity-100 transition-opacity duration-150 md:opacity-0 ${
                               isCollectionActive
                                 ? "pointer-events-auto opacity-100"
-                                : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+                                : "pointer-events-auto md:pointer-events-none md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100"
                             }`}
                           >
                             <label className="relative inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 transition-colors hover:border-zinc-700">
@@ -568,24 +577,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         </div>
 
-                        <p className="mt-3 line-clamp-2 text-xs leading-5 text-zinc-400">
+                        <p className="mt-3 line-clamp-2 text-[0.84rem] leading-6 text-zinc-400">
                           {collection.description}
                         </p>
 
                         <div
                           className={`overflow-hidden transition-all duration-150 ${
                             isCollectionActive
-                              ? "pointer-events-auto mt-3 max-h-16 opacity-100"
+                              ? "pointer-events-auto mt-3 max-h-24 opacity-100"
                               : "pointer-events-none mt-0 max-h-0 opacity-0 group-hover:pointer-events-auto group-hover:mt-3 group-hover:max-h-[32rem] group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:mt-3 group-focus-within:max-h-[32rem] group-focus-within:opacity-100"
                           }`}
                         >
                           <div className="flex flex-wrap gap-1.5">
                             <button
                               onClick={() => onAddEvent(collection.id)}
-                              className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/15"
+                              className="ui-button ui-button-primary gap-1.5 px-2.5 py-1.5 text-[0.68rem]"
                             >
                               <Plus size={12} />
-                              {/* <span>Event</span> */}
+                              <span>Add</span>
                             </button>
                             {isSyncable ? (
                               <button
@@ -593,23 +602,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   void onSyncCollection(collection.id)
                                 }
                                 disabled={isLoading}
-                                className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                                className="ui-button ui-button-secondary gap-1.5 px-2.5 py-1.5 text-[0.68rem] disabled:cursor-wait disabled:opacity-60"
                               >
                                 <RefreshCw
                                   size={12}
                                   className={isLoading ? "animate-spin" : ""}
                                 />
-                                {/* <span>Refresh</span> */}
+                                <span>Sync</span>
                               </button>
                             ) : null}
                             <button
                               onClick={() => handleDeleteCollection(collection)}
-                              className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-300 transition-colors hover:border-red-500/35 hover:bg-red-500/15 hover:text-red-200"
+                              className="ui-button ui-button-danger gap-1.5 px-2.5 py-1.5 text-[0.68rem]"
                               aria-label={`Delete ${collection.name}`}
                               title={`Delete ${collection.name}`}
                             >
                               <Trash2 size={12} />
-                              {/* <span>Delete</span> */}
+                              <span>Delete</span>
                             </button>
                           </div>
                         </div>
@@ -641,9 +650,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onSearchSelect={handleSelectSidebarSearchEvent}
               onDeleteEvent={onDeleteEvent}
               state={sidebarSearchState}
-              title={`Search ${browsedCollection.name}`}
-              subtitle={`Browse ${browsedCollectionEvents.length} loaded events without turning this collection on in the timeline.`}
-              searchPlaceholder={`Search ${browsedCollection.name}...`}
+              title={`Browse '${browsedCollection.name}'`}
+              // subtitle={`Browse ${browsedCollectionEvents.length} loaded events.`}
+              // searchPlaceholder={`Search ${browsedCollection.name}...`}
               emptyMessage="No events in this collection matched your search."
               resultLabel="collection events"
               showTimelineToggle={false}

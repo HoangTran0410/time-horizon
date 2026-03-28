@@ -115,6 +115,23 @@ type TimelineStoreState = {
   closeCollectionCreator: () => void;
 };
 
+const createInitialTimelineSearchState = (): Pick<
+  TimelineStoreState,
+  | "searchQuery"
+  | "activeMediaFilters"
+  | "searchSortMode"
+  | "timeRangeStartInput"
+  | "timeRangeEndInput"
+  | "showOnlyResultsOnTimeline"
+> => ({
+  searchQuery: "",
+  activeMediaFilters: [],
+  searchSortMode: DEFAULT_SEARCH_SORT_MODE,
+  timeRangeStartInput: "",
+  timeRangeEndInput: "",
+  showOnlyResultsOnTimeline: false,
+});
+
 type TimelinePersistedState = Pick<
   TimelineStoreState,
   | "theme"
@@ -807,12 +824,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
     (set, get) => {
       return {
         theme: getInitialTheme(),
-        searchQuery: "",
-        activeMediaFilters: [],
-        searchSortMode: DEFAULT_SEARCH_SORT_MODE,
-        timeRangeStartInput: "",
-        timeRangeEndInput: "",
-        showOnlyResultsOnTimeline: false,
+        ...createInitialTimelineSearchState(),
         customCollections: [],
         collectionEventsById: {},
         visibleCollectionIds: [],
@@ -937,6 +949,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
         },
         setCollectionVisibility: (collectionId, visible) =>
           set((state) => ({
+            ...createInitialTimelineSearchState(),
             visibleCollectionIds: visible
               ? state.visibleCollectionIds.includes(collectionId)
                 ? state.visibleCollectionIds

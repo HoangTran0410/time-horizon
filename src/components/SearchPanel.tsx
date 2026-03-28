@@ -49,6 +49,7 @@ interface SearchPanelProps {
 const INITIAL_VISIBLE_RESULTS = 16;
 const RESULTS_BATCH_SIZE = 24;
 const SEARCH_PANEL_MAX_HEIGHT = "min(400px, calc(100vh - 3rem))";
+const EMPTY_RESULTS: Event[] = [];
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
   isOpen,
@@ -142,6 +143,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setShowOnlyResultsOnTimeline,
   } = effectiveState;
   const deferredSearchQuery = React.useDeferredValue(searchQuery);
+  const shouldHydrateResults = isOpen && isResultsReady;
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -170,25 +172,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     };
   }, [isOpen]);
 
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia(
-      "(max-width: 640px), (max-height: 760px)",
-    );
-    const syncAdvancedFiltersState = () => {
-      setIsAdvancedFiltersOpen(!mediaQuery.matches);
-    };
-
-    syncAdvancedFiltersState();
-    mediaQuery.addEventListener("change", syncAdvancedFiltersState);
-
-    return () => {
-      mediaQuery.removeEventListener("change", syncAdvancedFiltersState);
-    };
-  }, []);
-
   const filteredResults = React.useMemo(() => {
+    if (!shouldHydrateResults) {
+      return EMPTY_RESULTS;
+    }
+
     return filterTimelineSearchEvents(
       searchableEvents,
       deferredSearchQuery,
@@ -204,6 +192,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     deferredSearchQuery,
     searchSortMode,
     searchableEvents,
+    shouldHydrateResults,
     timeRangeEndInput,
     timeRangeStartInput,
   ]);
@@ -276,8 +265,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   }, [filteredResults.length, isOpen, isResultsReady, visibleResultCount]);
 
   const visibleResults = React.useMemo(
-    () => filteredResults.slice(0, visibleResultCount),
-    [filteredResults, visibleResultCount],
+    () =>
+      shouldHydrateResults
+        ? filteredResults.slice(0, visibleResultCount)
+        : EMPTY_RESULTS,
+    [filteredResults, shouldHydrateResults, visibleResultCount],
   );
 
   const toggleMediaFilter = (filter: MediaFilter) => {
@@ -307,6 +299,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (!shouldHydrateResults) return;
+
     const firstResult = filteredResults[0];
     if (!firstResult) return;
     onSearchSelect(firstResult);
@@ -320,22 +314,19 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     >
       <form
         onSubmit={handleSearchSubmit}
-        className={`flex w-[24rem] max-w-[calc(100vw-4rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 p-2.5 ${
+        className={`ui-panel flex w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.7rem] p-4 ${
           panelClassName ?? ""
         }`.trim()}
         style={{ maxHeight }}
       >
-        <div
-          ref={resultsListRef}
-          className="min-h-0 flex-1 overflow-y-auto pr-1"
-        >
-          <div className="mb-2 flex items-start justify-between gap-3">
+        <div ref={resultsListRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+              <div className="ui-display-title text-[1.5rem] leading-none text-white">
                 {title}
               </div>
               {subtitle ? (
-                <p className="mt-1 text-[11px] leading-5 text-zinc-400">
+                <p className="mt-1.5 max-w-[32rem] text-[0.82rem] leading-6 text-zinc-400">
                   {subtitle}
                 </p>
               ) : null}
@@ -344,10 +335,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full border border-zinc-800 bg-zinc-900/90 p-1.5 text-zinc-400 transition-colors hover:border-zinc-700 hover:text-white"
+                className="ui-icon-button h-9 w-9"
                 aria-label="Close search panel"
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             ) : null}
           </div>
@@ -357,22 +348,22 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={searchPlaceholder}
-            className="mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+            className="ui-field mb-3"
           />
-          <div className="mb-2 rounded-xl border border-zinc-800  p-2">
+          <div className="ui-panel-soft mb-3 rounded-[1.35rem] p-3">
             <button
               type="button"
               onClick={() => setIsAdvancedFiltersOpen((current) => !current)}
               className="flex w-full items-center justify-between rounded-lg text-left"
               aria-expanded={isAdvancedFiltersOpen}
             >
-              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
+              <div className="flex items-center gap-2 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500">
                 <span>Filters</span>
                 {hasActiveFilters && (
                   <span className="h-2 w-2 rounded-full bg-rose-500/80" />
                 )}
               </div>
-              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400">
+              <span className="text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-400">
                 {isAdvancedFiltersOpen ? "Hide" : "Show"}
               </span>
             </button>
@@ -389,7 +380,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             >
               <div
                 ref={advancedFiltersContentRef}
-                className="pt-2 flex flex-col gap-1"
+                className="flex flex-col gap-2 pt-3"
               >
                 <div className="flex flex-wrap gap-1.5">
                   {MEDIA_FILTERS.map((filter) => {
@@ -406,11 +397,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                         key={filter}
                         type="button"
                         onClick={() => toggleMediaFilter(filter)}
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                          isActive
-                            ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-200"
-                            : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                        }`}
+                        className="ui-chip"
+                        data-active={isActive}
                       >
                         {label}
                       </button>
@@ -420,7 +408,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 <select
                   value={searchSortMode}
                   onChange={(e) => handleSortModeChange(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  className="ui-field"
                 >
                   {SEARCH_SORT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -428,14 +416,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     </option>
                   ))}
                 </select>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
                     inputMode="numeric"
                     value={timeRangeStartInput}
                     onChange={(e) => handleTimeRangeStartChange(e.target.value)}
                     placeholder="From: 2024-03"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                    className="ui-field"
                   />
                   <input
                     type="text"
@@ -443,17 +431,17 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     value={timeRangeEndInput}
                     onChange={(e) => handleTimeRangeEndChange(e.target.value)}
                     placeholder="To: 2024-03-27"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                    className="ui-field"
                   />
                 </div>
-                <div className="mt-1.5 text-[10px] font-mono text-zinc-500">
+                <div className="mt-1 text-[0.68rem] font-mono text-zinc-500">
                   Use <span className="text-zinc-400">YYYY</span>,{" "}
                   <span className="text-zinc-400">YYYY-MM</span>, or{" "}
                   <span className="text-zinc-400">YYYY-MM-DD</span>.
                 </div>
 
                 {dateRangeError && (
-                  <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-4 text-amber-200">
+                  <div className="mt-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[0.72rem] leading-5 text-amber-200">
                     {dateRangeError}
                   </div>
                 )}
@@ -461,31 +449,36 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             </div>
           </div>
 
-          <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
-            {filteredResults.length}
-            {filteredResults.length != searchableEvents.length
+          {showTimelineToggle &&
+            shouldHydrateResults &&
+            filteredResults.length > 0 && (
+              <label className="ui-panel-soft mb-3 flex items-center gap-2.5 rounded-[1rem] px-3 py-2.5 text-[0.82rem] text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={showOnlyResultsOnTimeline}
+                  onChange={(e) =>
+                    setShowOnlyResultsOnTimeline(e.target.checked)
+                  }
+                  className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500 focus:ring-emerald-500/40"
+                />
+                <span>{timelineToggleLabel}</span>
+              </label>
+            )}
+          <div className="mb-3 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500">
+            {shouldHydrateResults ? filteredResults.length : "…"}
+            {shouldHydrateResults &&
+            filteredResults.length != searchableEvents.length
               ? `/${searchableEvents.length}`
               : ""}{" "}
             {resultLabel}
           </div>
-          {showTimelineToggle && filteredResults.length > 0 && (
-            <label className="mb-2 flex items-center gap-2 rounded-lg border border-zinc-800 px-2.5 py-2 text-[11px] text-zinc-300">
-              <input
-                type="checkbox"
-                checked={showOnlyResultsOnTimeline}
-                onChange={(e) => setShowOnlyResultsOnTimeline(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500 focus:ring-emerald-500/40"
-              />
-              <span>{timelineToggleLabel}</span>
-            </label>
-          )}
 
-          {!isResultsReady ? (
-            <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
+          {!shouldHydrateResults ? (
+            <div className="rounded-[1.15rem] border border-dashed border-zinc-800 px-3 py-5 text-center text-[0.8rem] leading-5 text-zinc-500">
               Loading events...
             </div>
           ) : filteredResults.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-4 text-zinc-500">
+            <div className="rounded-[1.15rem] border border-dashed border-zinc-800 px-3 py-5 text-center text-[0.8rem] leading-5 text-zinc-500">
               {emptyMessage}
             </div>
           ) : (
@@ -501,7 +494,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               {visibleResultCount < filteredResults.length && (
                 <div
                   ref={resultsSentinelRef}
-                  className="flex items-center justify-center py-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500"
+                  className="flex items-center justify-center py-3 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500"
                 >
                   Loading more...
                 </div>

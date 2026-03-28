@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { MotionValue } from "motion/react";
 import { Event } from "../constants/types";
 import { BIG_BANG_YEAR } from "../constants";
+import { ThemeMode } from "../constants/theme";
+import { CANVAS_FONT_PRESETS } from "../constants/typography";
 import {
   formatElapsedTimelineTime,
   getEventDisplayLabel,
@@ -10,7 +12,6 @@ import {
   getCollapsedGroupOffset,
   getEventTimelineYear,
 } from "../helpers";
-import { ThemeMode } from "../constants/theme";
 import {
   CollapsedEventGroup,
   ExpandedCollapsedGroup,
@@ -313,6 +314,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   });
   const renderFrameRef = useRef<number | null>(null);
   const renderCanvasRef = useRef<() => void>(() => {});
+  const onRenderFrameRef = useRef(onRenderFrame);
+  const wrappedEventTitleCacheRef = useRef(new Map<string, string[]>());
   const cursorRef = useRef<"grab" | "grabbing" | "pointer">("grab");
   const rulerPointerRef = useRef<{
     x: number;
@@ -324,14 +327,32 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     isVisible: false,
   });
 
-  const requestRender = () => {
+  useEffect(() => {
+    onRenderFrameRef.current = onRenderFrame;
+  }, [onRenderFrame]);
+
+  useEffect(() => {
+    wrappedEventTitleCacheRef.current.clear();
+  }, [timelineEvents]);
+
+  const requestRender = useCallback(() => {
     if (renderFrameRef.current !== null) return;
     renderFrameRef.current = requestAnimationFrame((now) => {
       renderFrameRef.current = null;
       renderCanvasRef.current();
-      onRenderFrame(now);
+      onRenderFrameRef.current(now);
     });
-  };
+  }, []);
+
+  const renderNow = useCallback((now: number) => {
+    if (renderFrameRef.current !== null) {
+      cancelAnimationFrame(renderFrameRef.current);
+      renderFrameRef.current = null;
+    }
+
+    renderCanvasRef.current();
+    onRenderFrameRef.current(now);
+  }, []);
 
   const updateCursor = (nextCursor: "grab" | "grabbing" | "pointer") => {
     if (cursorRef.current === nextCursor) return;
@@ -434,7 +455,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     const observer = new ResizeObserver(updateSize);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [containerRef]);
+  }, [containerRef, requestRender]);
 
   const getScreenX = (year: number) =>
     focusPixel.get() + (year - focusYear.get()) * zoom.get();
@@ -604,6 +625,59 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
       const centerY = height / 2;
       const snap = (value: number) => Math.round(value * dpr) / dpr;
+      let activeFont = "";
+      let activeFillStyle = "";
+      let activeTextAlign: CanvasTextAlign = "start";
+      let activeTextBaseline: CanvasTextBaseline = "alphabetic";
+      const setTextStyle = ({
+        font,
+        fillStyle,
+        textAlign,
+        textBaseline,
+      }: {
+        font?: string;
+        fillStyle?: string;
+        textAlign?: CanvasTextAlign;
+        textBaseline?: CanvasTextBaseline;
+      }) => {
+        if (font && font !== activeFont) {
+          ctx.font = font;
+          activeFont = font;
+        }
+        if (fillStyle && fillStyle !== activeFillStyle) {
+          ctx.fillStyle = fillStyle;
+          activeFillStyle = fillStyle;
+        }
+        if (textAlign && textAlign !== activeTextAlign) {
+          ctx.textAlign = textAlign;
+          activeTextAlign = textAlign;
+        }
+        if (textBaseline && textBaseline !== activeTextBaseline) {
+          ctx.textBaseline = textBaseline;
+          activeTextBaseline = textBaseline;
+        }
+      };
+      const getWrappedEventTitle = (event: Event) => {
+        const cacheKey = [
+          event.id,
+          event.title,
+          CANVAS_FONT_PRESETS.eventTitle,
+          EVENT_LABEL_MAX_WIDTH,
+          EVENT_TITLE_MAX_LINES,
+        ].join("|");
+        const cached = wrappedEventTitleCacheRef.current.get(cacheKey);
+        if (cached) return cached;
+
+        setTextStyle({ font: CANVAS_FONT_PRESETS.eventTitle });
+        const wrapped = wrapCanvasText(
+          ctx,
+          event.title,
+          EVENT_LABEL_MAX_WIDTH,
+          EVENT_TITLE_MAX_LINES,
+        );
+        wrappedEventTitleCacheRef.current.set(cacheKey, wrapped);
+        return wrapped;
+      };
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = true;
       ctx.lineCap = "round";
@@ -642,14 +716,16 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.lineTo(tickX, snap(centerY + (tick.isHighlighted ? 14 : 9)));
         ctx.stroke();
 
-        ctx.font = tick.isHighlighted
-          ? "600 11px ui-monospace, monospace"
-          : "10px ui-monospace, monospace";
-        ctx.fillStyle = tick.isHighlighted
-          ? canvasTheme.tickTextHighlighted
-          : canvasTheme.tickText;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        setTextStyle({
+          font: tick.isHighlighted
+            ? CANVAS_FONT_PRESETS.tickHighlighted
+            : CANVAS_FONT_PRESETS.tick,
+          fillStyle: tick.isHighlighted
+            ? canvasTheme.tickTextHighlighted
+            : canvasTheme.tickText,
+          textAlign: "center",
+          textBaseline: "middle",
+        });
         ctx.fillText(label, tickX, tickLabelY);
       }
 
@@ -729,11 +805,12 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             ctx.fill();
             ctx.stroke();
 
-            ctx.font =
-              "18px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = "#ffffff";
+            setTextStyle({
+              font: CANVAS_FONT_PRESETS.collapsedEventEmoji,
+              fillStyle: "#ffffff",
+              textAlign: "center",
+              textBaseline: "middle",
+            });
             ctx.fillText(item.event.emoji, itemX, snap(itemY + 1));
           }
         }
@@ -747,12 +824,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = isHovered
-          ? canvasTheme.collapsedTextHover
-          : canvasTheme.collapsedText;
-        ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.collapsedCounter,
+          fillStyle: isHovered
+            ? canvasTheme.collapsedTextHover
+            : canvasTheme.collapsedText,
+          textAlign: "center",
+          textBaseline: "middle",
+        });
         ctx.fillText(
           isExpanded ? "−" : `+${group.count > 99 ? "99+" : group.count}`,
           groupX,
@@ -855,23 +934,24 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           }
         });
 
-        ctx.font =
-          "24px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ffffff";
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.eventEmoji,
+          fillStyle: "#ffffff",
+          textAlign: "center",
+          textBaseline: "middle",
+        });
         ctx.fillText(event.emoji, eventX, snap(eventY + 1));
 
-        ctx.font = "500 12px ui-sans-serif, system-ui, sans-serif";
-        ctx.fillStyle = isHighlighted ? activeTextColor : canvasTheme.eventText;
-        const titleLines = wrapCanvasText(
-          ctx,
-          event.title,
-          EVENT_LABEL_MAX_WIDTH,
-          EVENT_TITLE_MAX_LINES,
-        );
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.eventTitle,
+          fillStyle: isHighlighted ? activeTextColor : canvasTheme.eventText,
+          textAlign: "center",
+        });
+        const titleLines = getWrappedEventTitle(event);
         const isBelowMarker = layout.y.get() > 0;
-        ctx.textBaseline = isBelowMarker ? "top" : "bottom";
+        setTextStyle({
+          textBaseline: isBelowMarker ? "top" : "bottom",
+        });
 
         if (isBelowMarker) {
           const titleTop = eventY + 34;
@@ -895,8 +975,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           });
         }
 
-        ctx.font = "10px ui-monospace, monospace";
-        ctx.fillStyle = isHighlighted ? activeDateColor : canvasTheme.eventDate;
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.eventDate,
+          fillStyle: isHighlighted ? activeDateColor : canvasTheme.eventDate,
+          textAlign: "center",
+        });
         const dateY = isBelowMarker
           ? eventY +
             34 +
@@ -979,7 +1062,9 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             ctx.arc(snappedOriginX, snappedOriginY, 4.5, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.font = "600 11px ui-monospace, monospace";
+            setTextStyle({
+              font: CANVAS_FONT_PRESETS.rulerLabel,
+            });
             const labelWidth =
               ctx.measureText(rulerLabel).width + labelPaddingX * 2;
             ctx.fillStyle = canvasTheme.rulerLabelFill;
@@ -996,9 +1081,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = canvasTheme.rulerLabelText;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
+            setTextStyle({
+              fillStyle: canvasTheme.rulerLabelText,
+              textAlign: "center",
+              textBaseline: "middle",
+            });
             ctx.fillText(rulerLabel, labelX, labelY);
             ctx.restore();
           }
@@ -1028,10 +1115,12 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         );
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = canvasTheme.bigBangText;
-        ctx.font = "700 12px ui-sans-serif, system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.bigBang,
+          fillStyle: canvasTheme.bigBangText,
+          textAlign: "center",
+          textBaseline: "middle",
+        });
         ctx.fillText("Big Bang", snappedBigBangX, snap(centerY));
       } else if (bigBangX > width) {
         const badgeX = snap(width - 78);
@@ -1049,10 +1138,12 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         );
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = canvasTheme.bigBangBadgeText;
-        ctx.font = "700 12px ui-sans-serif, system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.bigBang,
+          fillStyle: canvasTheme.bigBangBadgeText,
+          textAlign: "center",
+          textBaseline: "middle",
+        });
         ctx.fillText("Big Bang", badgeX, snap(centerY));
       }
     };
@@ -1093,11 +1184,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     // Canvas needs an explicit RAF loop while Motion animates event layout values.
     // Camera-only movement is handled by the MotionValue subscriptions above.
     let frameId = 0;
-    const loop = () => {
-      requestRender();
+      const loop = (now: number) => {
+        renderNow(now);
+        frameId = requestAnimationFrame(loop);
+      };
       frameId = requestAnimationFrame(loop);
-    };
-    frameId = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(frameId);
@@ -1105,6 +1196,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   }, [
     collapsedGroups.length,
     expandedCollapsedGroup,
+    renderNow,
     rulerEvent,
     timelineEvents.length,
   ]);
