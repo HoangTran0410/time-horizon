@@ -1,13 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Check,
-  Download,
-  Eye,
-  EyeOff,
-  MoreHorizontal,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Download, Eye, EyeOff, MoreHorizontal, Trash2, X } from "lucide-react";
 import type { Event, EventCollectionMeta } from "../constants/types";
 
 interface ExploreCollectionsModalProps {

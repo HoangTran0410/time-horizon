@@ -16,13 +16,7 @@ interface TimelineGuidanceOverlayProps {
 
 export const TimelineGuidanceOverlay: React.FC<
   TimelineGuidanceOverlayProps
-> = ({
-  eyebrow,
-  title,
-  description,
-  actions,
-  position = "center",
-}) => (
+> = ({ eyebrow, title, description, actions, position = "center" }) => (
   <div
     className={`pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 ${
       position === "center" ? "top-1/2 -translate-y-1/2" : "top-24"

@@ -85,7 +85,9 @@ export const normalizeEmbedVideoUrl = (video?: string): string | null => {
     try {
       const url = new URL(normalizedInput);
       const videoId = getYoutubeVideoIdFromUrl(url);
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : normalizedInput;
+      return videoId
+        ? `https://www.youtube.com/embed/${videoId}`
+        : normalizedInput;
     } catch {
       return normalizedInput;
     }

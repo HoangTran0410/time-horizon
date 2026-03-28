@@ -56,7 +56,7 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div className="ui-badge font-mono text-[0.72rem]">
-        Logic {logicFps} | Canvas {renderFps}
+        {logicFps}|{renderFps}
       </div>
       {supportsFullscreen ? (
         <button
@@ -64,7 +64,7 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
           onClick={() => {
             void handleToggleFullscreen();
           }}
-          className="ui-button ui-button-secondary h-10 px-4 text-[0.82rem]"
+          className="ui-icon-button h-10 w-10 shrink-0"
           aria-label={
             isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"
           }
@@ -77,15 +77,12 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
           ) : (
             <Maximize2 width={15} height={15} />
           )}
-          <span className="hidden sm:inline">
-            {isFullscreen ? "Window" : "Fullscreen"}
-          </span>
         </button>
       ) : null}
       <button
         type="button"
         onClick={onToggleTheme}
-        className="ui-button ui-button-secondary h-10 px-4 text-[0.82rem]"
+        className="ui-icon-button h-10 w-10 shrink-0"
         aria-label={
           theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
         }
@@ -98,9 +95,6 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
         ) : (
           <MoonStar width={15} height={15} />
         )}
-        <span className="hidden sm:inline">
-          {theme === "dark" ? "Light" : "Dark"}
-        </span>
       </button>
     </div>
   );

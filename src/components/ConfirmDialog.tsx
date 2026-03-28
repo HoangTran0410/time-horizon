@@ -49,11 +49,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onCancel]);
 
-  const handleBackdropPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleBackdropPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
     shouldCloseOnPointerUpRef.current = event.target === event.currentTarget;
   };
 
-  const handleBackdropPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleBackdropPointerUp = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
     if (
       shouldCloseOnPointerUpRef.current &&
       event.target === event.currentTarget
@@ -101,9 +105,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   <AlertTriangle size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="ui-kicker">
-                    Confirm Action
-                  </div>
+                  <div className="ui-kicker">Confirm Action</div>
                   <h2 className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white">
                     {title}
                   </h2>

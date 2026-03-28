@@ -117,41 +117,41 @@ const CANVAS_THEME = {
     mediaVideoBadgeIcon: "#fff1f2",
   },
   light: {
-    axis: "#c0c9d4",
-    yearZero: "rgba(100,116,139,0.24)",
-    tick: "#c3ccd7",
-    tickHighlighted: "rgba(30,41,59,0.8)",
-    tickText: "#7b8798",
-    tickTextHighlighted: "#1f2937",
-    collapsedLine: "rgba(180,83,9,0.3)",
-    collapsedLineHover: "rgba(180,83,9,0.72)",
-    collapsedFill: "#fffaf2",
-    collapsedStroke: "rgba(180,83,9,0.52)",
-    collapsedStrokeHover: "rgba(146,64,14,0.82)",
-    collapsedText: "#b45309",
-    collapsedTextHover: "#92400e",
-    defaultIdleLine: "#c8d0da",
-    defaultIdleBorder: "#c0cad4",
-    defaultActiveLine: "#059669",
-    defaultActiveBorder: "#059669",
-    defaultActiveText: "#047857",
-    defaultActiveDate: "#059669",
-    eventFill: "#fffaf2",
-    eventText: "#1f2937",
-    eventDate: "#667085",
-    rulerLabelFill: "rgba(255,250,242,0.95)",
-    rulerLabelText: "#92400e",
-    bigBangLine: "rgba(194,65,12,0.3)",
-    bigBangFill: "#fff7eb",
-    bigBangStroke: "rgba(194,65,12,0.42)",
-    bigBangText: "#c2410c",
-    bigBangBadgeText: "#c2410c",
-    mediaImageBadgeFill: "rgba(2,132,199,0.92)",
-    mediaImageBadgeStroke: "rgba(186,230,253,0.95)",
-    mediaImageBadgeIcon: "#f8fafc",
-    mediaVideoBadgeFill: "rgba(220,38,38,0.9)",
-    mediaVideoBadgeStroke: "rgba(254,202,202,0.95)",
-    mediaVideoBadgeIcon: "#fff7ed",
+    axis: "#bbb7af",
+    yearZero: "rgba(98,109,122,0.16)",
+    tick: "#cbc6be",
+    tickHighlighted: "rgba(79,89,100,0.58)",
+    tickText: "#8f8a81",
+    tickTextHighlighted: "#54606c",
+    collapsedLine: "rgba(126,112,95,0.2)",
+    collapsedLineHover: "rgba(126,112,95,0.42)",
+    collapsedFill: "#f0ebe3",
+    collapsedStroke: "rgba(126,112,95,0.3)",
+    collapsedStrokeHover: "rgba(107,95,81,0.5)",
+    collapsedText: "#7f6852",
+    collapsedTextHover: "#665342",
+    defaultIdleLine: "#c8c2ba",
+    defaultIdleBorder: "#bbb5ad",
+    defaultActiveLine: "#4d9b8b",
+    defaultActiveBorder: "#4d9b8b",
+    defaultActiveText: "#356f65",
+    defaultActiveDate: "#447f73",
+    eventFill: "#f1ece4",
+    eventText: "#353d45",
+    eventDate: "#767d85",
+    rulerLabelFill: "rgba(243,239,232,0.96)",
+    rulerLabelText: "#6c6258",
+    bigBangLine: "rgba(125,114,100,0.18)",
+    bigBangFill: "#ece6dd",
+    bigBangStroke: "rgba(125,114,100,0.28)",
+    bigBangText: "#7c6856",
+    bigBangBadgeText: "#6b5a4a",
+    mediaImageBadgeFill: "rgba(74,144,191,0.88)",
+    mediaImageBadgeStroke: "rgba(200,225,241,0.95)",
+    mediaImageBadgeIcon: "#f8fbfd",
+    mediaVideoBadgeFill: "rgba(193,95,95,0.86)",
+    mediaVideoBadgeStroke: "rgba(242,206,206,0.95)",
+    mediaVideoBadgeIcon: "#fff9f7",
   },
 } as const;
 
@@ -1176,11 +1176,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     // Canvas needs an explicit RAF loop while Motion animates event layout values.
     // Camera-only movement is handled by the MotionValue subscriptions above.
     let frameId = 0;
-      const loop = (now: number) => {
-        renderNow(now);
-        frameId = requestAnimationFrame(loop);
-      };
+    const loop = (now: number) => {
+      renderNow(now);
       frameId = requestAnimationFrame(loop);
+    };
+    frameId = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(frameId);

@@ -26,9 +26,7 @@ export const PanelToggleButton: React.FC<PanelToggleButtonProps> = ({
     aria-label={isOpen ? closeLabel : openLabel}
     title={isOpen ? closeLabel : openLabel}
   >
-    {showIndicator && (
-      <span className="ui-toolbar-indicator" />
-    )}
+    {showIndicator && <span className="ui-toolbar-indicator" />}
     {isOpen ? <X width={16} height={16} /> : children}
   </button>
 );

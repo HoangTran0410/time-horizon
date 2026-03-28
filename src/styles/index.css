@@ -75,6 +75,9 @@ body,
   --overlay-70: rgba(0, 0, 0, 0.7);
   --overlay-80: rgba(0, 0, 0, 0.8);
   --overlay-hover: rgba(255, 255, 255, 0.08);
+  --app-grid-line: rgba(255, 255, 255, 0.018);
+  --app-center-line: rgba(255, 255, 255, 0.045);
+  --app-accent-glow: rgba(217, 143, 65, 0.18);
 
   --ui-zinc-950: #0f171d;
   --ui-zinc-950-95: rgba(15, 23, 29, 0.95);
@@ -141,97 +144,100 @@ body,
 }
 
 :root[data-theme="light"] {
-  --app-bg: #f4efe5;
+  --app-bg: #ece8e1;
   --app-bg-image:
     radial-gradient(
       circle at 18% 14%,
-      rgba(23, 181, 143, 0.08),
-      transparent 30%
+      rgba(95, 137, 130, 0.045),
+      transparent 34%
     ),
     radial-gradient(
       circle at 82% 8%,
-      rgba(181, 110, 39, 0.09),
-      transparent 26%
+      rgba(124, 136, 152, 0.05),
+      transparent 30%
     ),
     radial-gradient(
       circle at 50% 110%,
-      rgba(214, 170, 104, 0.15),
-      transparent 34%
+      rgba(146, 155, 168, 0.07),
+      transparent 38%
     ),
-    linear-gradient(180deg, #f7f1e7 0%, #f1e9dc 52%, #e9e0d0 100%);
+    linear-gradient(180deg, #f3f0ea 0%, #ebe7df 52%, #e1dcd3 100%);
   --app-vignette: radial-gradient(
     circle at 50% 50%,
     transparent 0%,
-    rgba(148, 163, 184, 0.12) 100%
+    rgba(106, 116, 130, 0.12) 100%
   );
-  --app-shadow-lg: 0 28px 74px rgba(71, 85, 105, 0.14);
-  --overlay-60: rgba(15, 23, 42, 0.38);
-  --overlay-70: rgba(15, 23, 42, 0.5);
-  --overlay-80: rgba(15, 23, 42, 0.62);
-  --overlay-hover: rgba(15, 23, 42, 0.08);
+  --app-shadow-lg: 0 24px 60px rgba(88, 98, 112, 0.1);
+  --overlay-60: rgba(34, 43, 57, 0.34);
+  --overlay-70: rgba(34, 43, 57, 0.46);
+  --overlay-80: rgba(34, 43, 57, 0.58);
+  --overlay-hover: rgba(34, 43, 57, 0.06);
+  --app-grid-line: rgba(92, 102, 116, 0.045);
+  --app-center-line: rgba(92, 102, 116, 0.08);
+  --app-accent-glow: rgba(120, 132, 148, 0.08);
 
-  --ui-zinc-950: #fffaf3;
-  --ui-zinc-950-95: rgba(255, 250, 243, 0.95);
-  --ui-zinc-950-70: rgba(255, 250, 243, 0.7);
-  --ui-zinc-950-60: rgba(255, 250, 243, 0.6);
-  --ui-zinc-950-50: rgba(255, 250, 243, 0.5);
-  --ui-zinc-950-40: rgba(255, 250, 243, 0.4);
-  --ui-zinc-900: #f6efe3;
-  --ui-zinc-900-95: rgba(246, 239, 227, 0.95);
-  --ui-zinc-900-80: rgba(246, 239, 227, 0.8);
-  --ui-zinc-800: #ede2d0;
-  --ui-zinc-700: #d7c8b2;
-  --ui-zinc-600: #b7a58b;
-  --ui-zinc-500: #7f7669;
-  --ui-zinc-400: #6b6c72;
-  --ui-zinc-300: #48515c;
-  --ui-zinc-200: #313b46;
-  --ui-zinc-100: #1d2731;
-  --ui-zinc-050: #0f1722;
-  --ui-zinc-600-text: #8e7b61;
+  --ui-zinc-950: #f3efe8;
+  --ui-zinc-950-95: rgba(243, 239, 232, 0.95);
+  --ui-zinc-950-70: rgba(243, 239, 232, 0.7);
+  --ui-zinc-950-60: rgba(243, 239, 232, 0.6);
+  --ui-zinc-950-50: rgba(243, 239, 232, 0.5);
+  --ui-zinc-950-40: rgba(243, 239, 232, 0.4);
+  --ui-zinc-900: #e7e2da;
+  --ui-zinc-900-95: rgba(231, 226, 218, 0.95);
+  --ui-zinc-900-80: rgba(231, 226, 218, 0.84);
+  --ui-zinc-800: #d8d1c8;
+  --ui-zinc-700: #beb6ab;
+  --ui-zinc-600: #9f968c;
+  --ui-zinc-500: #797166;
+  --ui-zinc-400: #68675f;
+  --ui-zinc-300: #51545b;
+  --ui-zinc-200: #3f464d;
+  --ui-zinc-100: #31373e;
+  --ui-zinc-050: #252c33;
+  --ui-zinc-600-text: #80786d;
 
-  --ui-border-zinc-800: #d8c8b1;
-  --ui-border-zinc-800-80: rgba(216, 200, 177, 0.8);
-  --ui-border-zinc-800-70: rgba(216, 200, 177, 0.7);
-  --ui-border-zinc-800-50: rgba(216, 200, 177, 0.5);
-  --ui-border-zinc-700: #ccb99d;
-  --ui-border-zinc-700-70: rgba(204, 185, 157, 0.7);
-  --ui-border-zinc-600: #b7a58b;
-  --ui-border-zinc-500-90: rgba(127, 118, 105, 0.9);
+  --ui-border-zinc-800: #cfc7bc;
+  --ui-border-zinc-800-80: rgba(207, 199, 188, 0.8);
+  --ui-border-zinc-800-70: rgba(207, 199, 188, 0.7);
+  --ui-border-zinc-800-50: rgba(207, 199, 188, 0.5);
+  --ui-border-zinc-700: #b9b0a4;
+  --ui-border-zinc-700-70: rgba(185, 176, 164, 0.7);
+  --ui-border-zinc-600: #a39a8f;
+  --ui-border-zinc-500-90: rgba(121, 113, 102, 0.9);
 
-  --ui-emerald-600: #0b8f71;
-  --ui-emerald-500: #109374;
-  --ui-emerald-500-15: rgba(16, 147, 116, 0.13);
-  --ui-emerald-500-10: rgba(16, 147, 116, 0.1);
-  --ui-emerald-500-05: rgba(16, 147, 116, 0.05);
-  --ui-border-emerald-500: #109374;
-  --ui-border-emerald-500-50: rgba(16, 147, 116, 0.46);
-  --ui-border-emerald-500-40: rgba(16, 147, 116, 0.36);
-  --ui-border-emerald-500-30: rgba(16, 147, 116, 0.24);
-  --ui-border-emerald-500-20: rgba(16, 147, 116, 0.16);
-  --ui-emerald-300: #0a6e57;
-  --ui-emerald-200: #085844;
-  --ui-emerald-100: #064738;
+  --ui-emerald-600: #3b8b7c;
+  --ui-emerald-500: #4d9b8b;
+  --ui-emerald-500-15: rgba(77, 155, 139, 0.14);
+  --ui-emerald-500-10: rgba(77, 155, 139, 0.1);
+  --ui-emerald-500-05: rgba(77, 155, 139, 0.05);
+  --ui-border-emerald-500: #4d9b8b;
+  --ui-border-emerald-500-50: rgba(77, 155, 139, 0.44);
+  --ui-border-emerald-500-40: rgba(77, 155, 139, 0.34);
+  --ui-border-emerald-500-30: rgba(77, 155, 139, 0.22);
+  --ui-border-emerald-500-20: rgba(77, 155, 139, 0.16);
+  --ui-emerald-300: #346f65;
+  --ui-emerald-200: #2b5c54;
+  --ui-emerald-100: #234a44;
 
-  --ui-amber-500-20: rgba(168, 100, 31, 0.18);
-  --ui-amber-500-15: rgba(168, 100, 31, 0.14);
-  --ui-amber-500-10: rgba(168, 100, 31, 0.1);
-  --ui-amber-500: #a8641f;
-  --ui-border-amber-500-30: rgba(168, 100, 31, 0.28);
-  --ui-border-amber-400-60: rgba(168, 100, 31, 0.48);
-  --ui-amber-200: #8a4e12;
-  --ui-amber-100: #73400f;
-  --ui-rose-500: #d9566c;
-  --ui-rose-500-15: rgba(217, 86, 108, 0.15);
-  --ui-rose-500-10: rgba(217, 86, 108, 0.1);
-  --ui-border-rose-500-35: rgba(217, 86, 108, 0.35);
-  --ui-border-rose-500-20: rgba(217, 86, 108, 0.2);
-  --ui-rose-200: #8f3144;
-  --ui-rose-100: #702736;
-  --ui-surface-highlight: rgba(255, 255, 255, 0.28);
-  --ui-shadow-soft: 0 28px 70px rgba(107, 114, 128, 0.18);
-  --ui-shadow-card: 0 14px 34px rgba(107, 114, 128, 0.12);
-  --ui-focus-ring: 0 0 0 4px rgba(16, 147, 116, 0.12);
+  --ui-amber-500-20: rgba(144, 117, 85, 0.14);
+  --ui-amber-500-15: rgba(144, 117, 85, 0.11);
+  --ui-amber-500-10: rgba(144, 117, 85, 0.08);
+  --ui-amber-500: #907555;
+  --ui-border-amber-500-30: rgba(144, 117, 85, 0.2);
+  --ui-border-amber-400-60: rgba(160, 133, 104, 0.34);
+  --ui-amber-200: #785f43;
+  --ui-amber-100: #624e38;
+  --ui-rose-500: #c96f7e;
+  --ui-rose-500-15: rgba(201, 111, 126, 0.14);
+  --ui-rose-500-10: rgba(201, 111, 126, 0.1);
+  --ui-border-rose-500-35: rgba(201, 111, 126, 0.3);
+  --ui-border-rose-500-20: rgba(201, 111, 126, 0.18);
+  --ui-rose-200: #87505c;
+  --ui-rose-100: #6f424c;
+  --ui-surface-highlight: rgba(255, 255, 255, 0.12);
+  --ui-shadow-soft: 0 20px 46px rgba(103, 109, 120, 0.1);
+  --ui-shadow-card: 0 10px 22px rgba(103, 109, 120, 0.07);
+  --ui-focus-ring: 0 0 0 4px rgba(77, 155, 139, 0.12);
 }
 
 button {
@@ -292,11 +298,11 @@ select {
       90deg,
       transparent 0,
       transparent calc(50% - 1px),
-      rgba(255, 255, 255, 0.045) calc(50% - 1px),
-      rgba(255, 255, 255, 0.045) calc(50% + 1px),
+      var(--app-center-line) calc(50% - 1px),
+      var(--app-center-line) calc(50% + 1px),
       transparent calc(50% + 1px)
     ),
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    linear-gradient(var(--app-grid-line) 1px, transparent 1px);
   background-size:
     100% 100%,
     100% 3.75rem;
@@ -309,7 +315,7 @@ select {
   height: 16rem;
   background: radial-gradient(
     circle,
-    rgba(217, 143, 65, 0.18) 0%,
+    var(--app-accent-glow) 0%,
     transparent 68%
   );
   filter: blur(8px);

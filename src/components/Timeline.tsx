@@ -251,7 +251,9 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
       throw new Error("That collection could not be found for export.");
     }
 
-    if (!Object.prototype.hasOwnProperty.call(collectionEventsById, collectionId)) {
+    if (
+      !Object.prototype.hasOwnProperty.call(collectionEventsById, collectionId)
+    ) {
       throw new Error("Only downloaded collections can be exported.");
     }
 

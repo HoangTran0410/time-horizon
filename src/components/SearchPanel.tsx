@@ -1,5 +1,5 @@
 import React from "react";
-import { X } from "lucide-react";
+import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { Event } from "../constants/types";
 import { MEDIA_FILTERS, MediaFilter } from "../constants/types";
 import { SearchResultItem } from "./SearchResultItem";
@@ -217,6 +217,18 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       timeRangeStartInput,
     ],
   );
+  const activeFilterCount = React.useMemo(() => {
+    let count = activeMediaFilters.length;
+    if (searchSortMode !== SEARCH_SORT_OPTIONS[0]?.value) count += 1;
+    if (timeRangeStartInput.trim()) count += 1;
+    if (timeRangeEndInput.trim()) count += 1;
+    return count;
+  }, [
+    activeMediaFilters.length,
+    searchSortMode,
+    timeRangeEndInput,
+    timeRangeStartInput,
+  ]);
 
   React.useLayoutEffect(() => {
     const content = advancedFiltersContentRef.current;
@@ -354,18 +366,29 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             <button
               type="button"
               onClick={() => setIsAdvancedFiltersOpen((current) => !current)}
-              className="flex w-full items-center justify-between rounded-lg text-left"
+              className="group flex w-full items-center gap-2 rounded-[0.95rem] px-0.5 py-0.5 text-left transition-colors duration-200"
               aria-expanded={isAdvancedFiltersOpen}
             >
-              <div className="flex items-center gap-2 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500">
-                <span>Filters</span>
-                {hasActiveFilters && (
-                  <span className="h-2 w-2 rounded-full bg-rose-500/80" />
-                )}
+              <SlidersHorizontal
+                size={14}
+                className="shrink-0 text-zinc-500 transition-colors duration-200 group-hover:text-zinc-300"
+              />
+              <div className="min-w-0 flex flex-1 items-center gap-2">
+                <span className="text-[0.7rem] font-mono uppercase tracking-[0.18em] text-zinc-300">
+                  Filters
+                </span>
+                {hasActiveFilters ? (
+                  <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[0.6rem] font-mono uppercase tracking-[0.14em] text-emerald-200">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
               </div>
-              <span className="text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-400">
-                {isAdvancedFiltersOpen ? "Hide" : "Show"}
-              </span>
+              <ChevronDown
+                size={15}
+                className={`shrink-0 text-zinc-500 transition-all duration-200 group-hover:text-zinc-300 ${
+                  isAdvancedFiltersOpen ? "rotate-180" : "rotate-0"
+                }`}
+              />
             </button>
             <div
               className="overflow-hidden transition-[max-height,opacity,margin-top] duration-200 ease-out"
@@ -374,7 +397,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   ? `${advancedFiltersHeight}px`
                   : "0px",
                 opacity: isAdvancedFiltersOpen ? 1 : 0,
-                // marginTop: isAdvancedFiltersOpen ? "0.5rem" : "0rem",
+                marginTop: isAdvancedFiltersOpen ? "0.75rem" : "0rem",
               }}
               aria-hidden={!isAdvancedFiltersOpen}
             >
