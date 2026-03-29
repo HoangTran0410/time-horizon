@@ -1231,6 +1231,19 @@ export const useTimelineViewport = ({
     animateFocusYear(targetYear, FOCUS_SPRING);
   };
 
+  const handleMinimapSeek = (targetYear: number) => {
+    clearInertia();
+    clearDragFrame();
+    resetDragState();
+    pinchGestureRef.current = null;
+    activePointersRef.current.clear();
+    stopCameraAnimations();
+
+    const centerPixel = getViewportCenter();
+    focusPixel.set(centerPixel);
+    focusYear.set(targetYear);
+  };
+
   useEffect(() => {
     focusedEventIdRef.current = selectedEventId;
     setExpandedCollapsedGroup(null);
@@ -1454,6 +1467,7 @@ export const useTimelineViewport = ({
     handleAutoFitRange,
     handleQuickZoom,
     handleJumpToDate,
+    handleMinimapSeek,
     handleZoomDragStart,
     handleZoomDragMove,
     handleZoomDragEnd,

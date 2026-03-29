@@ -488,7 +488,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       <form
         ref={panelRef}
         onSubmit={handleSearchSubmit}
-        className={`ui-panel relative flex w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.7rem] p-4 ${
+        className={`ui-panel relative flex w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.7rem] ${
           panelClassName ?? ""
         }`.trim()}
         style={{ maxHeight }}
@@ -554,7 +554,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         ) : null}
         <div
           ref={resultsListRef}
-          className="min-h-0 flex-1 overflow-y-auto pb-16"
+          className="min-h-0 flex-1 overflow-y-auto pb-16 p-4"
         >
           <div className="mb-3">
             <div className={`min-w-0 ${onClose ? "pr-12" : ""}`.trim()}>

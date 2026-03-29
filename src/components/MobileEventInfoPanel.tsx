@@ -107,11 +107,11 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
         style={isOpen ? { maxHeight: panelMaxHeight } : undefined}
       >
         <div
-          className="ui-panel mt-0.5 flex w-[min(24rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-[1.45rem] p-3.5"
+          className="ui-panel mt-0.5 flex w-[min(24rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-[1.45rem]"
           style={{ maxHeight: panelMaxHeight }}
         >
           {event ? (
-            <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+            <div className="min-h-0 space-y-4 overflow-y-auto p-4">
               <div className="flex items-start gap-2">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] border border-zinc-700 bg-zinc-900 text-2xl">
                   {event.emoji}
