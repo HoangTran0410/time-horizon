@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Event, EventCollectionMeta, MediaFilter } from "../constants/types";
 import {
+  ArrowLeft,
   Compass,
   Download,
   Eye,
@@ -44,6 +45,7 @@ interface SidebarProps {
   onExportCollection: (
     collectionId: string,
   ) => Promise<string | void> | string | void;
+  onBackToLanding: () => void;
   openRequestKey?: number;
   openExploreRequestKey?: number;
 }
@@ -67,6 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddCollection,
   onImportCollections,
   onExportCollection,
+  onBackToLanding,
   openRequestKey = 0,
   openExploreRequestKey = 0,
 }) => {
@@ -362,14 +365,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-20">
           <div className="mb-5">
-            {/* <div className="ui-kicker mb-2">Timeline Atlas</div> */}
-            <h2 className="ui-display-title text-[2rem] leading-none text-white">
-              Time Horizon
-            </h2>
-            <p className="mt-2 max-w-sm text-[0.9rem] leading-6 text-zinc-400">
-              Curate collections, search events, and compose a cleaner view of
-              history across every scale.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="ui-display-title text-[2rem] leading-none text-white">
+                  Time Horizon
+                </h2>
+                <p className="mt-2 max-w-sm text-[0.9rem] leading-6 text-zinc-400">
+                  Curate collections, search events, and compose a cleaner
+                  view of history across every scale.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onBackToLanding}
+                className="ui-button ui-button-compact ui-button-secondary shrink-0 rounded-full px-3 py-2"
+                aria-label="Back to landing page"
+                title="Back to landing"
+              >
+                <ArrowLeft size={14} />
+                <span>Landing</span>
+              </button>
+            </div>
           </div>
 
           <div className="ui-panel-soft mb-6 rounded-[1.5rem] p-3.5">

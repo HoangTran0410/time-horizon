@@ -119,6 +119,7 @@ export const useTimelineViewport = ({
   } | null>(null);
   const eventLayouts = useRef<Record<string, EventLayoutState>>({});
   const tickUpdateFrame = useRef<number | null>(null);
+  const layoutUpdateFrame = useRef<number | null>(null);
   const prevLogZoom = useRef<number | null>(null);
   const zoomTickTimeoutRef = useRef<number | null>(null);
   const zoomLayoutTimeoutRef = useRef<number | null>(null);
@@ -457,6 +458,15 @@ export const useTimelineViewport = ({
     tickUpdateFrame.current = requestAnimationFrame(() => {
       tickUpdateFrame.current = null;
       updateTicks();
+    });
+  };
+
+  const scheduleLayoutUpdate = () => {
+    if (layoutUpdateFrame.current !== null) return;
+    layoutUpdateFrame.current = requestAnimationFrame(() => {
+      layoutUpdateFrame.current = null;
+      updateVisibleBounds();
+      updateLayout();
     });
   };
 
@@ -1268,9 +1278,12 @@ export const useTimelineViewport = ({
     const bounds = updateVisibleBounds();
     const tickState = tickStateRef.current;
     if (!bounds || !tickState) {
+      scheduleLayoutUpdate();
       scheduleTickUpdate();
       return;
     }
+
+    scheduleLayoutUpdate();
 
     if (
       bounds.startYear < tickState.firstTick + tickState.interval ||
@@ -1355,6 +1368,9 @@ export const useTimelineViewport = ({
     return () => {
       if (tickUpdateFrame.current !== null) {
         cancelAnimationFrame(tickUpdateFrame.current);
+      }
+      if (layoutUpdateFrame.current !== null) {
+        cancelAnimationFrame(layoutUpdateFrame.current);
       }
       if (dragFrame.current !== null) {
         cancelAnimationFrame(dragFrame.current);

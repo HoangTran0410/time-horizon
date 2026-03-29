@@ -28,6 +28,7 @@ import {
 interface TimelineProps {
   theme: ThemeMode;
   onToggleTheme: () => void;
+  onBackToLanding: () => void;
 }
 
 type CollectionTransferPayload = {
@@ -42,7 +43,11 @@ type CollectionTransferPayload = {
   }>;
 };
 
-export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
+export const Timeline = ({
+  theme,
+  onToggleTheme,
+  onBackToLanding,
+}: TimelineProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sidebarOpenRequestKey, setSidebarOpenRequestKey] = useState(0);
   const [exploreOpenRequestKey, setExploreOpenRequestKey] = useState(0);
@@ -427,6 +432,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
         onAddCollection={openCollectionCreator}
         onImportCollections={handleImportCollectionFile}
         onExportCollection={handleExportCollection}
+        onBackToLanding={onBackToLanding}
         openRequestKey={sidebarOpenRequestKey}
         openExploreRequestKey={exploreOpenRequestKey}
       />
@@ -439,7 +445,7 @@ export const Timeline = ({ theme, onToggleTheme }: TimelineProps) => {
               ? "Nothing is visible right now."
               : downloadedCollectionIds.length > 0
                 ? "Your visible timeline is empty."
-                : "Start by bringing in a collection."
+                : "Welcome to Time Horizon."
           }
           description={
             hiddenDownloadedCollectionIds.length > 0
