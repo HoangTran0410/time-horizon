@@ -37,7 +37,7 @@ interface SidebarProps {
   onSetCollectionColor: (collectionId: string, color: string) => void;
   onDeleteCollection: (collection: EventCollectionMeta) => void;
   onRequestConfirm: (options: ConfirmDialogOptions) => void;
-  onPreviewEvent: (event: Event) => void;
+  onEditEvent: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
   onAddEvent: (collectionId?: string) => void;
   onAddCollection: () => void;
@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSetCollectionColor,
   onDeleteCollection,
   onRequestConfirm,
-  onPreviewEvent,
+  onEditEvent,
   onDeleteEvent,
   onAddEvent,
   onAddCollection,
@@ -300,9 +300,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleSelectSidebarSearchEvent = (event: Event) => {
-    onPreviewEvent(event);
-    setBrowsingCollectionId(null);
-    resetCollectionSearchState();
+    onEditEvent(event);
   };
 
   const handleCloseSidebarSearch = () => {
@@ -371,8 +369,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Time Horizon
                 </h2>
                 <p className="mt-2 max-w-sm text-[0.9rem] leading-6 text-zinc-400">
-                  Curate collections, search events, and compose a cleaner
-                  view of history across every scale.
+                  Curate collections, search events, and compose a cleaner view
+                  of history across every scale.
                 </p>
               </div>
               <button
@@ -383,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 title="Back to landing"
               >
                 <ArrowLeft size={14} />
-                <span>Landing</span>
+                <span>Home</span>
               </button>
             </div>
           </div>
@@ -842,6 +840,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               isOpen
               searchableEvents={browsedCollectionEvents}
               onSearchSelect={handleSelectSidebarSearchEvent}
+              onEditEvent={onEditEvent}
               onDeleteEvent={onDeleteEvent}
               state={sidebarSearchState}
               title={`Browse '${browsedCollection.name}'`}

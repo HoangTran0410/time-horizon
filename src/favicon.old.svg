@@ -1,0 +1,70 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="10" y1="6" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18181B" />
+      <stop offset="0.55" stop-color="#09090B" />
+      <stop offset="1" stop-color="#020617" />
+    </linearGradient>
+    <radialGradient id="surface" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(23 18) rotate(47.49) scale(30.8484 35.9565)">
+      <stop stop-color="#27272A" stop-opacity="0.92" />
+      <stop offset="0.38" stop-color="#18181B" stop-opacity="0.28" />
+      <stop offset="1" stop-color="#18181B" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="haze" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 39) rotate(90) scale(13 23)">
+      <stop stop-color="#34D399" stop-opacity="0.28" />
+      <stop offset="1" stop-color="#34D399" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="beam" x1="32" y1="18" x2="32" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A" />
+      <stop offset="0.4" stop-color="#F59E0B" />
+      <stop offset="1" stop-color="#10B981" />
+    </linearGradient>
+    <linearGradient id="horizon" x1="14" y1="39" x2="50" y2="39" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A" />
+      <stop offset="0.2" stop-color="#34D399" />
+      <stop offset="0.5" stop-color="#FDE68A" />
+      <stop offset="0.8" stop-color="#34D399" />
+      <stop offset="1" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="orbit" x1="16" y1="36" x2="52" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399" />
+      <stop offset="0.5" stop-color="#A7F3D0" />
+      <stop offset="1" stop-color="#FDE68A" />
+    </linearGradient>
+    <radialGradient id="pulse" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 25) rotate(90) scale(7)">
+      <stop stop-color="#FEF3C7" />
+      <stop offset="0.45" stop-color="#FDE68A" />
+      <stop offset="1" stop-color="#F59E0B" />
+    </radialGradient>
+    <filter id="softGlow" x="8" y="10" width="48" height="40" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+      <feGaussianBlur stdDeviation="2.4" result="effect1_foregroundBlur" />
+    </filter>
+    <filter id="pulseGlow" x="20" y="13" width="24" height="24" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+      <feGaussianBlur stdDeviation="2.5" result="effect1_foregroundBlur" />
+    </filter>
+  </defs>
+
+  <rect x="4" y="4" width="56" height="56" rx="18" fill="url(#bg)" />
+  <rect x="4.75" y="4.75" width="54.5" height="54.5" rx="17.25" stroke="#27272A" stroke-opacity="0.9" stroke-width="1.5" />
+  <rect x="10" y="10" width="44" height="44" rx="14" fill="url(#surface)" />
+
+  <ellipse cx="32" cy="39" rx="18" ry="8" fill="url(#haze)" />
+
+  <g filter="url(#softGlow)">
+    <path d="M16 36C19.8 28.4 26 24 32.6 24C39.2 24 45.2 27.7 48.4 34.2" stroke="url(#orbit)" stroke-width="3.5" stroke-linecap="round" />
+    <path d="M14 39H50" stroke="url(#horizon)" stroke-width="4" stroke-linecap="round" />
+  </g>
+
+  <path d="M32 18V44" stroke="url(#beam)" stroke-width="3.25" stroke-linecap="round" />
+
+  <g filter="url(#pulseGlow)">
+    <circle cx="32" cy="25" r="5.2" fill="url(#pulse)" />
+  </g>
+  <circle cx="32" cy="25" r="3.4" fill="#FEFCE8" />
+
+  <path d="M47.5 16.5L48.4 19.1L51 20L48.4 20.9L47.5 23.5L46.6 20.9L44 20L46.6 19.1L47.5 16.5Z" fill="#FDE68A" />
+</svg>

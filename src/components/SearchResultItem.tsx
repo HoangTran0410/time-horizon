@@ -1,12 +1,16 @@
 import React from "react";
-import { Image, Link2, Play, Trash2 } from "lucide-react";
+import { Image, Link2, MoreHorizontal, Play } from "lucide-react";
 import { Event } from "../constants/types";
 import { getEventDisplayLabel } from "../helpers";
 
 interface SearchResultItemProps {
   event: Event;
   onSelect: (event: Event) => void;
-  onDelete: (event: Event) => void;
+  onOpenActions: (
+    event: Event,
+    trigger: HTMLButtonElement,
+  ) => void;
+  isActionsOpen: boolean;
 }
 
 const getSearchSummary = (description: string) => {
@@ -16,7 +20,7 @@ const getSearchSummary = (description: string) => {
 };
 
 export const SearchResultItem = React.memo<SearchResultItemProps>(
-  ({ event, onSelect, onDelete }) => (
+  ({ event, onSelect, onOpenActions, isActionsOpen }) => (
     <div className="ui-card flex items-start gap-3 rounded-[1.25rem] px-3.5 py-3">
       <button
         type="button"
@@ -64,12 +68,18 @@ export const SearchResultItem = React.memo<SearchResultItemProps>(
       </button>
       <button
         type="button"
-        onClick={() => onDelete(event)}
-        className="ui-icon-button ui-status-danger h-10 w-10"
-        aria-label={`Delete ${event.title}`}
-        title={`Delete ${event.title}`}
+        onClick={(clickEvent) =>
+          onOpenActions(event, clickEvent.currentTarget)
+        }
+        className={`ui-icon-button h-10 w-10 shrink-0 rounded-[0.95rem] ${
+          isActionsOpen ? "border-zinc-600 bg-zinc-800" : ""
+        }`}
+        aria-label={`More actions for ${event.title}`}
+        aria-expanded={isActionsOpen}
+        aria-haspopup="menu"
+        title={`More actions for ${event.title}`}
       >
-        <Trash2 width={13} height={13} />
+        <MoreHorizontal width={15} height={15} />
       </button>
     </div>
   ),

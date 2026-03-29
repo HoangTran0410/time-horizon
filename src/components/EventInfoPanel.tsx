@@ -228,6 +228,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
     originX: number;
     originY: number;
   } | null>(null);
+  const imageWheelSurfaceRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     setMediaModal(null);
@@ -256,20 +257,35 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   const clampImageScale = (nextScale: number) =>
     Math.min(5, Math.max(1, nextScale));
 
-  const handleImageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  React.useEffect(() => {
+    if (mediaModal !== "image") return;
 
-    setImageScale((prev) => {
-      const nextScale = clampImageScale(prev + (e.deltaY < 0 ? 0.24 : -0.24));
+    const surface = imageWheelSurfaceRef.current;
+    if (!surface) return;
 
-      if (nextScale === 1) {
-        setImageOffset({ x: 0, y: 0 });
-      }
+    const handleImageWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-      return nextScale;
-    });
-  };
+      setImageScale((prev) => {
+        const nextScale = clampImageScale(
+          prev + (event.deltaY < 0 ? 0.24 : -0.24),
+        );
+
+        if (nextScale === 1) {
+          setImageOffset({ x: 0, y: 0 });
+        }
+
+        return nextScale;
+      });
+    };
+
+    surface.addEventListener("wheel", handleImageWheel, { passive: false });
+
+    return () => {
+      surface.removeEventListener("wheel", handleImageWheel);
+    };
+  }, [mediaModal]);
 
   const handleImagePointerDown: React.PointerEventHandler<HTMLElement> = (
     e,
@@ -577,6 +593,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
       <AnimatePresence>
         {mediaModal === "image" && imageUrl ? (
           <motion.div
+            key="event-image-modal"
             className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -615,8 +632,8 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                 <X width={16} height={16} />
               </button>
               <div
+                ref={imageWheelSurfaceRef}
                 className="flex h-[min(86vh,900px)] w-[min(92vw,1200px)] items-center justify-center overflow-hidden bg-zinc-950"
-                onWheel={handleImageWheel}
               >
                 <EventImagePreview
                   src={imageUrl}
@@ -645,6 +662,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
         ) : null}
 
         <EventVideoModal
+          key="event-video-modal"
           isOpen={mediaModal === "video"}
           videoUrl={embeddedVideoUrl}
           title={event.title}

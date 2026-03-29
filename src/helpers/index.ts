@@ -22,6 +22,87 @@ export const normalizeEventTimeParts = (time: EventTime): Required<EventTime> =>
     time[5] ?? null,
   ] as Required<EventTime>;
 
+const SHARED_COLLECTIONS_QUERY_PARAM = "c";
+const LEGACY_SHARED_COLLECTIONS_QUERY_PARAM = "collections";
+const SHARED_EVENT_QUERY_PARAM = "e";
+const TIMELINE_VIEW_QUERY_PARAM = "t";
+
+const uniqueCollectionIds = (collectionIds: string[]): string[] =>
+  collectionIds.filter(
+    (collectionId, index, allCollectionIds) =>
+      collectionId.length > 0 && allCollectionIds.indexOf(collectionId) === index,
+  );
+
+export const getSharedCollectionIdsFromSearch = (search: string): string[] => {
+  const params = new URLSearchParams(search);
+  const rawValue =
+    params.get(SHARED_COLLECTIONS_QUERY_PARAM) ??
+    params.get(LEGACY_SHARED_COLLECTIONS_QUERY_PARAM);
+  if (!rawValue) return [];
+
+  return uniqueCollectionIds(
+    rawValue
+      .split(",")
+      .map((collectionId) => collectionId.trim())
+      .filter(Boolean),
+  );
+};
+
+export const hasSharedCollectionIdsInSearch = (search: string): boolean =>
+  getSharedCollectionIdsFromSearch(search).length > 0;
+
+export const getSharedEventIdFromSearch = (search: string): string | null => {
+  const params = new URLSearchParams(search);
+  const rawValue = params.get(SHARED_EVENT_QUERY_PARAM);
+  if (!rawValue) return null;
+
+  const eventId = rawValue.trim();
+  return eventId.length > 0 ? eventId : null;
+};
+
+export const hasSharedEventIdInSearch = (search: string): boolean =>
+  getSharedEventIdFromSearch(search) !== null;
+
+export const hasTimelineViewInSearch = (search: string): boolean => {
+  const params = new URLSearchParams(search);
+  return params.get(TIMELINE_VIEW_QUERY_PARAM) === "1";
+};
+
+export const setTimelineViewInUrl = (url: URL, enabled: boolean): void => {
+  if (enabled) {
+    url.searchParams.set(TIMELINE_VIEW_QUERY_PARAM, "1");
+  } else {
+    url.searchParams.delete(TIMELINE_VIEW_QUERY_PARAM);
+  }
+};
+
+export const setSharedCollectionIdsInUrl = (
+  url: URL,
+  collectionIds: string[],
+): void => {
+  const serializedIds = uniqueCollectionIds(collectionIds).join(",");
+  if (serializedIds) {
+    url.searchParams.set(SHARED_COLLECTIONS_QUERY_PARAM, serializedIds);
+  } else {
+    url.searchParams.delete(SHARED_COLLECTIONS_QUERY_PARAM);
+  }
+
+  url.searchParams.delete(LEGACY_SHARED_COLLECTIONS_QUERY_PARAM);
+};
+
+export const setSharedEventIdInUrl = (
+  url: URL,
+  eventId: string | null,
+): void => {
+  const nextEventId = eventId?.trim() ?? "";
+
+  if (nextEventId) {
+    url.searchParams.set(SHARED_EVENT_QUERY_PARAM, nextEventId);
+  } else {
+    url.searchParams.delete(SHARED_EVENT_QUERY_PARAM);
+  }
+};
+
 const trimOptionalText = (value?: string | null): string | null => {
   if (value == null) return null;
   const trimmed = value.trim();

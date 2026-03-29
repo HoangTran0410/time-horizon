@@ -203,13 +203,9 @@ export const ExploreCollectionsModal: React.FC<
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
       >
-        <div
-          className={`flex max-h-[85vh] flex-col ${
-            isLowHeightViewport ? "overflow-y-auto" : "overflow-hidden"
-          }`}
-        >
+        <div className="flex max-h-[85vh] flex-col overflow-hidden">
           <div
-            className={`border-b border-zinc-800 ${
+            className={`sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl ${
               isLowHeightViewport ? "px-4 pb-4 pt-4" : "px-6 pb-5 pt-6"
             }`}
           >
@@ -290,7 +286,7 @@ export const ExploreCollectionsModal: React.FC<
           <div
             className={
               isLowHeightViewport
-                ? "overflow-visible p-4"
+                ? "min-h-0 flex-1 overflow-y-auto p-4"
                 : "min-h-0 flex-1 overflow-y-auto p-6"
             }
           >

@@ -1,8 +1,9 @@
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   PLAYGROUND_COLLECTION,
   SYNCABLE_COLLECTION_IDS,
+  isSyncableCollection,
 } from "../data/collections";
 import { ThemeMode } from "../constants/theme";
 import { Event, EventCollectionMeta } from "../constants/types";
@@ -18,6 +19,7 @@ import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
 import { WarpOverlay } from "./TimelineMarkers";
 import { createLocalDateStamp, createNewTimelineEvent } from "../helpers";
 import { useTimelineCollections } from "../hooks/useTimelineCollections";
+import { useTimelineShareUrl } from "../hooks/useTimelineShareUrl";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
 import {
   filterTimelineSearchEvents,
@@ -119,6 +121,11 @@ export const Timeline = ({
     handleCreateCollection,
     handleSetCollectionColor,
   } = useTimelineCollections();
+  const {
+    sharedCollectionIds: sharedCollectionIdsFromUrlRaw,
+    sharedEventId: sharedEventIdFromUrl,
+    replaceTimelineShareState,
+  } = useTimelineShareUrl();
   const selectedEventInfo = useMemo(
     () =>
       selectedEventId
@@ -407,9 +414,123 @@ export const Timeline = ({
     closeEventCreator();
   };
 
-  const handlePreviewSidebarEvent = (event: Event) => {
-    previewEvent(event.id);
-  };
+  const sharedCollectionIdsFromUrl = useMemo(
+    () => sharedCollectionIdsFromUrlRaw.filter(isSyncableCollection),
+    [sharedCollectionIdsFromUrlRaw],
+  );
+  const sharedUrlSignature = useMemo(
+    () =>
+      `${sharedCollectionIdsFromUrl.join(",")}::${sharedEventIdFromUrl ?? ""}`,
+    [sharedCollectionIdsFromUrl, sharedEventIdFromUrl],
+  );
+  const lastAppliedSharedUrlSignatureRef = useRef<string | null>(null);
+  const [isApplyingSharedUrl, setIsApplyingSharedUrl] = useState(false);
+
+  useEffect(() => {
+    if (lastAppliedSharedUrlSignatureRef.current === sharedUrlSignature) {
+      return;
+    }
+
+    if (
+      sharedCollectionIdsFromUrl.length === 0 &&
+      sharedEventIdFromUrl === null
+    ) {
+      lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
+      setIsApplyingSharedUrl(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const requestedCollectionIds = new Set(sharedCollectionIdsFromUrl);
+    setIsApplyingSharedUrl(true);
+
+    for (const collectionId of visibleCollectionIds.filter(isSyncableCollection)) {
+      if (!requestedCollectionIds.has(collectionId)) {
+        handleSetCollectionVisibility(collectionId, false);
+      }
+    }
+
+    const applySharedUrl = async () => {
+      await Promise.all(
+        sharedCollectionIdsFromUrl.map((collectionId) =>
+          handleDownloadCollection(collectionId),
+        ),
+      );
+
+      if (isCancelled) return;
+
+      if (sharedEventIdFromUrl) {
+        const latestCollectionEventsById =
+          useTimelineStore.getState().collectionEventsById;
+        const sharedEvent = findEventByIdInCollections(
+          latestCollectionEventsById,
+          sharedEventIdFromUrl,
+        );
+
+        if (sharedEvent) {
+          previewEvent(sharedEvent.id);
+          handleFocusEvent(sharedEvent);
+        }
+      }
+
+      lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
+      setIsApplyingSharedUrl(false);
+    };
+
+    void applySharedUrl();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    handleDownloadCollection,
+    handleSetCollectionVisibility,
+    handleFocusEvent,
+    previewEvent,
+    sharedEventIdFromUrl,
+    sharedCollectionIdsFromUrl,
+    sharedUrlSignature,
+    visibleCollectionIds,
+  ]);
+
+  useEffect(() => {
+    if (isApplyingSharedUrl) {
+      return;
+    }
+
+    const nextSharedCollectionIds = visibleCollectionIds.filter(
+      isSyncableCollection,
+    );
+    const nextSerializedIds = nextSharedCollectionIds.join(",");
+    const selectedEventCollectionId = selectedEventInfo
+      ? findEventCollectionId(selectedEventInfo.id)
+      : null;
+    const nextSharedEventId =
+      selectedEventInfo &&
+      selectedEventCollectionId &&
+      isSyncableCollection(selectedEventCollectionId) &&
+      nextSharedCollectionIds.includes(selectedEventCollectionId)
+        ? selectedEventInfo.id
+        : null;
+    const nextSharedUrlSignature = `${nextSerializedIds}::${nextSharedEventId ?? ""}`;
+
+    if (lastAppliedSharedUrlSignatureRef.current === nextSharedUrlSignature) {
+      return;
+    }
+
+    lastAppliedSharedUrlSignatureRef.current = nextSharedUrlSignature;
+    replaceTimelineShareState({
+      sharedCollectionIds: nextSharedCollectionIds,
+      sharedEventId: nextSharedEventId,
+      keepTimelineView: nextSharedCollectionIds.length === 0,
+    });
+  }, [
+    findEventCollectionId,
+    isApplyingSharedUrl,
+    replaceTimelineShareState,
+    selectedEventInfo,
+    visibleCollectionIds,
+  ]);
 
   return (
     <>
@@ -426,7 +547,9 @@ export const Timeline = ({
         onSetCollectionColor={handleSetCollectionColor}
         onDeleteCollection={handleSidebarDeleteCollection}
         onRequestConfirm={setConfirmDialog}
-        onPreviewEvent={handlePreviewSidebarEvent}
+        onEditEvent={(event) => {
+          openEventEditor(event.id);
+        }}
         onDeleteEvent={handleDeleteTimelineEvent}
         onAddEvent={handleStartAddEvent}
         onAddCollection={openCollectionCreator}
@@ -528,6 +651,9 @@ export const Timeline = ({
         onQuickZoom={handleQuickZoom}
         onJumpToDate={handleJumpToDate}
         onSearchSelect={handleFocusEvent}
+        onEditEvent={(event) => {
+          openEventEditor(event.id);
+        }}
         onDeleteEvent={handleDeleteTimelineEvent}
         onAutoFitAll={() => handleAutoFit()}
         onAutoFitRange={handleAutoFitRange}

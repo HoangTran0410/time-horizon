@@ -1,5 +1,12 @@
 import React from "react";
-import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Event } from "../constants/types";
 import { MEDIA_FILTERS, MediaFilter } from "../constants/types";
 import { SearchResultItem } from "./SearchResultItem";
@@ -31,6 +38,7 @@ interface SearchPanelProps {
   isOpen: boolean;
   searchableEvents: Event[];
   onSearchSelect: (event: Event) => void;
+  onEditEvent: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
   state?: SearchPanelStateAdapter;
   title?: string;
@@ -49,12 +57,16 @@ interface SearchPanelProps {
 const INITIAL_VISIBLE_RESULTS = 16;
 const RESULTS_BATCH_SIZE = 24;
 const SEARCH_PANEL_MAX_HEIGHT = "min(400px, calc(100vh - 3rem))";
+const SCROLL_TO_TOP_THRESHOLD = 480;
+const RESULT_ACTION_MENU_HEIGHT = 118;
+const RESULT_ACTION_MENU_OFFSET = 10;
 const EMPTY_RESULTS: Event[] = [];
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
   isOpen,
   searchableEvents,
   onSearchSelect,
+  onEditEvent,
   onDeleteEvent,
   state,
   title = "Search Events",
@@ -76,6 +88,12 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [visibleResultCount, setVisibleResultCount] = React.useState(
     INITIAL_VISIBLE_RESULTS,
   );
+  const [showScrollToTop, setShowScrollToTop] = React.useState(false);
+  const [activeResultActionMenu, setActiveResultActionMenu] = React.useState<{
+    event: Event;
+    top: number;
+    right: number;
+  } | null>(null);
   const globalSearchQuery = useTimelineStore((state) => state.searchQuery);
   const globalActiveMediaFilters = useTimelineStore(
     (state) => state.activeMediaFilters,
@@ -111,6 +129,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     (state) => state.setShowOnlyResultsOnTimeline,
   );
   const advancedFiltersContentRef = React.useRef<HTMLDivElement>(null);
+  const panelRef = React.useRef<HTMLFormElement>(null);
+  const resultActionsMenuRef = React.useRef<HTMLDivElement>(null);
+  const resultActionsTriggerRef = React.useRef<HTMLButtonElement | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const resultsListRef = React.useRef<HTMLDivElement>(null);
   const resultsSentinelRef = React.useRef<HTMLDivElement>(null);
@@ -152,6 +173,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   React.useEffect(() => {
     if (!isOpen) {
       setIsResultsReady(false);
+      setShowScrollToTop(false);
+      setActiveResultActionMenu(null);
       return;
     }
 
@@ -255,7 +278,80 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   React.useEffect(() => {
     setVisibleResultCount(INITIAL_VISIBLE_RESULTS);
+    setActiveResultActionMenu(null);
   }, [filteredResults]);
+
+  React.useEffect(() => {
+    if (!isOpen || !isResultsReady) {
+      setShowScrollToTop(false);
+      return;
+    }
+
+    const root = resultsListRef.current;
+    if (!root) return;
+
+    const updateScrollToTopVisibility = () => {
+      setShowScrollToTop(root.scrollTop > SCROLL_TO_TOP_THRESHOLD);
+    };
+
+    updateScrollToTopVisibility();
+    root.addEventListener("scroll", updateScrollToTopVisibility, {
+      passive: true,
+    });
+
+    return () => {
+      root.removeEventListener("scroll", updateScrollToTopVisibility);
+    };
+  }, [filteredResults.length, isOpen, isResultsReady]);
+
+  React.useEffect(() => {
+    if (!activeResultActionMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (resultActionsMenuRef.current?.contains(target)) return;
+      if (resultActionsTriggerRef.current?.contains(target)) return;
+      setActiveResultActionMenu(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveResultActionMenu(null);
+      }
+    };
+
+    const handleViewportChange = () => {
+      setActiveResultActionMenu(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleViewportChange);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleViewportChange);
+    };
+  }, [activeResultActionMenu]);
+
+  React.useEffect(() => {
+    if (!activeResultActionMenu) return;
+
+    const root = resultsListRef.current;
+    if (!root) return;
+
+    const handleScroll = () => {
+      setActiveResultActionMenu(null);
+    };
+
+    root.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      root.removeEventListener("scroll", handleScroll);
+    };
+  }, [activeResultActionMenu]);
 
   React.useEffect(() => {
     if (!isOpen || !isResultsReady) return;
@@ -325,6 +421,64 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     onSearchSelect(firstResult);
   };
 
+  const handleScrollToTop = () => {
+    resultsListRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const handleOpenResultActions = (
+    event: Event,
+    trigger: HTMLButtonElement,
+  ) => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    if (activeResultActionMenu?.event.id === event.id) {
+      setActiveResultActionMenu(null);
+      return;
+    }
+
+    const panelRect = panel.getBoundingClientRect();
+    const triggerRect = trigger.getBoundingClientRect();
+    const nextRight = Math.max(12, panelRect.right - triggerRect.right);
+    const preferredTop =
+      triggerRect.bottom - panelRect.top + RESULT_ACTION_MENU_OFFSET;
+    const fallbackTop = Math.max(
+      12,
+      triggerRect.top -
+        panelRect.top -
+        RESULT_ACTION_MENU_HEIGHT -
+        RESULT_ACTION_MENU_OFFSET,
+    );
+    const nextTop =
+      preferredTop + RESULT_ACTION_MENU_HEIGHT > panelRect.height - 12
+        ? fallbackTop
+        : preferredTop;
+
+    resultActionsTriggerRef.current = trigger;
+    setActiveResultActionMenu({
+      event,
+      top: nextTop,
+      right: nextRight,
+    });
+  };
+
+  const handleEditResultEvent = () => {
+    if (!activeResultActionMenu) return;
+    const { event } = activeResultActionMenu;
+    setActiveResultActionMenu(null);
+    onEditEvent(event);
+  };
+
+  const handleDeleteResultEvent = () => {
+    if (!activeResultActionMenu) return;
+    const { event } = activeResultActionMenu;
+    setActiveResultActionMenu(null);
+    onDeleteEvent(event);
+  };
+
   return (
     <div
       className={`ui-popover ${wrapperClassName ?? ""}`.trim()}
@@ -332,15 +486,78 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       style={isOpen ? { maxHeight } : undefined}
     >
       <form
+        ref={panelRef}
         onSubmit={handleSearchSubmit}
-        className={`ui-panel flex w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.7rem] p-4 ${
+        className={`ui-panel relative flex w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.7rem] p-4 ${
           panelClassName ?? ""
         }`.trim()}
         style={{ maxHeight }}
       >
-        <div ref={resultsListRef} className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="min-w-0">
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="ui-icon-button absolute right-4 top-4 z-10 h-9 w-9"
+            aria-label="Close search panel"
+          >
+            <X size={14} />
+          </button>
+        ) : null}
+        {showScrollToTop ? (
+          <button
+            type="button"
+            onClick={handleScrollToTop}
+            className="ui-icon-button absolute bottom-4 right-4 z-10 h-10 w-10 border-emerald-500/30 bg-emerald-500/10 text-emerald-100 shadow-[0_10px_35px_-18px_rgba(16,185,129,0.95)] backdrop-blur-sm"
+            aria-label="Scroll to top"
+            title="Scroll to top"
+          >
+            <ChevronUp size={16} />
+          </button>
+        ) : null}
+        {activeResultActionMenu ? (
+          <div
+            ref={resultActionsMenuRef}
+            className="ui-floating-menu absolute z-20 w-[12.5rem] rounded-[1rem] p-2"
+            style={{
+              top: activeResultActionMenu.top,
+              right: activeResultActionMenu.right,
+            }}
+            role="menu"
+            aria-label={`Actions for ${activeResultActionMenu.event.title}`}
+          >
+            <div className="mb-1.5 px-1.5 font-mono text-[0.56rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Event Actions
+            </div>
+            <div className="grid gap-1.5">
+              <button
+                type="button"
+                onClick={handleEditResultEvent}
+                className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
+                role="menuitem"
+              >
+                <Pencil />
+                <span>Edit</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteResultEvent}
+                className="ui-button ui-button-compact ui-button-danger w-full justify-start rounded-[0.85rem]"
+                role="menuitem"
+                aria-label={`Delete ${activeResultActionMenu.event.title}`}
+                title={`Delete ${activeResultActionMenu.event.title}`}
+              >
+                <Trash2 />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
+        <div
+          ref={resultsListRef}
+          className="min-h-0 flex-1 overflow-y-auto pb-16"
+        >
+          <div className="mb-3">
+            <div className={`min-w-0 ${onClose ? "pr-12" : ""}`.trim()}>
               <div className="ui-display-title text-[1.5rem] leading-none text-white">
                 {title}
               </div>
@@ -350,16 +567,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 </p>
               ) : null}
             </div>
-            {onClose ? (
-              <button
-                type="button"
-                onClick={onClose}
-                className="ui-icon-button h-9 w-9"
-                aria-label="Close search panel"
-              >
-                <X size={14} />
-              </button>
-            ) : null}
           </div>
           <input
             ref={searchInputRef}
@@ -518,7 +725,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   key={event.id}
                   event={event}
                   onSelect={onSearchSelect}
-                  onDelete={onDeleteEvent}
+                  onOpenActions={handleOpenResultActions}
+                  isActionsOpen={activeResultActionMenu?.event.id === event.id}
                 />
               ))}
               {visibleResultCount < filteredResults.length && (

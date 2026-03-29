@@ -2,39 +2,31 @@ import { startTransition, useEffect, useState } from "react";
 import { LandingPage } from "./components/LandingPage";
 import { Timeline } from "./components/Timeline";
 import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
+import { useTimelineShareUrl } from "./hooks/useTimelineShareUrl";
 import { useTimelineStore } from "./stores";
 
 type AppView = "landing" | "timeline";
-
-const getInitialView = (): AppView => {
-  if (typeof window === "undefined") return "landing";
-  return window.location.hash === "#timeline" ? "timeline" : "landing";
-};
 
 export default function App() {
   const theme = useTimelineStore((state) => state.theme);
   const setTheme = useTimelineStore((state) => state.setTheme);
   const resolvedTheme = resolveThemeMode(theme);
-  const [view, setView] = useState<AppView>(getInitialView);
+  const {
+    shouldOpenTimeline,
+    enterTimelineView,
+    clearTimelineView,
+  } = useTimelineShareUrl();
+  const [view, setView] = useState<AppView>(() =>
+    shouldOpenTimeline ? "timeline" : "landing",
+  );
 
   useEffect(() => {
     applyThemeToDocument(resolvedTheme);
   }, [resolvedTheme]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const syncViewFromHash = () => {
-      setView(window.location.hash === "#timeline" ? "timeline" : "landing");
-    };
-
-    window.addEventListener("hashchange", syncViewFromHash);
-    syncViewFromHash();
-
-    return () => {
-      window.removeEventListener("hashchange", syncViewFromHash);
-    };
-  }, []);
+    setView(shouldOpenTimeline ? "timeline" : "landing");
+  }, [shouldOpenTimeline]);
 
   const handleToggleTheme = () => {
     startTransition(() => {
@@ -43,13 +35,13 @@ export default function App() {
   };
 
   const handleEnterTimeline = () => {
-    if (typeof window === "undefined") return;
-    window.location.hash = "timeline";
+    enterTimelineView();
+    setView("timeline");
   };
 
   const handleBackToLanding = () => {
-    if (typeof window === "undefined") return;
-    window.location.hash = "";
+    clearTimelineView();
+    setView("landing");
   };
 
   return (

@@ -16,6 +16,7 @@ interface ControllerProps {
   onQuickZoom: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onJumpToDate: (target: DateJumpTarget) => void;
   onSearchSelect: (event: Event) => void;
+  onEditEvent: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
   onAutoFitAll: () => void;
   onAutoFitRange: (target: AutoFitRangeTarget) => void;
@@ -41,6 +42,7 @@ export const Controller: React.FC<ControllerProps> = ({
   onQuickZoom,
   onJumpToDate,
   onSearchSelect,
+  onEditEvent,
   onDeleteEvent,
   onAutoFitAll,
   onAutoFitRange,
@@ -177,6 +179,7 @@ export const Controller: React.FC<ControllerProps> = ({
                     isOpen
                     searchableEvents={searchableEvents}
                     onSearchSelect={handleSearchSelect}
+                    onEditEvent={onEditEvent}
                     onDeleteEvent={onDeleteEvent}
                   />
                 ) : null}
