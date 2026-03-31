@@ -1,7 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  PLAYGROUND_COLLECTION,
   SYNCABLE_COLLECTION_IDS,
   isSyncableCollection,
 } from "../data/collections";
@@ -367,13 +366,14 @@ export const Timeline = ({
 
     const rawCollections = Array.isArray(parsed)
       ? parsed
-      : parsed &&
-          typeof parsed === "object" &&
-          Array.isArray((parsed as CollectionTransferPayload).collections)
-        ? (parsed as CollectionTransferPayload).collections
-        : parsed && typeof parsed === "object" && "meta" in parsed
-          ? [parsed]
-          : [];
+      : parsed && typeof parsed === "object"
+        ? "collections" in parsed &&
+            Array.isArray((parsed as CollectionTransferPayload).collections)
+          ? (parsed as CollectionTransferPayload).collections
+          : "meta" in parsed && "events" in parsed
+            ? [parsed]
+            : []
+        : [];
 
     if (rawCollections.length === 0) {
       throw new Error(
@@ -401,12 +401,7 @@ export const Timeline = ({
         visibleCollectionIds[0],
       )
         ? visibleCollectionIds[0]
-        : PLAYGROUND_COLLECTION.id);
-
-    if (resolvedTargetCollectionId === PLAYGROUND_COLLECTION.id) {
-      ensurePlaygroundCollection();
-      addVisibleCollection(PLAYGROUND_COLLECTION.id);
-    }
+        : null);
 
     openEventCreator(resolvedTargetCollectionId);
   };
@@ -510,6 +505,7 @@ export const Timeline = ({
   };
 
   const handleCloseImportDialog = () => {
+    closeCollectionCreator();
     setPendingImportEvents(null);
     setPendingImportDialog(false);
   };
@@ -728,6 +724,16 @@ export const Timeline = ({
         onAddCollection={openCollectionCreator}
         onImportCollections={handleImportCollectionFile}
         onExportCollection={handleExportCollection}
+        onUpdateCollectionEvents={(collectionId, events) => {
+          useTimelineStore.getState().deleteEvent // remove all existing
+          // Delete existing events in collection then add new ones
+          const state = useTimelineStore.getState();
+          const existingIds = (state.collectionLibrary[collectionId]?.events ?? []).map(e => e.id);
+          existingIds.forEach(id => useTimelineStore.getState().deleteEvent(id));
+          if (events.length > 0) {
+            useTimelineStore.getState().addEvents(events, collectionId);
+          }
+        }}
         onBackToLanding={onBackToLanding}
         openRequestKey={sidebarOpenRequestKey}
         openExploreRequestKey={exploreOpenRequestKey}

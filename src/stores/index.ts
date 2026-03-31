@@ -29,17 +29,6 @@ export type SearchSortMode =
   | "name-asc"
   | "name-desc";
 
-export const SEARCH_SORT_OPTIONS: Array<{
-  label: string;
-  value: SearchSortMode;
-}> = [
-  { label: "Best match", value: "best-match" },
-  { label: "Time: oldest first", value: "time-asc" },
-  { label: "Time: newest first", value: "time-desc" },
-  { label: "Name: A to Z", value: "name-asc" },
-  { label: "Name: Z to A", value: "name-desc" },
-];
-
 export const DEFAULT_SEARCH_SORT_MODE: SearchSortMode = "best-match";
 
 type PartialDateInput = {
@@ -92,9 +81,7 @@ type TimelineStoreState = {
   downloadCollection: (collectionId: string) => Promise<void>;
   syncCollection: (collectionId: string) => Promise<void>;
   setCollectionVisibility: (collectionId: string, visible: boolean) => void;
-  importCollections: (
-    collections: ImportedCollectionInput[],
-  ) => {
+  importCollections: (collections: ImportedCollectionInput[]) => {
     importedCollectionIds: string[];
   };
   deleteCollection: (collectionId: string) => void;
@@ -279,22 +266,14 @@ const mergeCollectionLibraries = (
       return [
         collectionId,
         {
-          events:
-            overrideCollection?.events ??
-            baseCollection?.events ??
-            [],
+          events: overrideCollection?.events ?? baseCollection?.events ?? [],
           ...(baseCollection?.meta || overrideCollection?.meta
             ? {
-                meta:
-                  overrideCollection?.meta ??
-                  baseCollection?.meta ??
-                  null,
+                meta: overrideCollection?.meta ?? baseCollection?.meta ?? null,
               }
             : {}),
           isLocal:
-            overrideCollection?.isLocal ??
-            baseCollection?.isLocal ??
-            false,
+            overrideCollection?.isLocal ?? baseCollection?.isLocal ?? false,
         },
       ] as const;
     }),
@@ -321,8 +300,7 @@ const sanitizeCollectionLibrary = (value: unknown) => {
       const meta =
         sanitizeCustomCollections(candidate.meta ? [candidate.meta] : [], {
           allowBuiltInIds: true,
-        })[0] ??
-        null;
+        })[0] ?? null;
 
       return [
         [
@@ -451,8 +429,10 @@ export const sanitizeImportedEvents = (value: unknown): Event[] => {
             ? candidate.duration
             : undefined,
         color: typeof candidate.color === "string" ? candidate.color : null,
-        image: typeof candidate.image === "string" ? candidate.image : undefined,
-        video: typeof candidate.video === "string" ? candidate.video : undefined,
+        image:
+          typeof candidate.image === "string" ? candidate.image : undefined,
+        video:
+          typeof candidate.video === "string" ? candidate.video : undefined,
         link: typeof candidate.link === "string" ? candidate.link : undefined,
       },
     ];
@@ -483,8 +463,8 @@ const sanitizeCustomCollections = (
 
     const id = candidate.id.trim();
     if (
-      ((!options?.allowBuiltInIds && BUILT_IN_COLLECTION_IDS.has(id)) ||
-        seen.has(id))
+      (!options?.allowBuiltInIds && BUILT_IN_COLLECTION_IDS.has(id)) ||
+      seen.has(id)
     ) {
       return [];
     }
@@ -518,9 +498,7 @@ const sanitizeVisibleCollectionIds = (
 ) => {
   const knownIds = new Set(Object.keys(collectionLibrary));
 
-  const ids = Array.isArray(visibleCollectionIds)
-    ? visibleCollectionIds
-    : [];
+  const ids = Array.isArray(visibleCollectionIds) ? visibleCollectionIds : [];
 
   return ids.filter(
     (collectionId, index, allIds): collectionId is string =>
@@ -679,7 +657,9 @@ const cleanupLegacyCollectionStorage = () => {
   if (typeof window === "undefined") return;
 
   window.localStorage.removeItem("time-horizon:collection-cache:v2");
-  window.localStorage.removeItem("time-horizon:collection-color-preferences:v1");
+  window.localStorage.removeItem(
+    "time-horizon:collection-color-preferences:v1",
+  );
   window.localStorage.removeItem("time-horizon:theme");
 };
 
@@ -1308,12 +1288,16 @@ export const useTimelineStore = create<TimelineStoreState>()(
             ...getCustomCollectionsFromLibrary(currentState.collectionLibrary),
             PLAYGROUND_COLLECTION,
           ];
-          const existingIds = new Set(existingCollections.map((item) => item.id));
+          const existingIds = new Set(
+            existingCollections.map((item) => item.id),
+          );
           const nextCollectionLibrary = { ...currentState.collectionLibrary };
           const nextCollectionColorPreferences = {
             ...currentState.collectionColorPreferences,
           };
-          const nextVisibleCollectionIds = [...currentState.visibleCollectionIds];
+          const nextVisibleCollectionIds = [
+            ...currentState.visibleCollectionIds,
+          ];
           const importedCollectionIds: string[] = [];
 
           collections.forEach((collection) => {
@@ -1337,7 +1321,8 @@ export const useTimelineStore = create<TimelineStoreState>()(
 
             const importedEvents = sanitizeImportedEvents(collection.events);
             const preferredId =
-              isNonEmptyString(candidateMeta.id) && candidateMeta.id.trim().length > 0
+              isNonEmptyString(candidateMeta.id) &&
+              candidateMeta.id.trim().length > 0
                 ? candidateMeta.id.trim()
                 : name;
             const nextId = createUniqueCollectionId(preferredId, existingIds);
@@ -1365,7 +1350,10 @@ export const useTimelineStore = create<TimelineStoreState>()(
             };
             importedCollectionIds.push(nextId);
 
-            if (typeof collection.color === "string" && collection.color.trim()) {
+            if (
+              typeof collection.color === "string" &&
+              collection.color.trim()
+            ) {
               nextCollectionColorPreferences[nextId] = collection.color;
             } else if (nextCollection.color) {
               nextCollectionColorPreferences[nextId] = nextCollection.color;
@@ -1670,7 +1658,9 @@ export const useTimelineStore = create<TimelineStoreState>()(
         // the `version` field, it means data was stored across multiple
         // localStorage keys (theme, collection-cache, color-prefs).
         // Read and merge from those legacy keys before sanitizing.
-        const raw = persistedState as Partial<TimelinePersistedState & { version?: number }>;
+        const raw = persistedState as Partial<
+          TimelinePersistedState & { version?: number }
+        >;
         if (!raw || raw.version === 0 || raw.version === undefined) {
           const legacy = getLegacyPersistedTimelineState();
           return sanitizePersistedTimelineState(

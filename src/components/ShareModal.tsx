@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Copy, Check, X, Layers, MapPin, Link } from "lucide-react";
+import { Copy, Check, X, Layers, MapPin, Link, Locate } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 /** ─── Props ─────────────────────────────────────────────────────────── */
@@ -73,7 +73,6 @@ const ToggleRow: React.FC<ToggleMeta> = ({
 
 export const ShareModal: React.FC<ShareModalProps> = ({
   focusYear,
-  logZoom,
   selectedEventId,
   visibleCollectionIds,
   collectionNames,
@@ -133,11 +132,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   }, [shareUrl]);
 
+  const yearLabel =
+    Math.abs(Math.round(focusYear)) < 1000
+      ? Math.round(focusYear).toString()
+      : Math.round(focusYear).toLocaleString();
+
   return (
     <AnimatePresence>
       <motion.div
         key="share-overlay"
-        className="share-overlay"
+        className="ui-modal-overlay bg-black/80 fixed inset-0 z-100 flex items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -146,15 +150,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       >
         <motion.div
           key="share-card"
-          className="share-card"
+          className="ui-modal-surface ui-panel w-full max-w-md rounded-[1.9rem] p-6 sm:p-8"
           initial={{ opacity: 0, scale: 0.94, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 4 }}
           transition={{ duration: 0.22, ease: [0.21, 0.9, 0.32, 1.02] }}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
         >
-          {/* Top bar */}
-          <div className="share-card-header">
+          {/* Header */}
+          <div className="mb-6 flex items-center justify-between">
             <div className="share-card-title-row">
               <Link width={16} height={16} className="share-card-icon" />
               <h2 className="share-card-title">Share Timeline</h2>
@@ -162,15 +168,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="share-close-btn"
+              className="ui-icon-button h-10 w-10"
               aria-label="Close share modal"
             >
-              <X width={14} height={14} />
+              <X width={16} height={16} />
             </button>
           </div>
-
-          {/* Divider */}
-          <div className="share-card-divider" />
 
           {/* Toggles */}
           <div className="share-toggles">
@@ -190,51 +193,26 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               disabled={visibleCollectionIds.length === 0}
             />
 
-            {/* Always visible — disabled when no event is selected */}
             {options.includeCollections && (
               <ToggleRow
                 icon={<MapPin width={14} height={14} />}
                 label="Focus selected event"
                 description={
-                  !options.includeCollections
-                    ? "Turn on collections first to share event focus"
-                    : selectedEventId
-                      ? "Auto-scroll to this event on load"
-                      : "No event selected — select one on the timeline first"
+                  selectedEventId
+                    ? "Auto-scroll to this event on load"
+                    : "No event selected — select one on the timeline first"
                 }
                 value={options.includeSelectedEvent}
                 onChange={(v) => update("includeSelectedEvent", v)}
-                disabled={!options.includeCollections || !selectedEventId}
+                disabled={!selectedEventId}
               />
             )}
 
             {selectedEventId ? (
               <ToggleRow
-                icon={
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    className="share-icon-svg"
-                  >
-                    <circle
-                      cx="7"
-                      cy="7"
-                      r="6"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                    />
-                    <path
-                      d="M7 4v3l2 1.5"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                }
+                icon={<Locate width={14} height={14} />}
                 label="Camera view & zoom"
-                description={`Share current viewport position (year ${Math.abs(Math.round(focusYear)) < 1000 ? Math.round(focusYear) : Math.round(focusYear).toLocaleString()})`}
+                description={`Share current viewport (year ${yearLabel})`}
                 value={options.includeViewport}
                 onChange={(v) => update("includeViewport", v)}
                 disabled={!options.includeCollections}
@@ -242,31 +220,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             ) : (
               options.includeCollections && (
                 <ToggleRow
-                  icon={
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      className="share-icon-svg"
-                    >
-                      <circle
-                        cx="7"
-                        cy="7"
-                        r="6"
-                        stroke="currentColor"
-                        strokeWidth="1.3"
-                      />
-                      <path
-                        d="M7 4v3l2 1.5"
-                        stroke="currentColor"
-                        strokeWidth="1.3"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  }
+                  icon={<Locate width={14} height={14} />}
                   label="Camera view & zoom"
-                  description={`Share current viewport (year ${Math.abs(Math.round(focusYear)) < 1000 ? Math.round(focusYear) : Math.round(focusYear).toLocaleString()})`}
+                  description={`Share current viewport (year ${yearLabel})`}
                   value={options.includeViewport}
                   onChange={(v) => update("includeViewport", v)}
                   disabled={!options.includeCollections}
@@ -275,7 +231,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             )}
           </div>
 
-          {/* URL output — always visible since timeline page is always included */}
+          {/* URL output */}
           <div className="share-url-section">
             <div className="share-url-track">
               <div
@@ -293,17 +249,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 onClick={(e) => e.target.select()}
               />
             </div>
+
             <motion.button
               type="button"
               onClick={handleCopy}
-              className={`share-copy-btn${copied ? " share-copy-btn--done" : ""}`}
-              whileTap={{ scale: 0.95 }}
+              className={`ui-button w-full justify-center${copied ? " ui-button-primary" : " ui-button-secondary"}`}
+              whileTap={{ scale: 0.97 }}
             >
               <AnimatePresence mode="wait">
                 {copied ? (
                   <motion.span
                     key="check"
-                    className="share-copy-inner"
+                    className="flex items-center gap-2"
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
@@ -315,7 +272,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 ) : (
                   <motion.span
                     key="copy"
-                    className="share-copy-inner"
+                    className="flex items-center gap-2"
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}

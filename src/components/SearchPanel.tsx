@@ -15,9 +15,19 @@ import {
   filterTimelineSearchEvents,
   getTimelineSearchDateInputError,
   hasActiveTimelineSearchFilters,
-  SEARCH_SORT_OPTIONS,
   useTimelineStore,
 } from "../stores";
+
+export const SEARCH_SORT_OPTIONS: Array<{
+  label: string;
+  value: SearchSortMode;
+}> = [
+  { label: "Best match", value: "best-match" },
+  { label: "Time: oldest first", value: "time-asc" },
+  { label: "Time: newest first", value: "time-desc" },
+  { label: "Name: A to Z", value: "name-asc" },
+  { label: "Name: Z to A", value: "name-desc" },
+];
 
 export interface SearchPanelStateAdapter {
   searchQuery: string;

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Event, EventCollectionMeta, MediaFilter } from "../constants/types";
 import {
   ArrowLeft,
+  Code,
   Compass,
   Download,
   Eye,
@@ -20,6 +21,7 @@ import {
 import { ConfirmDialogOptions } from "./ConfirmDialog";
 import { ExploreCollectionsModal } from "./ExploreCollectionsModal";
 import { SearchPanel, SearchPanelStateAdapter } from "./SearchPanel";
+import { CollectionJsonEditorModal } from "./CollectionJsonEditorModal";
 import { DEFAULT_SEARCH_SORT_MODE, type SearchSortMode } from "../stores";
 
 interface SidebarProps {
@@ -45,6 +47,7 @@ interface SidebarProps {
   onEditCollection: (collection: EventCollectionMeta) => void;
   onAddEvent: (collectionId?: string) => void;
   onAddCollection: () => void;
+  onUpdateCollectionEvents: (collectionId: string, events: Event[]) => void;
   onImportCollections: (file: File) => Promise<string> | string;
   onExportCollection: (
     collectionId: string,
@@ -74,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onEditCollection,
   onAddEvent,
   onAddCollection,
+  onUpdateCollectionEvents,
   onImportCollections,
   onExportCollection,
   onBackToLanding,
@@ -110,6 +114,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     tone: "success" | "error";
     message: string;
   } | null>(null);
+  const [jsonEditorCollection, setJsonEditorCollection] =
+    useState<EventCollectionMeta | null>(null);
   const prevIsOpenRef = useRef(false);
   const prevOpenRequestKeyRef = useRef(openRequestKey);
   const prevOpenExploreRequestKeyRef = useRef(openExploreRequestKey);
@@ -828,6 +834,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <Plus />
                                 <span>Add Event</span>
                               </button>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenCollectionMenuId(null);
+                                  setJsonEditorCollection(collection);
+                                }}
+                                className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
+                              >
+                                <Code />
+                                <span>Edit JSON</span>
+                              </button>
                               {isSyncable ? (
                                 <button
                                   onClick={(event) => {
@@ -925,6 +942,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onDownloadCollection={onDownloadCollection}
           onDeleteCollection={handleDeleteCollection}
           onSetCollectionVisibility={onSetCollectionVisibility}
+        />
+      ) : null}
+      {jsonEditorCollection ? (
+        <CollectionJsonEditorModal
+          collectionId={jsonEditorCollection.id}
+          collectionName={jsonEditorCollection.name}
+          jsonData={JSON.stringify(collectionEventsById[jsonEditorCollection.id] ?? [], null, 2)}
+          onSave={(json) => {
+            try {
+              const events: Event[] = JSON.parse(json);
+              onUpdateCollectionEvents(jsonEditorCollection.id, events);
+            } catch {
+              // invalid — modal shows its own parse error
+            }
+          }}
+          onClose={() => setJsonEditorCollection(null)}
         />
       ) : null}
     </>

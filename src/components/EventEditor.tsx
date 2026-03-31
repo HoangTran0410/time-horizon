@@ -344,22 +344,32 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 </button>
               )}
             </div>
-            <select
-              value={selectedCollectionId}
-              onChange={(e) => {
-                setSelectedCollectionId(e.target.value);
-                setCollectionError(null);
-              }}
-              className="ui-field"
-            >
-              {availableCollections.map((collection) => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.emoji} {collection.name}
-                </option>
-              ))}
-            </select>
-            {collectionError && (
-              <p className="mt-2 text-xs text-red-400">{collectionError}</p>
+            {availableCollections.length === 0 ? (
+              <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2">
+                <p className="text-xs text-rose-300">
+                  No collections available. Create one first using the button above.
+                </p>
+              </div>
+            ) : (
+              <>
+                <select
+                  value={selectedCollectionId}
+                  onChange={(e) => {
+                    setSelectedCollectionId(e.target.value);
+                    setCollectionError(null);
+                  }}
+                  className="ui-field"
+                >
+                  {availableCollections.map((collection) => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.emoji} {collection.name}
+                    </option>
+                  ))}
+                </select>
+                {collectionError && (
+                  <p className="mt-2 text-xs text-red-400">{collectionError}</p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -772,7 +782,10 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="ui-button ui-button-primary px-6 py-3"
+            disabled={
+              mode === "create" && availableCollections.length === 0
+            }
+            className="ui-button ui-button-primary px-6 py-3 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {mode === "create" ? "Add Event" : "Save"}
           </button>
