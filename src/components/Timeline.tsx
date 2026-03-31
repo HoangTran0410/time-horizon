@@ -12,8 +12,10 @@ import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
 import { Controller } from "./Controller";
 import { ConfirmDialog, type ConfirmDialogOptions } from "./ConfirmDialog";
+import { ShareModal } from "./ShareModal";
+import { ImportEventsDialog } from "./ImportEventsDialog";
 import { EventInfoPanel } from "./EventInfoPanel";
-import { FpsBadge } from "./FpsBadge";
+import { Toolbar } from "./Toolbar";
 import { TimelineGuidanceOverlay } from "./TimelineGuidanceOverlay";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
 import { WarpOverlay } from "./TimelineMarkers";
@@ -24,6 +26,7 @@ import { useTimelineViewport } from "../hooks/useTimelineViewport";
 import {
   filterTimelineSearchEvents,
   findEventByIdInCollections,
+  sanitizeImportedEvents,
   useTimelineStore,
 } from "../stores";
 
@@ -55,6 +58,13 @@ export const Timeline = ({
   const [exploreOpenRequestKey, setExploreOpenRequestKey] = useState(0);
   const [confirmDialog, setConfirmDialog] =
     useState<ConfirmDialogOptions | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [pendingImportEvents, setPendingImportEvents] = useState<
+    Event[] | null
+  >(null);
+  const [pendingImportDialog, setPendingImportDialog] = useState(false);
+  const [editingCollection, setEditingCollection] =
+    useState<EventCollectionMeta | null>(null);
   const {
     selectedEventId,
     isRulerActive,
@@ -63,9 +73,12 @@ export const Timeline = ({
     addingEvent,
     addingCollectionId,
     isCreatingCollection,
+    savedFocusYear,
+    savedLogZoom,
     focusEvent,
     previewEvent,
     clearFocusedEvent,
+    setSavedViewport,
     setIsRulerActive,
     toggleEventInfoCollapsed,
     openEventEditor,
@@ -83,9 +96,12 @@ export const Timeline = ({
       addingEvent: state.addingEvent,
       addingCollectionId: state.addingCollectionId,
       isCreatingCollection: state.isCreatingCollection,
+      savedFocusYear: state.savedFocusYear,
+      savedLogZoom: state.savedLogZoom,
       focusEvent: state.focusEvent,
       previewEvent: state.previewEvent,
       clearFocusedEvent: state.clearFocusedEvent,
+      setSavedViewport: state.setSavedViewport,
       setIsRulerActive: state.setIsRulerActive,
       toggleEventInfoCollapsed: state.toggleEventInfoCollapsed,
       openEventEditor: state.openEventEditor,
@@ -103,6 +119,8 @@ export const Timeline = ({
     visibleCollectionIds,
     downloadingCollectionIds,
     collectionColors,
+    localCollectionIds,
+    editableCollectionIds,
     writableCollections,
     timelineEvents,
     eventAccentColors,
@@ -117,14 +135,18 @@ export const Timeline = ({
     handleDeleteCollection,
     handleSaveEvent,
     handleAddEvent,
+    handleAddEvents,
     handleDeleteEvent,
     handleCreateCollection,
+    handleUpdateCollection,
     handleSetCollectionColor,
   } = useTimelineCollections();
   const {
     sharedCollectionIds: sharedCollectionIdsFromUrlRaw,
     sharedEventId: sharedEventIdFromUrl,
-    replaceTimelineShareState,
+    sharedFocusYear,
+    sharedLogZoom,
+    generateShareUrl,
   } = useTimelineShareUrl();
   const selectedEventInfo = useMemo(
     () =>
@@ -155,6 +177,11 @@ export const Timeline = ({
     (state) => state.showOnlyResultsOnTimeline,
   );
   const deferredTimelineSearchQuery = useDeferredValue(searchQuery);
+  const hasSharedTimelineState =
+    sharedCollectionIdsFromUrlRaw.length > 0 ||
+    sharedEventIdFromUrl !== null ||
+    sharedFocusYear !== null ||
+    sharedLogZoom !== null;
 
   const renderedTimelineEvents = useMemo(
     () =>
@@ -214,10 +241,17 @@ export const Timeline = ({
     handleZoomDragMove,
     handleZoomDragEnd,
     clearFocusedEvent: clearFocusedEventFromViewport,
+    currentLogZoom,
   } = useTimelineViewport({
     containerRef,
     renderedTimelineEvents,
     selectedEventId,
+    initialFocusYear: hasSharedTimelineState
+      ? (sharedFocusYear ?? undefined)
+      : (savedFocusYear ?? undefined),
+    initialLogZoom: hasSharedTimelineState
+      ? (sharedLogZoom ?? undefined)
+      : (savedLogZoom ?? undefined),
     onSelectEvent: (event) => {
       if (event) {
         focusEvent(event.id);
@@ -225,6 +259,9 @@ export const Timeline = ({
       }
 
       clearFocusedEvent();
+    },
+    onViewportChange: ({ focusYear, logZoom }) => {
+      setSavedViewport(focusYear, logZoom);
     },
     setIsRulerActive,
   });
@@ -303,6 +340,29 @@ export const Timeline = ({
       parsed = JSON.parse(rawText);
     } catch {
       throw new Error("That file is not valid JSON.");
+    }
+
+    // Detect flat array of events (no "meta" field on items)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0] as Record<string, unknown>;
+      const isFlatEventArray =
+        first &&
+        typeof first === "object" &&
+        "time" in first &&
+        "title" in first &&
+        !("meta" in first);
+
+      if (isFlatEventArray) {
+        const events = sanitizeImportedEvents(parsed);
+        if (events.length === 0) {
+          throw new Error(
+            "The file loaded, but none of its events matched the expected format.",
+          );
+        }
+        setPendingImportEvents(events);
+        setPendingImportDialog(true);
+        return;
+      }
     }
 
     const rawCollections = Array.isArray(parsed)
@@ -405,26 +465,95 @@ export const Timeline = ({
   const handleCreateNewCollection = (
     collection: Pick<EventCollectionMeta, "emoji" | "name" | "description">,
   ) => {
-    const nextCollection = handleCreateCollection(collection);
-    openEventCreator(nextCollection.id);
-    closeCollectionCreator();
+    if (pendingImportEvents) {
+      handleImportEventsToNewCollection(collection);
+    } else {
+      const nextCollection = handleCreateCollection(collection);
+      openEventCreator(nextCollection.id);
+      closeCollectionCreator();
+    }
+  };
+
+  const handleUpdateExistingCollection = (
+    collection: Pick<EventCollectionMeta, "emoji" | "name" | "description">,
+  ) => {
+    if (!editingCollection) return;
+
+    handleUpdateCollection(editingCollection.id, collection);
+    setEditingCollection(null);
   };
 
   const handleCloseAddEvent = () => {
     closeEventCreator();
   };
 
+  const handleImportEventsToCollection = (targetCollectionId: string) => {
+    if (!pendingImportEvents) return;
+    handleAddEvents(pendingImportEvents, targetCollectionId);
+    addVisibleCollection(targetCollectionId);
+    setPendingImportEvents(null);
+    setPendingImportDialog(false);
+    requestOpenCollections();
+  };
+
+  const handleImportEventsToNewCollection = (
+    collection: Pick<EventCollectionMeta, "emoji" | "name" | "description">,
+  ) => {
+    if (!pendingImportEvents) return;
+    const nextCollection = handleCreateCollection(collection);
+    handleAddEvents(pendingImportEvents, nextCollection.id);
+    addVisibleCollection(nextCollection.id);
+    closeCollectionCreator();
+    setPendingImportEvents(null);
+    setPendingImportDialog(false);
+    requestOpenCollections();
+  };
+
+  const handleCloseImportDialog = () => {
+    setPendingImportEvents(null);
+    setPendingImportDialog(false);
+  };
+
   const sharedCollectionIdsFromUrl = useMemo(
     () => sharedCollectionIdsFromUrlRaw.filter(isSyncableCollection),
     [sharedCollectionIdsFromUrlRaw],
   );
+
+  // Collections that are visible AND URL-shareable (i.e. can be restored from ?c= URL param).
+  // Local collections are NOT shareable — they live in localStorage and are restored
+  // on every load regardless of the URL. Only syncable (built-in) collections go in ?c=.
+  const shareableVisibleCollectionIds = useMemo(
+    () =>
+      visibleCollectionIds.filter(
+        (id) =>
+          (collectionEventsById[id]?.length ?? 0) > 0 &&
+          isSyncableCollection(id) &&
+          !localCollectionIds.includes(id),
+      ),
+    [visibleCollectionIds, collectionEventsById, localCollectionIds],
+  );
+  const shareableSelectedEventId = useMemo(() => {
+    if (!selectedEventInfo) return null;
+    const selectedCollectionId = findEventCollectionId(selectedEventInfo.id);
+    if (!selectedCollectionId) return null;
+    if (!isSyncableCollection(selectedCollectionId)) return null;
+    if (!shareableVisibleCollectionIds.includes(selectedCollectionId)) return null;
+    return selectedEventInfo.id;
+  }, [findEventCollectionId, selectedEventInfo, shareableVisibleCollectionIds]);
+
   const sharedUrlSignature = useMemo(
     () =>
       `${sharedCollectionIdsFromUrl.join(",")}::${sharedEventIdFromUrl ?? ""}`,
     [sharedCollectionIdsFromUrl, sharedEventIdFromUrl],
   );
   const lastAppliedSharedUrlSignatureRef = useRef<string | null>(null);
+  const sharedUrlFocusFrameRef = useRef<number | null>(null);
+  const sharedUrlFocusRequestedSignatureRef = useRef<string | null>(null);
   const [isApplyingSharedUrl, setIsApplyingSharedUrl] = useState(false);
+  const [
+    sharedUrlCollectionsReadySignature,
+    setSharedUrlCollectionsReadySignature,
+  ] = useState<string | null>(null);
 
   useEffect(() => {
     if (lastAppliedSharedUrlSignatureRef.current === sharedUrlSignature) {
@@ -435,6 +564,12 @@ export const Timeline = ({
       sharedCollectionIdsFromUrl.length === 0 &&
       sharedEventIdFromUrl === null
     ) {
+      if (sharedUrlFocusFrameRef.current !== null) {
+        window.cancelAnimationFrame(sharedUrlFocusFrameRef.current);
+        sharedUrlFocusFrameRef.current = null;
+      }
+      sharedUrlFocusRequestedSignatureRef.current = null;
+      setSharedUrlCollectionsReadySignature(null);
       lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
       setIsApplyingSharedUrl(false);
       return;
@@ -443,8 +578,17 @@ export const Timeline = ({
     let isCancelled = false;
     const requestedCollectionIds = new Set(sharedCollectionIdsFromUrl);
     setIsApplyingSharedUrl(true);
+    setSharedUrlCollectionsReadySignature(null);
+    sharedUrlFocusRequestedSignatureRef.current = null;
 
-    for (const collectionId of visibleCollectionIds.filter(isSyncableCollection)) {
+    if (sharedUrlFocusFrameRef.current !== null) {
+      window.cancelAnimationFrame(sharedUrlFocusFrameRef.current);
+      sharedUrlFocusFrameRef.current = null;
+    }
+
+    for (const collectionId of visibleCollectionIds.filter(
+      isSyncableCollection,
+    )) {
       if (!requestedCollectionIds.has(collectionId)) {
         handleSetCollectionVisibility(collectionId, false);
       }
@@ -458,23 +602,7 @@ export const Timeline = ({
       );
 
       if (isCancelled) return;
-
-      if (sharedEventIdFromUrl) {
-        const latestCollectionEventsById =
-          useTimelineStore.getState().collectionEventsById;
-        const sharedEvent = findEventByIdInCollections(
-          latestCollectionEventsById,
-          sharedEventIdFromUrl,
-        );
-
-        if (sharedEvent) {
-          previewEvent(sharedEvent.id);
-          handleFocusEvent(sharedEvent);
-        }
-      }
-
-      lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
-      setIsApplyingSharedUrl(false);
+      setSharedUrlCollectionsReadySignature(sharedUrlSignature);
     };
 
     void applySharedUrl();
@@ -485,8 +613,6 @@ export const Timeline = ({
   }, [
     handleDownloadCollection,
     handleSetCollectionVisibility,
-    handleFocusEvent,
-    previewEvent,
     sharedEventIdFromUrl,
     sharedCollectionIdsFromUrl,
     sharedUrlSignature,
@@ -494,43 +620,87 @@ export const Timeline = ({
   ]);
 
   useEffect(() => {
-    if (isApplyingSharedUrl) {
+    if (!isApplyingSharedUrl) {
       return;
     }
 
-    const nextSharedCollectionIds = visibleCollectionIds.filter(
-      isSyncableCollection,
+    if (sharedUrlCollectionsReadySignature !== sharedUrlSignature) {
+      return;
+    }
+
+    const hasRequestedCollectionsLoaded = sharedCollectionIdsFromUrl.every(
+      (collectionId) =>
+        Object.prototype.hasOwnProperty.call(
+          collectionEventsById,
+          collectionId,
+        ),
     );
-    const nextSerializedIds = nextSharedCollectionIds.join(",");
-    const selectedEventCollectionId = selectedEventInfo
-      ? findEventCollectionId(selectedEventInfo.id)
-      : null;
-    const nextSharedEventId =
-      selectedEventInfo &&
-      selectedEventCollectionId &&
-      isSyncableCollection(selectedEventCollectionId) &&
-      nextSharedCollectionIds.includes(selectedEventCollectionId)
-        ? selectedEventInfo.id
-        : null;
-    const nextSharedUrlSignature = `${nextSerializedIds}::${nextSharedEventId ?? ""}`;
+    const hasRequestedCollectionsVisible = sharedCollectionIdsFromUrl.every(
+      (collectionId) => visibleCollectionIds.includes(collectionId),
+    );
 
-    if (lastAppliedSharedUrlSignatureRef.current === nextSharedUrlSignature) {
+    if (!hasRequestedCollectionsLoaded || !hasRequestedCollectionsVisible) {
       return;
     }
 
-    lastAppliedSharedUrlSignatureRef.current = nextSharedUrlSignature;
-    replaceTimelineShareState({
-      sharedCollectionIds: nextSharedCollectionIds,
-      sharedEventId: nextSharedEventId,
-      keepTimelineView: nextSharedCollectionIds.length === 0,
-    });
+    if (sharedEventIdFromUrl) {
+      const sharedEvent = findEventByIdInCollections(
+        collectionEventsById,
+        sharedEventIdFromUrl,
+      );
+
+      if (!sharedEvent) {
+        sharedUrlFocusRequestedSignatureRef.current = null;
+        setSharedUrlCollectionsReadySignature(null);
+        lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
+        setIsApplyingSharedUrl(false);
+        return;
+      }
+
+      if (sharedUrlFocusRequestedSignatureRef.current !== sharedUrlSignature) {
+        sharedUrlFocusRequestedSignatureRef.current = sharedUrlSignature;
+        previewEvent(sharedEvent.id);
+
+        if (sharedUrlFocusFrameRef.current !== null) {
+          window.cancelAnimationFrame(sharedUrlFocusFrameRef.current);
+        }
+
+        sharedUrlFocusFrameRef.current = window.requestAnimationFrame(() => {
+          sharedUrlFocusFrameRef.current = null;
+          handleFocusEvent(sharedEvent);
+        });
+      }
+
+      if (selectedEventId !== sharedEvent.id) {
+        return;
+      }
+    }
+
+    sharedUrlFocusRequestedSignatureRef.current = null;
+    setSharedUrlCollectionsReadySignature(null);
+    lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
+    setIsApplyingSharedUrl(false);
   }, [
-    findEventCollectionId,
+    collectionEventsById,
+    handleFocusEvent,
     isApplyingSharedUrl,
-    replaceTimelineShareState,
-    selectedEventInfo,
+    previewEvent,
+    selectedEventId,
+    sharedCollectionIdsFromUrl,
+    sharedEventIdFromUrl,
+    sharedUrlCollectionsReadySignature,
+    sharedUrlSignature,
     visibleCollectionIds,
   ]);
+
+  useEffect(
+    () => () => {
+      if (sharedUrlFocusFrameRef.current !== null) {
+        window.cancelAnimationFrame(sharedUrlFocusFrameRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <>
@@ -544,6 +714,7 @@ export const Timeline = ({
         downloadingCollectionIds={downloadingCollectionIds}
         collectionEventsById={collectionEventsById}
         collectionColors={collectionColors}
+        localCollectionIds={localCollectionIds}
         onSetCollectionColor={handleSetCollectionColor}
         onDeleteCollection={handleSidebarDeleteCollection}
         onRequestConfirm={setConfirmDialog}
@@ -551,6 +722,8 @@ export const Timeline = ({
           openEventEditor(event.id);
         }}
         onDeleteEvent={handleDeleteTimelineEvent}
+        editableCollectionIds={editableCollectionIds}
+        onEditCollection={(collection) => setEditingCollection(collection)}
         onAddEvent={handleStartAddEvent}
         onAddCollection={openCollectionCreator}
         onImportCollections={handleImportCollectionFile}
@@ -636,11 +809,12 @@ export const Timeline = ({
         onFocusCollapsedGroup={handleFocusCollapsedGroup}
       />
 
-      <FpsBadge
+      <Toolbar
         logicFps={logicFps}
         renderFps={renderFps}
         theme={theme}
         onToggleTheme={onToggleTheme}
+        onShare={() => setShareModalOpen(true)}
       />
 
       <Controller
@@ -729,8 +903,57 @@ export const Timeline = ({
 
       {isCreatingCollection && (
         <CollectionEditor
-          onCreate={handleCreateNewCollection}
-          onClose={closeCollectionCreator}
+          mode="create"
+          onSubmit={handleCreateNewCollection}
+          onClose={handleCloseImportDialog}
+          title={pendingImportEvents ? "New Collection for Import" : undefined}
+        />
+      )}
+
+      {editingCollection && (
+        <CollectionEditor
+          mode="edit"
+          initialValue={{
+            emoji: editingCollection.emoji,
+            name: editingCollection.name,
+            description: editingCollection.description,
+          }}
+          onSubmit={handleUpdateExistingCollection}
+          onClose={() => setEditingCollection(null)}
+          title="Edit Collection"
+        />
+      )}
+
+      {shareModalOpen && (
+        <ShareModal
+          focusYear={focusYear.get()}
+          logZoom={currentLogZoom.get()}
+          selectedEventId={shareableSelectedEventId}
+          visibleCollectionIds={shareableVisibleCollectionIds}
+          collectionNames={Object.fromEntries(
+            shareableVisibleCollectionIds.map((id) => {
+              const collection = collections.find((c) => c.id === id);
+              return [id, collection?.name ?? id];
+            }),
+          )}
+          onGenerateUrl={(opts) =>
+            generateShareUrl({
+              // Website is always included — share links always open timeline directly
+              includeWebsite: true,
+              includeCollections: opts.includeCollections,
+              includeSelectedEvent: opts.includeSelectedEvent,
+              includeViewport: opts.includeViewport,
+              // Only syncable collections can be restored from ?c= URL param.
+              // Local collections are persisted separately in localStorage.
+              collectionIds: shareableVisibleCollectionIds,
+              focusYear: focusYear.get(),
+              logZoom: currentLogZoom.get(),
+              overrideEventId: opts.includeSelectedEvent
+                ? shareableSelectedEventId
+                : null,
+            })
+          }
+          onClose={() => setShareModalOpen(false)}
         />
       )}
 
@@ -744,6 +967,19 @@ export const Timeline = ({
         onConfirm={handleConfirmDialog}
         onCancel={handleCloseConfirmDialog}
       />
+
+      {pendingImportDialog && (
+        <ImportEventsDialog
+          eventCount={pendingImportEvents?.length ?? 0}
+          collections={writableCollections}
+          onImportToCollection={handleImportEventsToCollection}
+          onCreateNewCollection={() => {
+            setPendingImportDialog(false);
+            openCollectionCreator();
+          }}
+          onCancel={handleCloseImportDialog}
+        />
+      )}
 
       <WarpOverlay
         isWarping={isWarping}

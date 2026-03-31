@@ -10,6 +10,9 @@ type AppView = "landing" | "timeline";
 export default function App() {
   const theme = useTimelineStore((state) => state.theme);
   const setTheme = useTimelineStore((state) => state.setTheme);
+  const lastOpenedView = useTimelineStore((state) => state.lastOpenedView);
+  const hasHydrated = useTimelineStore((state) => state.hasHydrated);
+  const setLastOpenedView = useTimelineStore((state) => state.setLastOpenedView);
   const resolvedTheme = resolveThemeMode(theme);
   const {
     shouldOpenTimeline,
@@ -17,7 +20,9 @@ export default function App() {
     clearTimelineView,
   } = useTimelineShareUrl();
   const [view, setView] = useState<AppView>(() =>
-    shouldOpenTimeline ? "timeline" : "landing",
+    shouldOpenTimeline || lastOpenedView === "timeline"
+      ? "timeline"
+      : "landing",
   );
 
   useEffect(() => {
@@ -25,8 +30,25 @@ export default function App() {
   }, [resolvedTheme]);
 
   useEffect(() => {
-    setView(shouldOpenTimeline ? "timeline" : "landing");
-  }, [shouldOpenTimeline]);
+    if (shouldOpenTimeline) {
+      setView("timeline");
+      return;
+    }
+
+    if (!hasHydrated) {
+      return;
+    }
+
+    setView(lastOpenedView);
+  }, [hasHydrated, lastOpenedView, shouldOpenTimeline]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    setLastOpenedView(view);
+  }, [hasHydrated, setLastOpenedView, view]);
 
   const handleToggleTheme = () => {
     startTransition(() => {

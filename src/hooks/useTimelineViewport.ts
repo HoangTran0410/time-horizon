@@ -37,7 +37,6 @@ import {
   getTimelineHighlightStep,
   isHighlightedTimelineTick,
 } from "../helpers";
-import {} from "../constants/types";
 import {
   CAMERA_FIT_PADDING,
   CAMERA_SPRING,
@@ -69,7 +68,15 @@ type UseTimelineViewportParams = {
   renderedTimelineEvents: Event[];
   selectedEventId: string | null;
   onSelectEvent: (event: Event | null) => void;
+  onViewportChange?: (viewport: {
+    focusYear: number;
+    logZoom: number;
+  }) => void;
   setIsRulerActive: (value: boolean) => void;
+  /** Optional: deep-link focus year. When provided, viewport boots to this year instead of auto-fit. */
+  initialFocusYear?: number | null;
+  /** Optional: deep-link log-zoom. When provided, viewport boots to this zoom instead of auto-fit. */
+  initialLogZoom?: number | null;
 };
 
 const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
@@ -79,7 +86,10 @@ export const useTimelineViewport = ({
   renderedTimelineEvents,
   selectedEventId,
   onSelectEvent,
+  onViewportChange,
   setIsRulerActive,
+  initialFocusYear = null,
+  initialLogZoom = null,
 }: UseTimelineViewportParams) => {
   const [ticks, setTicks] = useState<TimelineTick[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<CollapsedEventGroup[]>(
@@ -125,6 +135,7 @@ export const useTimelineViewport = ({
   const zoomLayoutTimeoutRef = useRef<number | null>(null);
   const zoomLabelTimeoutRef = useRef<number | null>(null);
   const zoomSettleTimeoutRef = useRef<number | null>(null);
+  const persistViewportTimeoutRef = useRef<number | null>(null);
   const pendingZoomLabelRef = useRef(DEFAULT_LOG_ZOOM);
   const hasBootstrappedRef = useRef(false);
   const collapsedGroupCycleRef = useRef<Record<string, number>>({});
@@ -176,6 +187,28 @@ export const useTimelineViewport = ({
     (typeof window !== "undefined" ? window.innerHeight : 800);
 
   const getViewportCenter = () => getViewportWidth() / 2;
+
+  const flushViewportPersistence = () => {
+    if (!onViewportChange) return;
+
+    onViewportChange({
+      focusYear: focusYear.get(),
+      logZoom: logZoom.get(),
+    });
+  };
+
+  const scheduleViewportPersistence = () => {
+    if (!onViewportChange || !hasBootstrappedRef.current) return;
+
+    if (persistViewportTimeoutRef.current !== null) {
+      window.clearTimeout(persistViewportTimeoutRef.current);
+    }
+
+    persistViewportTimeoutRef.current = window.setTimeout(() => {
+      persistViewportTimeoutRef.current = null;
+      flushViewportPersistence();
+    }, 150);
+  };
 
   const setCameraFromPanX = (
     nextPanX: number,
@@ -1297,6 +1330,7 @@ export const useTimelineViewport = ({
     }
 
     scheduleLayoutUpdate();
+    scheduleViewportPersistence();
 
     if (
       bounds.startYear < tickState.firstTick + tickState.interval ||
@@ -1335,14 +1369,40 @@ export const useTimelineViewport = ({
     scheduleZoomTickUpdate();
     scheduleZoomLayoutUpdate();
     scheduleZoomRangeLabelUpdate(value);
+    scheduleViewportPersistence();
   });
 
   useEffect(() => {
     const isBootstrapping = !hasBootstrappedRef.current;
-    handleAutoFit(isBootstrapping);
-    updateTicks();
-    updateLayout(isBootstrapping);
+    if (!isBootstrapping) return;
+
+    if (initialFocusYear !== null && initialLogZoom !== null) {
+      // Deep-link: restore exact viewport from URL params
+      const width = getViewportWidth();
+      stopCameraAnimations();
+      focusPixel.set(width / 2);
+      focusYear.set(initialFocusYear);
+      targetLogZoom.current = initialLogZoom;
+      logZoom.set(initialLogZoom);
+      updateTicks();
+      updateLayout(true);
+    } else {
+      // Default: auto-fit to all rendered events
+      handleAutoFit(true);
+      updateTicks();
+      updateLayout(true);
+    }
+
     hasBootstrappedRef.current = true;
+    flushViewportPersistence();
+  }, [renderedTimelineEvents]);
+
+  useEffect(() => {
+    if (!hasBootstrappedRef.current) return;
+
+    updateVisibleBounds();
+    updateTicks();
+    updateLayout();
   }, [renderedTimelineEvents]);
 
   useEffect(() => {
@@ -1405,6 +1465,11 @@ export const useTimelineViewport = ({
       }
       if (zoomWarpTimeoutRef.current !== null) {
         window.clearTimeout(zoomWarpTimeoutRef.current);
+      }
+      if (persistViewportTimeoutRef.current !== null) {
+        window.clearTimeout(persistViewportTimeoutRef.current);
+        persistViewportTimeoutRef.current = null;
+        flushViewportPersistence();
       }
     };
   }, []);
@@ -1472,5 +1537,6 @@ export const useTimelineViewport = ({
     handleZoomDragMove,
     handleZoomDragEnd,
     clearFocusedEvent,
+    currentLogZoom: logZoom,
   };
 };

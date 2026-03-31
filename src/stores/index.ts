@@ -1,25 +1,13 @@
 import { create } from "zustand";
-import {
-  createJSONStorage,
-  persist,
-  type StateStorage,
-} from "zustand/middleware";
-import {
-  COLLECTION_CACHE_KEY,
-  COLLECTION_COLOR_PREFERENCES_KEY,
-} from "../constants";
-import {
-  ThemeMode,
-  THEME_STORAGE_KEY,
-  getInitialTheme,
-} from "../constants/theme";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { ThemeMode, getInitialTheme } from "../constants/theme";
 import {
   Event,
   EventCollectionMeta,
   MEDIA_FILTERS,
   MediaFilter,
   CollectionCreationInput,
-  CollectionCache,
+  StoredTimelineCollection,
 } from "../constants/types";
 import {
   EVENT_COLLECTIONS,
@@ -65,6 +53,8 @@ type AbsoluteYearRange = {
   end: number;
 };
 
+export type TimelineAppView = "landing" | "timeline";
+
 type TimelineStoreState = {
   theme: ThemeMode;
   searchQuery: string;
@@ -73,12 +63,15 @@ type TimelineStoreState = {
   timeRangeStartInput: string;
   timeRangeEndInput: string;
   showOnlyResultsOnTimeline: boolean;
-  customCollections: EventCollectionMeta[];
-  collectionEventsById: Record<string, Event[]>;
+  collectionLibrary: Record<string, StoredTimelineCollection>;
   visibleCollectionIds: string[];
   downloadingCollectionIds: string[];
   collectionColorPreferences: Record<string, string>;
   selectedEventId: string | null;
+  savedFocusYear: number | null;
+  savedLogZoom: number | null;
+  lastOpenedView: TimelineAppView;
+  hasHydrated: boolean;
   isRulerActive: boolean;
   isEventInfoCollapsed: boolean;
   editingEventId: string | null;
@@ -107,15 +100,23 @@ type TimelineStoreState = {
   deleteCollection: (collectionId: string) => void;
   saveEvent: (updatedEvent: Event) => void;
   addEvent: (newEvent: Event, targetCollectionId: string) => void;
+  addEvents: (newEvents: Event[], targetCollectionId: string) => void;
   deleteEvent: (eventId: string) => void;
   createCollection: (
     collection: CollectionCreationInput,
   ) => EventCollectionMeta;
+  updateCollection: (
+    collectionId: string,
+    collection: CollectionCreationInput,
+  ) => void;
   setCollectionColor: (collectionId: string, color: string) => void;
   resetCollectionColor: (collectionId: string) => void;
   focusEvent: (eventId: string) => void;
   previewEvent: (eventId: string) => void;
   clearFocusedEvent: () => void;
+  setSavedViewport: (focusYear: number, logZoom: number) => void;
+  setLastOpenedView: (view: TimelineAppView) => void;
+  setHasHydrated: (value: boolean) => void;
   setIsRulerActive: (value: boolean) => void;
   toggleEventInfoCollapsed: () => void;
   openEventEditor: (eventId: string) => void;
@@ -176,10 +177,13 @@ type TimelinePersistedState = Pick<
   | "timeRangeStartInput"
   | "timeRangeEndInput"
   | "showOnlyResultsOnTimeline"
-  | "customCollections"
-  | "collectionEventsById"
+  | "collectionLibrary"
   | "visibleCollectionIds"
   | "collectionColorPreferences"
+  | "selectedEventId"
+  | "savedFocusYear"
+  | "savedLogZoom"
+  | "lastOpenedView"
 >;
 
 const STORE_KEY = "time-horizon:timeline-store:v1";
@@ -208,6 +212,9 @@ const isNonEmptyString = (value: unknown): value is string =>
 const normalizeOptionalTextInput = (value: unknown): string =>
   typeof value === "string" ? value : "";
 
+const normalizeFiniteNumber = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
 const normalizeOptionalMediaFilters = (value: unknown): MediaFilter[] =>
   Array.isArray(value)
     ? value.filter(
@@ -227,6 +234,139 @@ const sanitizeCollectionEventsById = (collections: unknown) => {
   }
 
   return collections as Record<string, Event[]>;
+};
+
+const sanitizeLastOpenedView = (value: unknown): TimelineAppView | undefined =>
+  value === "landing" || value === "timeline" ? value : undefined;
+
+const buildCollectionLibrary = (
+  collectionEventsById: Record<string, Event[]>,
+  customCollections: EventCollectionMeta[] = [],
+) => {
+  const nextCollectionLibrary: Record<string, StoredTimelineCollection> =
+    Object.fromEntries(
+      Object.entries(collectionEventsById).map(([collectionId, events]) => [
+        collectionId,
+        { events },
+      ]),
+    );
+
+  customCollections.forEach((collection) => {
+    nextCollectionLibrary[collection.id] = {
+      events: nextCollectionLibrary[collection.id]?.events ?? [],
+      meta: collection,
+      isLocal: true,
+    };
+  });
+
+  return nextCollectionLibrary;
+};
+
+const mergeCollectionLibraries = (
+  baseCollectionLibrary: Record<string, StoredTimelineCollection>,
+  overrideCollectionLibrary: Record<string, StoredTimelineCollection>,
+) => {
+  const mergedCollectionIds = new Set([
+    ...Object.keys(baseCollectionLibrary),
+    ...Object.keys(overrideCollectionLibrary),
+  ]);
+
+  return Object.fromEntries(
+    Array.from(mergedCollectionIds).map((collectionId) => {
+      const baseCollection = baseCollectionLibrary[collectionId];
+      const overrideCollection = overrideCollectionLibrary[collectionId];
+
+      return [
+        collectionId,
+        {
+          events:
+            overrideCollection?.events ??
+            baseCollection?.events ??
+            [],
+          ...(baseCollection?.meta || overrideCollection?.meta
+            ? {
+                meta:
+                  overrideCollection?.meta ??
+                  baseCollection?.meta ??
+                  null,
+              }
+            : {}),
+          isLocal:
+            overrideCollection?.isLocal ??
+            baseCollection?.isLocal ??
+            false,
+        },
+      ] as const;
+    }),
+  ) as Record<string, StoredTimelineCollection>;
+};
+
+const sanitizeCollectionLibrary = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([collectionId, collectionValue]) => {
+      if (
+        !collectionValue ||
+        typeof collectionValue !== "object" ||
+        Array.isArray(collectionValue)
+      ) {
+        return [];
+      }
+
+      const candidate = collectionValue as Partial<StoredTimelineCollection>;
+      const events = sanitizeImportedEvents(candidate.events);
+      const meta =
+        sanitizeCustomCollections(candidate.meta ? [candidate.meta] : [], {
+          allowBuiltInIds: true,
+        })[0] ??
+        null;
+
+      return [
+        [
+          collectionId,
+          {
+            events,
+            ...(meta ? { meta: { ...meta, id: collectionId } } : {}),
+            isLocal:
+              candidate.isLocal === true ||
+              (meta !== null && !BUILT_IN_COLLECTION_IDS.has(collectionId)),
+          },
+        ] as const,
+      ];
+    }),
+  ) as Record<string, StoredTimelineCollection>;
+};
+
+const getCollectionEventsById = (
+  collectionLibrary: Record<string, StoredTimelineCollection>,
+) =>
+  Object.fromEntries(
+    Object.entries(collectionLibrary).map(([collectionId, collection]) => [
+      collectionId,
+      collection.events,
+    ]),
+  ) as Record<string, Event[]>;
+
+const getCustomCollectionsFromLibrary = (
+  collectionLibrary: Record<string, StoredTimelineCollection>,
+) =>
+  Object.values(collectionLibrary).flatMap((collection) =>
+    collection.meta ? [collection.meta] : [],
+  );
+
+const sanitizeSelectedEventId = (
+  selectedEventId: unknown,
+  collectionLibrary: Record<string, StoredTimelineCollection>,
+) => {
+  if (!isNonEmptyString(selectedEventId)) return null;
+
+  const collectionEventsById = getCollectionEventsById(collectionLibrary);
+  return findEventByIdInCollections(collectionEventsById, selectedEventId)
+    ? selectedEventId.trim()
+    : null;
 };
 
 const sanitizeCollectionColorPreferences = (value: unknown) => {
@@ -269,7 +409,7 @@ const sanitizeImportedEventTime = (value: unknown): Event["time"] | null => {
   ]);
 };
 
-const sanitizeImportedEvents = (value: unknown): Event[] => {
+export const sanitizeImportedEvents = (value: unknown): Event[] => {
   if (!Array.isArray(value)) return [];
 
   return value.flatMap((event) => {
@@ -321,6 +461,9 @@ const sanitizeImportedEvents = (value: unknown): Event[] => {
 
 const sanitizeCustomCollections = (
   customCollections: unknown,
+  options?: {
+    allowBuiltInIds?: boolean;
+  },
 ): EventCollectionMeta[] => {
   if (!Array.isArray(customCollections)) return [];
 
@@ -333,16 +476,16 @@ const sanitizeCustomCollections = (
     if (
       !isNonEmptyString(candidate.id) ||
       !isNonEmptyString(candidate.name) ||
-      !isNonEmptyString(candidate.emoji) ||
-      !isNonEmptyString(candidate.description) ||
-      !isNonEmptyString(candidate.author) ||
-      !isNonEmptyString(candidate.createdAt)
+      !isNonEmptyString(candidate.emoji)
     ) {
       return [];
     }
 
     const id = candidate.id.trim();
-    if (BUILT_IN_COLLECTION_IDS.has(id) || seen.has(id)) {
+    if (
+      ((!options?.allowBuiltInIds && BUILT_IN_COLLECTION_IDS.has(id)) ||
+        seen.has(id))
+    ) {
       return [];
     }
 
@@ -353,9 +496,16 @@ const sanitizeCustomCollections = (
         id,
         name: candidate.name.trim(),
         emoji: candidate.emoji.trim(),
-        description: candidate.description.trim(),
-        author: candidate.author.trim(),
-        createdAt: candidate.createdAt.trim(),
+        description:
+          typeof candidate.description === "string"
+            ? candidate.description.trim()
+            : "",
+        author: isNonEmptyString(candidate.author)
+          ? candidate.author.trim()
+          : "You",
+        createdAt: isNonEmptyString(candidate.createdAt)
+          ? candidate.createdAt.trim()
+          : createLocalDateStamp(),
         color: typeof candidate.color === "string" ? candidate.color : null,
       },
     ];
@@ -364,17 +514,19 @@ const sanitizeCustomCollections = (
 
 const sanitizeVisibleCollectionIds = (
   visibleCollectionIds: unknown,
-  collectionEventsById: Record<string, Event[]>,
+  collectionLibrary: Record<string, StoredTimelineCollection>,
 ) => {
+  const knownIds = new Set(Object.keys(collectionLibrary));
+
   const ids = Array.isArray(visibleCollectionIds)
     ? visibleCollectionIds
-    : Object.keys(collectionEventsById);
+    : [];
 
   return ids.filter(
     (collectionId, index, allIds): collectionId is string =>
       typeof collectionId === "string" &&
       allIds.indexOf(collectionId) === index &&
-      Object.prototype.hasOwnProperty.call(collectionEventsById, collectionId),
+      knownIds.has(collectionId),
   );
 };
 
@@ -386,8 +538,21 @@ const sanitizePersistedTimelineState = (
   }
 
   const candidate = value as Partial<TimelinePersistedState>;
-  const collectionEventsById = sanitizeCollectionEventsById(
-    candidate.collectionEventsById,
+  const legacyCustomCollections = sanitizeCustomCollections(
+    (candidate as { customCollections?: unknown }).customCollections,
+  );
+  const legacyCollectionLibrary = buildCollectionLibrary(
+    sanitizeCollectionEventsById(
+      (candidate as { collectionEventsById?: unknown }).collectionEventsById,
+    ),
+    legacyCustomCollections,
+  );
+  const persistedCollectionLibrary = sanitizeCollectionLibrary(
+    (candidate as { collectionLibrary?: unknown }).collectionLibrary,
+  );
+  const collectionLibrary = mergeCollectionLibraries(
+    legacyCollectionLibrary,
+    persistedCollectionLibrary,
   );
 
   return {
@@ -420,14 +585,26 @@ const sanitizePersistedTimelineState = (
       typeof candidate.showOnlyResultsOnTimeline === "boolean"
         ? candidate.showOnlyResultsOnTimeline
         : undefined,
-    customCollections: sanitizeCustomCollections(candidate.customCollections),
-    collectionEventsById,
+    collectionLibrary,
     visibleCollectionIds: sanitizeVisibleCollectionIds(
       candidate.visibleCollectionIds,
-      collectionEventsById,
+      collectionLibrary,
     ),
     collectionColorPreferences: sanitizeCollectionColorPreferences(
       candidate.collectionColorPreferences,
+    ),
+    selectedEventId: sanitizeSelectedEventId(
+      (candidate as { selectedEventId?: unknown }).selectedEventId,
+      collectionLibrary,
+    ),
+    savedFocusYear: normalizeFiniteNumber(
+      (candidate as { savedFocusYear?: unknown }).savedFocusYear,
+    ),
+    savedLogZoom: normalizeFiniteNumber(
+      (candidate as { savedLogZoom?: unknown }).savedLogZoom,
+    ),
+    lastOpenedView: sanitizeLastOpenedView(
+      (candidate as { lastOpenedView?: unknown }).lastOpenedView,
     ),
   };
 };
@@ -438,7 +615,7 @@ const readLegacyCollectionCache = () => {
   }
 
   try {
-    const raw = window.localStorage.getItem(COLLECTION_CACHE_KEY);
+    const raw = window.localStorage.getItem("time-horizon:collection-cache:v2");
     if (!raw) {
       return {
         collections: {},
@@ -447,7 +624,7 @@ const readLegacyCollectionCache = () => {
       };
     }
 
-    const parsed = JSON.parse(raw) as CollectionCache;
+    const parsed = JSON.parse(raw);
     const collectionEventsById = sanitizeCollectionEventsById(
       parsed?.collections,
     );
@@ -463,7 +640,10 @@ const readLegacyCollectionCache = () => {
       collections: collectionEventsById,
       visibleCollectionIds: sanitizeVisibleCollectionIds(
         parsed.visibleCollectionIds,
-        collectionEventsById,
+        buildCollectionLibrary(
+          collectionEventsById,
+          sanitizeCustomCollections(parsed.customCollections),
+        ),
       ),
       customCollections: sanitizeCustomCollections(parsed.customCollections),
     };
@@ -477,7 +657,9 @@ const readLegacyCollectionColorPreferences = () => {
   if (typeof window === "undefined") return {};
 
   try {
-    const raw = window.localStorage.getItem(COLLECTION_COLOR_PREFERENCES_KEY);
+    const raw = window.localStorage.getItem(
+      "time-horizon:collection-color-preferences:v1",
+    );
     if (!raw) return {};
     return sanitizeCollectionColorPreferences(JSON.parse(raw));
   } catch (error) {
@@ -489,16 +671,16 @@ const readLegacyCollectionColorPreferences = () => {
 const readLegacyTheme = () => {
   if (typeof window === "undefined") return undefined;
 
-  const rawTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const rawTheme = window.localStorage.getItem("time-horizon:theme");
   return isThemeMode(rawTheme) ? rawTheme : undefined;
 };
 
 const cleanupLegacyCollectionStorage = () => {
   if (typeof window === "undefined") return;
 
-  window.localStorage.removeItem(COLLECTION_CACHE_KEY);
-  window.localStorage.removeItem(COLLECTION_COLOR_PREFERENCES_KEY);
-  window.localStorage.removeItem(THEME_STORAGE_KEY);
+  window.localStorage.removeItem("time-horizon:collection-cache:v2");
+  window.localStorage.removeItem("time-horizon:collection-color-preferences:v1");
+  window.localStorage.removeItem("time-horizon:theme");
 };
 
 const getLegacyPersistedTimelineState =
@@ -521,43 +703,24 @@ const getLegacyPersistedTimelineState =
 
     const migratedState: Partial<TimelinePersistedState> = {
       theme: legacyTheme,
-      customCollections: legacyCollectionCache.customCollections,
-      collectionEventsById: legacyCollectionCache.collections,
-      visibleCollectionIds: legacyCollectionCache.visibleCollectionIds,
+      collectionLibrary: buildCollectionLibrary(
+        legacyCollectionCache.collections,
+        legacyCollectionCache.customCollections,
+      ),
+      visibleCollectionIds: sanitizeVisibleCollectionIds(
+        legacyCollectionCache.visibleCollectionIds,
+        buildCollectionLibrary(
+          legacyCollectionCache.collections,
+          legacyCollectionCache.customCollections,
+        ),
+      ),
       collectionColorPreferences: legacyCollectionColorPreferences,
     };
 
     return migratedState;
   };
 
-const timelinePersistStorage: StateStorage = {
-  getItem: (name) => {
-    if (typeof window === "undefined") return null;
-
-    const existingValue = window.localStorage.getItem(name);
-    if (existingValue !== null) {
-      return existingValue;
-    }
-
-    const legacyState = getLegacyPersistedTimelineState();
-    if (!legacyState) {
-      return null;
-    }
-
-    return JSON.stringify({
-      state: legacyState,
-      version: 0,
-    });
-  },
-  setItem: (name, value) => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(name, value);
-  },
-  removeItem: (name) => {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem(name);
-  },
-};
+const timelinePersistStorage = createJSONStorage(() => localStorage);
 
 const getInitialEventInfoCollapsed = () => {
   if (typeof window === "undefined") return false;
@@ -944,9 +1107,13 @@ export const filterTimelineSearchEvents = (
 };
 
 const findEventCollectionIdInState = (
-  state: Pick<TimelineStoreState, "collectionEventsById">,
+  state: Pick<TimelineStoreState, "collectionLibrary">,
   eventId: string,
-) => findEventCollectionIdInCollections(state.collectionEventsById, eventId);
+) =>
+  findEventCollectionIdInCollections(
+    getCollectionEventsById(state.collectionLibrary),
+    eventId,
+  );
 
 export const useTimelineStore = create<TimelineStoreState>()(
   persist(
@@ -954,12 +1121,15 @@ export const useTimelineStore = create<TimelineStoreState>()(
       return {
         theme: getInitialTheme(),
         ...createInitialTimelineSearchState(),
-        customCollections: [],
-        collectionEventsById: {},
+        collectionLibrary: {},
         visibleCollectionIds: [],
         downloadingCollectionIds: [],
         collectionColorPreferences: {},
         selectedEventId: null,
+        savedFocusYear: null,
+        savedLogZoom: null,
+        lastOpenedView: "landing",
+        hasHydrated: false,
         isRulerActive: false,
         isEventInfoCollapsed: getInitialEventInfoCollapsed(),
         editingEventId: null,
@@ -989,7 +1159,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
               (visibleIds, collectionId) => {
                 if (
                   !Object.prototype.hasOwnProperty.call(
-                    state.collectionEventsById,
+                    state.collectionLibrary,
                     collectionId,
                   ) ||
                   visibleIds.includes(collectionId)
@@ -1016,20 +1186,36 @@ export const useTimelineStore = create<TimelineStoreState>()(
               : [...state.visibleCollectionIds, collectionId],
           })),
         ensurePlaygroundCollection: () =>
-          set((state) => ({
-            collectionEventsById: Object.prototype.hasOwnProperty.call(
-              state.collectionEventsById,
+          set((state) => {
+            const alreadyExists = Object.prototype.hasOwnProperty.call(
+              state.collectionLibrary,
               PLAYGROUND_COLLECTION.id,
-            )
-              ? state.collectionEventsById
-              : {
-                  ...state.collectionEventsById,
-                  [PLAYGROUND_COLLECTION.id]: [],
-                },
-          })),
+            );
+            const alreadyVisible = state.visibleCollectionIds.includes(
+              PLAYGROUND_COLLECTION.id,
+            );
+
+            if (alreadyExists && alreadyVisible) return {};
+
+            return {
+              collectionLibrary: alreadyExists
+                ? state.collectionLibrary
+                : {
+                    ...state.collectionLibrary,
+                    [PLAYGROUND_COLLECTION.id]: {
+                      events: [],
+                      meta: PLAYGROUND_COLLECTION,
+                      isLocal: true,
+                    },
+                  },
+              visibleCollectionIds: alreadyVisible
+                ? state.visibleCollectionIds
+                : [...state.visibleCollectionIds, PLAYGROUND_COLLECTION.id],
+            };
+          }),
         downloadCollection: async (collectionId) => {
           const currentState = get();
-          if (currentState.collectionEventsById[collectionId]) {
+          if (currentState.collectionLibrary[collectionId]) {
             currentState.addVisibleCollection(collectionId);
             return;
           }
@@ -1045,9 +1231,12 @@ export const useTimelineStore = create<TimelineStoreState>()(
           try {
             const loadedEvents = await loadEventCollection(collectionId);
             set((state) => ({
-              collectionEventsById: {
-                ...state.collectionEventsById,
-                [collectionId]: loadedEvents,
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [collectionId]: {
+                  ...state.collectionLibrary[collectionId],
+                  events: loadedEvents,
+                },
               },
               visibleCollectionIds: state.visibleCollectionIds.includes(
                 collectionId,
@@ -1085,9 +1274,12 @@ export const useTimelineStore = create<TimelineStoreState>()(
           try {
             const loadedEvents = await loadEventCollection(collectionId);
             set((state) => ({
-              collectionEventsById: {
-                ...state.collectionEventsById,
-                [collectionId]: loadedEvents,
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [collectionId]: {
+                  ...state.collectionLibrary[collectionId],
+                  events: loadedEvents,
+                },
               },
             }));
           } catch (error) {
@@ -1113,12 +1305,11 @@ export const useTimelineStore = create<TimelineStoreState>()(
           const currentState = get();
           const existingCollections = [
             ...EVENT_COLLECTIONS,
-            ...currentState.customCollections,
+            ...getCustomCollectionsFromLibrary(currentState.collectionLibrary),
             PLAYGROUND_COLLECTION,
           ];
           const existingIds = new Set(existingCollections.map((item) => item.id));
-          const nextCustomCollections = [...currentState.customCollections];
-          const nextCollectionEventsById = { ...currentState.collectionEventsById };
+          const nextCollectionLibrary = { ...currentState.collectionLibrary };
           const nextCollectionColorPreferences = {
             ...currentState.collectionColorPreferences,
           };
@@ -1167,8 +1358,11 @@ export const useTimelineStore = create<TimelineStoreState>()(
                   : null,
             };
 
-            nextCustomCollections.push(nextCollection);
-            nextCollectionEventsById[nextId] = importedEvents;
+            nextCollectionLibrary[nextId] = {
+              events: importedEvents,
+              meta: nextCollection,
+              isLocal: true,
+            };
             importedCollectionIds.push(nextId);
 
             if (typeof collection.color === "string" && collection.color.trim()) {
@@ -1191,8 +1385,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
 
           set({
             ...createInitialTimelineSearchState(),
-            customCollections: nextCustomCollections,
-            collectionEventsById: nextCollectionEventsById,
+            collectionLibrary: nextCollectionLibrary,
             collectionColorPreferences: nextCollectionColorPreferences,
             visibleCollectionIds: nextVisibleCollectionIds,
           });
@@ -1209,8 +1402,8 @@ export const useTimelineStore = create<TimelineStoreState>()(
               state.editingEventId !== null &&
               findEventCollectionIdInState(state, state.editingEventId) ===
                 collectionId;
-            const nextCollectionEventsById = { ...state.collectionEventsById };
-            delete nextCollectionEventsById[collectionId];
+            const nextCollectionLibrary = { ...state.collectionLibrary };
+            delete nextCollectionLibrary[collectionId];
 
             const nextCollectionColorPreferences = {
               ...state.collectionColorPreferences,
@@ -1218,10 +1411,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
             delete nextCollectionColorPreferences[collectionId];
 
             return {
-              customCollections: state.customCollections.filter(
-                (collection) => collection.id !== collectionId,
-              ),
-              collectionEventsById: nextCollectionEventsById,
+              collectionLibrary: nextCollectionLibrary,
               visibleCollectionIds: state.visibleCollectionIds.filter(
                 (id) => id !== collectionId,
               ),
@@ -1252,26 +1442,53 @@ export const useTimelineStore = create<TimelineStoreState>()(
             );
             if (!ownerCollectionId) return {};
 
+            const ownerCollection = state.collectionLibrary[ownerCollectionId];
+            if (!ownerCollection) return {};
+
             return {
-              collectionEventsById: {
-                ...state.collectionEventsById,
-                [ownerCollectionId]: state.collectionEventsById[
-                  ownerCollectionId
-                ].map((event) =>
-                  event.id === updatedEvent.id ? updatedEvent : event,
-                ),
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [ownerCollectionId]: {
+                  ...ownerCollection,
+                  events: ownerCollection.events.map((event) =>
+                    event.id === updatedEvent.id ? updatedEvent : event,
+                  ),
+                },
               },
             };
           }),
         addEvent: (newEvent, targetCollectionId) =>
           set((state) => {
             const existingEvents =
-              state.collectionEventsById[targetCollectionId] ?? [];
+              state.collectionLibrary[targetCollectionId]?.events ?? [];
 
             return {
-              collectionEventsById: {
-                ...state.collectionEventsById,
-                [targetCollectionId]: [...existingEvents, newEvent],
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [targetCollectionId]: {
+                  ...state.collectionLibrary[targetCollectionId],
+                  events: [...existingEvents, newEvent],
+                },
+              },
+              visibleCollectionIds: state.visibleCollectionIds.includes(
+                targetCollectionId,
+              )
+                ? state.visibleCollectionIds
+                : [...state.visibleCollectionIds, targetCollectionId],
+            };
+          }),
+        addEvents: (newEvents, targetCollectionId) =>
+          set((state) => {
+            const existingEvents =
+              state.collectionLibrary[targetCollectionId]?.events ?? [];
+
+            return {
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [targetCollectionId]: {
+                  ...state.collectionLibrary[targetCollectionId],
+                  events: [...existingEvents, ...newEvents],
+                },
               },
               visibleCollectionIds: state.visibleCollectionIds.includes(
                 targetCollectionId,
@@ -1288,12 +1505,18 @@ export const useTimelineStore = create<TimelineStoreState>()(
             );
             if (!ownerCollectionId) return {};
 
+            const ownerCollection = state.collectionLibrary[ownerCollectionId];
+            if (!ownerCollection) return {};
+
             return {
-              collectionEventsById: {
-                ...state.collectionEventsById,
-                [ownerCollectionId]: state.collectionEventsById[
-                  ownerCollectionId
-                ].filter((event) => event.id !== eventId),
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [ownerCollectionId]: {
+                  ...ownerCollection,
+                  events: ownerCollection.events.filter(
+                    (event) => event.id !== eventId,
+                  ),
+                },
               },
               selectedEventId:
                 state.selectedEventId === eventId
@@ -1308,15 +1531,18 @@ export const useTimelineStore = create<TimelineStoreState>()(
         createCollection: (collection) => {
           const nextCollection = buildCustomCollectionMeta(collection, [
             ...EVENT_COLLECTIONS,
-            ...get().customCollections,
+            ...getCustomCollectionsFromLibrary(get().collectionLibrary),
             PLAYGROUND_COLLECTION,
           ]);
 
           set((state) => ({
-            customCollections: [...state.customCollections, nextCollection],
-            collectionEventsById: {
-              ...state.collectionEventsById,
-              [nextCollection.id]: [],
+            collectionLibrary: {
+              ...state.collectionLibrary,
+              [nextCollection.id]: {
+                events: [],
+                meta: nextCollection,
+                isLocal: true,
+              },
             },
             visibleCollectionIds: state.visibleCollectionIds.includes(
               nextCollection.id,
@@ -1327,6 +1553,34 @@ export const useTimelineStore = create<TimelineStoreState>()(
 
           return nextCollection;
         },
+        updateCollection: (collectionId, collection) =>
+          set((state) => {
+            const existingCollection = state.collectionLibrary[collectionId];
+            const baseCollection =
+              existingCollection?.meta ??
+              [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION].find(
+                (item) => item.id === collectionId,
+              );
+            if (!existingCollection || !baseCollection) {
+              return {};
+            }
+
+            return {
+              collectionLibrary: {
+                ...state.collectionLibrary,
+                [collectionId]: {
+                  ...existingCollection,
+                  isLocal: true,
+                  meta: {
+                    ...baseCollection,
+                    emoji: collection.emoji.trim() || baseCollection.emoji,
+                    name: collection.name.trim() || baseCollection.name,
+                    description: collection.description.trim(),
+                  },
+                },
+              },
+            };
+          }),
         setCollectionColor: (collectionId, color) =>
           set((state) => ({
             collectionColorPreferences: {
@@ -1360,6 +1614,19 @@ export const useTimelineStore = create<TimelineStoreState>()(
           set({
             selectedEventId: null,
             isRulerActive: false,
+          }),
+        setSavedViewport: (focusYear, logZoom) =>
+          set({
+            savedFocusYear: focusYear,
+            savedLogZoom: logZoom,
+          }),
+        setLastOpenedView: (view) =>
+          set({
+            lastOpenedView: view,
+          }),
+        setHasHydrated: (value) =>
+          set({
+            hasHydrated: value,
           }),
         setIsRulerActive: (value) => set({ isRulerActive: value }),
         toggleEventInfoCollapsed: () =>
@@ -1396,16 +1663,29 @@ export const useTimelineStore = create<TimelineStoreState>()(
     },
     {
       name: STORE_KEY,
-      version: 1,
-      storage: createJSONStorage(() => timelinePersistStorage),
-      migrate: (persistedState) =>
-        sanitizePersistedTimelineState(persistedState),
+      version: 3,
+      storage: timelinePersistStorage,
+      migrate: (persistedState) => {
+        // Handle legacy v0 state: if it has `version: 0` or is missing
+        // the `version` field, it means data was stored across multiple
+        // localStorage keys (theme, collection-cache, color-prefs).
+        // Read and merge from those legacy keys before sanitizing.
+        const raw = persistedState as Partial<TimelinePersistedState & { version?: number }>;
+        if (!raw || raw.version === 0 || raw.version === undefined) {
+          const legacy = getLegacyPersistedTimelineState();
+          return sanitizePersistedTimelineState(
+            Object.keys(legacy).length > 0 ? legacy : persistedState,
+          );
+        }
+        return sanitizePersistedTimelineState(persistedState);
+      },
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...sanitizePersistedTimelineState(persistedState),
       }),
-      onRehydrateStorage: () => () => {
+      onRehydrateStorage: () => (state) => {
         cleanupLegacyCollectionStorage();
+        state?.setHasHydrated(true);
       },
       partialize: (state) => ({
         theme: state.theme,
@@ -1415,10 +1695,13 @@ export const useTimelineStore = create<TimelineStoreState>()(
         timeRangeStartInput: state.timeRangeStartInput,
         timeRangeEndInput: state.timeRangeEndInput,
         showOnlyResultsOnTimeline: state.showOnlyResultsOnTimeline,
-        customCollections: state.customCollections,
-        collectionEventsById: state.collectionEventsById,
+        collectionLibrary: state.collectionLibrary,
         visibleCollectionIds: state.visibleCollectionIds,
         collectionColorPreferences: state.collectionColorPreferences,
+        selectedEventId: state.selectedEventId,
+        savedFocusYear: state.savedFocusYear,
+        savedLogZoom: state.savedLogZoom,
+        lastOpenedView: state.lastOpenedView,
       }),
     },
   ),

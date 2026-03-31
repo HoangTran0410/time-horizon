@@ -49,9 +49,16 @@ export interface EventCollectionMeta {
   color?: string | null;
 }
 
+export interface StoredTimelineCollection {
+  events: Event[];
+  meta?: EventCollectionMeta | null;
+  isLocal?: boolean;
+}
+
 export type CollectionCache = {
   version: number;
-  collections: Record<string, Event[]>;
+  collectionLibrary?: Record<string, StoredTimelineCollection>;
+  collections?: Record<string, Event[]>;
   visibleCollectionIds?: string[];
   customCollections?: EventCollectionMeta[];
 };

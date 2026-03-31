@@ -6,10 +6,7 @@ import { getEventDisplayLabel } from "../helpers";
 interface SearchResultItemProps {
   event: Event;
   onSelect: (event: Event) => void;
-  onOpenActions: (
-    event: Event,
-    trigger: HTMLButtonElement,
-  ) => void;
+  onOpenActions: (event: Event, trigger: HTMLButtonElement) => void;
   isActionsOpen: boolean;
 }
 
@@ -30,7 +27,7 @@ export const SearchResultItem = React.memo<SearchResultItemProps>(
         <div className="flex items-start gap-2">
           <span className="text-lg leading-5">{event.emoji}</span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-zinc-100">
+            <div className="text-sm font-semibold text-zinc-100">
               {event.title}
             </div>
           </div>
@@ -68,9 +65,7 @@ export const SearchResultItem = React.memo<SearchResultItemProps>(
       </button>
       <button
         type="button"
-        onClick={(clickEvent) =>
-          onOpenActions(event, clickEvent.currentTarget)
-        }
+        onClick={(clickEvent) => onOpenActions(event, clickEvent.currentTarget)}
         className={`ui-icon-button h-10 w-10 shrink-0 rounded-[0.95rem] ${
           isActionsOpen ? "border-zinc-600 bg-zinc-800" : ""
         }`}

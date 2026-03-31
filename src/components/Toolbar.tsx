@@ -1,19 +1,27 @@
 import React, { useEffect, useState } from "react";
-import { Maximize2, Minimize2, MoonStar, SunMedium } from "lucide-react";
+import {
+  Maximize2,
+  Minimize2,
+  MoonStar,
+  SunMedium,
+  Share2,
+} from "lucide-react";
 import { ThemeMode } from "../constants/theme";
 
-interface FpsBadgeProps {
+interface ToolbarProps {
   logicFps: number;
   renderFps: number;
   theme: ThemeMode;
   onToggleTheme: () => void;
+  onShare: () => void;
 }
 
-export const FpsBadge: React.FC<FpsBadgeProps> = ({
+export const Toolbar: React.FC<ToolbarProps> = ({
   logicFps,
   renderFps,
   theme,
   onToggleTheme,
+  onShare,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(() => {
     if (typeof document === "undefined") return false;
@@ -79,6 +87,15 @@ export const FpsBadge: React.FC<FpsBadgeProps> = ({
           )}
         </button>
       ) : null}
+      <button
+        type="button"
+        onClick={onShare}
+        className="ui-icon-button h-10 w-10 shrink-0"
+        aria-label="Share timeline"
+        title="Share timeline"
+      >
+        <Share2 width={15} height={15} />
+      </button>
       <button
         type="button"
         onClick={onToggleTheme}

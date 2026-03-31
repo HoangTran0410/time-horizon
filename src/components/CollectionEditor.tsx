@@ -2,31 +2,46 @@ import React, { useEffect, useRef, useState } from "react";
 import type { EventCollectionMeta } from "../constants/types";
 import EmojiPicker, { type Theme } from "emoji-picker-react";
 import { ChevronDown, X } from "lucide-react";
-
-type CollectionCreationInput = Pick<
-  EventCollectionMeta,
-  "emoji" | "name" | "description"
->;
+import type { CollectionCreationInput } from "../constants/types";
 
 interface CollectionEditorProps {
-  onCreate: (collection: CollectionCreationInput) => void;
+  mode?: "create" | "edit";
+  initialValue?: CollectionCreationInput | null;
+  onSubmit: (collection: CollectionCreationInput) => void;
   onClose: () => void;
+  title?: string;
 }
 
 export const CollectionEditor: React.FC<CollectionEditorProps> = ({
-  onCreate,
+  mode = "create",
+  initialValue = null,
+  onSubmit,
   onClose,
+  title,
 }) => {
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
-  const [draft, setDraft] = useState<CollectionCreationInput>({
-    emoji: "🗂️",
-    name: "",
-    description: "",
-  });
+  const [draft, setDraft] = useState<CollectionCreationInput>(
+    initialValue ?? {
+      emoji: "🗂️",
+      name: "",
+      description: "",
+    },
+  );
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    setDraft(
+      initialValue ?? {
+        emoji: "🗂️",
+        name: "",
+        description: "",
+      },
+    );
+    setError(null);
+  }, [initialValue]);
 
   useEffect(() => {
     if (!showEmojiPicker) return;
@@ -68,7 +83,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
       return;
     }
 
-    onCreate({
+    onSubmit({
       emoji: draft.emoji.trim() || "🗂️",
       name,
       description,
@@ -109,7 +124,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           <div>
             <div className="ui-kicker mb-2">Library Builder</div>
             <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
-              New Collection
+              {title ?? (mode === "edit" ? "Edit Collection" : "New Collection")}
             </h2>
           </div>
           <button
@@ -195,7 +210,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
             onClick={handleSubmit}
             className="ui-button ui-button-primary px-6 py-3"
           >
-            Create Collection
+            {mode === "edit" ? "Save Changes" : "Create Collection"}
           </button>
         </div>
       </div>

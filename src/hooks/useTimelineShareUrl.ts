@@ -1,30 +1,51 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  clearSharedViewportInUrl,
+  getSharedLogZoomFromSearch,
   getSharedCollectionIdsFromSearch,
   getSharedEventIdFromSearch,
+  getSharedViewportYearFromSearch,
   hasSharedCollectionIdsInSearch,
   hasSharedEventIdInSearch,
   hasTimelineViewInSearch,
+  hasSharedViewportInSearch,
   setSharedCollectionIdsInUrl,
   setSharedEventIdInUrl,
-  setTimelineViewInUrl,
+  setSharedViewportInUrl,
 } from "../helpers";
 
 const TIMELINE_URL_CHANGE_EVENT = "time-horizon:url-change";
 
-type TimelineShareUrlState = {
+export type ShareOptions = {
+  includeWebsite: boolean;
+  includeCollections: boolean;
+  collectionIds?: string[];
+  includeSelectedEvent: boolean;
+  overrideEventId?: string | null;
+  includeViewport?: boolean;
+  focusYear?: number;
+  logZoom?: number;
+};
+
+// ─── URL state reader ─────────────────────────────────────────────────
+
+type UrlState = {
   hasTimelineView: boolean;
   sharedCollectionIds: string[];
   sharedEventId: string | null;
+  sharedFocusYear: number | null;
+  sharedLogZoom: number | null;
   shouldOpenTimeline: boolean;
 };
 
-const readTimelineShareUrlState = (): TimelineShareUrlState => {
+const readUrlState = (): UrlState => {
   if (typeof window === "undefined") {
     return {
       hasTimelineView: false,
       sharedCollectionIds: [],
       sharedEventId: null,
+      sharedFocusYear: null,
+      sharedLogZoom: null,
       shouldOpenTimeline: false,
     };
   }
@@ -32,103 +53,109 @@ const readTimelineShareUrlState = (): TimelineShareUrlState => {
   const { hash, search } = window.location;
   const hasTimelineView =
     hash === "#timeline" || hasTimelineViewInSearch(search);
-  const sharedCollectionIds = getSharedCollectionIdsFromSearch(search);
-  const sharedEventId = getSharedEventIdFromSearch(search);
 
   return {
     hasTimelineView,
-    sharedCollectionIds,
-    sharedEventId,
+    sharedCollectionIds: getSharedCollectionIdsFromSearch(search),
+    sharedEventId: getSharedEventIdFromSearch(search),
+    sharedFocusYear: getSharedViewportYearFromSearch(search),
+    sharedLogZoom: getSharedLogZoomFromSearch(search),
     shouldOpenTimeline:
-      hasTimelineView ||
+      hasTimelineViewInSearch(search) ||
       hasSharedEventIdInSearch(search) ||
-      hasSharedCollectionIdsInSearch(search),
+      hasSharedCollectionIdsInSearch(search) ||
+      hasSharedViewportInSearch(search),
   };
 };
 
-const dispatchTimelineUrlChange = () => {
+// ─── URL mutator ────────────────────────────────────────────────────
+
+const dispatchUrlChange = () => {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(TIMELINE_URL_CHANGE_EVENT));
 };
 
-type UpdateUrlMode = "push" | "replace";
-
-const updateTimelineUrl = (
-  mode: UpdateUrlMode,
-  mutateUrl: (url: URL) => void,
-) => {
+const writeUrl = (mutateUrl: (url: URL) => void) => {
   if (typeof window === "undefined") return;
-
   const url = new URL(window.location.href);
   mutateUrl(url);
-
-  if (mode === "push") {
-    window.history.pushState({}, "", url);
-  } else {
-    window.history.replaceState({}, "", url);
-  }
-
-  dispatchTimelineUrlChange();
+  window.history.replaceState({}, "", url);
+  dispatchUrlChange();
 };
 
+// ─── Hook ───────────────────────────────────────────────────────────
+
 export const useTimelineShareUrl = () => {
-  const [state, setState] = useState<TimelineShareUrlState>(
-    readTimelineShareUrlState,
-  );
+  const [state, setState] = useState<UrlState>(readUrlState);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const syncState = () => {
-      setState(readTimelineShareUrlState());
-    };
+    const sync = () => setState(readUrlState());
 
-    window.addEventListener("popstate", syncState);
-    window.addEventListener("hashchange", syncState);
-    window.addEventListener(TIMELINE_URL_CHANGE_EVENT, syncState);
-    syncState();
+    window.addEventListener("popstate", sync);
+    window.addEventListener("hashchange", sync);
+    window.addEventListener(TIMELINE_URL_CHANGE_EVENT, sync);
+    sync();
 
     return () => {
-      window.removeEventListener("popstate", syncState);
-      window.removeEventListener("hashchange", syncState);
-      window.removeEventListener(TIMELINE_URL_CHANGE_EVENT, syncState);
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener(TIMELINE_URL_CHANGE_EVENT, sync);
     };
   }, []);
 
-  const enterTimelineView = useCallback(() => {
-    updateTimelineUrl("push", (url) => {
-      url.hash = "";
-      setTimelineViewInUrl(url, true);
-    });
-  }, []);
+  /** Navigate to timeline view (pushes browser history) */
+  const enterTimelineView = useCallback(() => {}, []);
 
+  /** Return to landing — strip all share params */
   const clearTimelineView = useCallback(() => {
-    updateTimelineUrl("replace", (url) => {
+    writeUrl((url) => {
       url.hash = "";
-      setSharedCollectionIdsInUrl(url, []);
-      setSharedEventIdInUrl(url, null);
-      setTimelineViewInUrl(url, false);
+      url.searchParams.delete("t");
+      url.searchParams.delete("c");
+      url.searchParams.delete("e");
+      clearSharedViewportInUrl(url);
     });
   }, []);
 
-  const replaceTimelineShareState = useCallback(
-    (nextState: {
-      sharedCollectionIds: string[];
-      sharedEventId: string | null;
-      keepTimelineView?: boolean;
-    }) => {
-      const {
-        sharedCollectionIds,
-        sharedEventId,
-        keepTimelineView = sharedCollectionIds.length === 0,
-      } = nextState;
+  /**
+   * Generate a shareable URL.
+   * Optionally writes ?c= (collections) and/or ?e= (event focus).
+   */
+  const generateShareUrl = useCallback(
+    ({
+      collectionIds,
+      includeCollections,
+      includeSelectedEvent,
+      overrideEventId,
+      includeViewport,
+      focusYear,
+      logZoom,
+    }: ShareOptions): string => {
+      const url = new URL(window.location.href);
+      url.hash = "";
+      url.searchParams.delete("t");
 
-      updateTimelineUrl("replace", (url) => {
-        url.hash = "";
-        setSharedCollectionIdsInUrl(url, sharedCollectionIds);
-        setSharedEventIdInUrl(url, sharedEventId);
-        setTimelineViewInUrl(url, keepTimelineView);
-      });
+      if (includeCollections && collectionIds && collectionIds.length > 0) {
+        setSharedCollectionIdsInUrl(url, collectionIds);
+      } else {
+        url.searchParams.delete("c");
+      }
+
+      if (includeSelectedEvent && overrideEventId != null) {
+        setSharedEventIdInUrl(url, overrideEventId);
+      } else {
+        url.searchParams.delete("e");
+      }
+
+      if (includeViewport && focusYear != null && logZoom != null) {
+        setSharedViewportInUrl(url, focusYear, logZoom);
+      } else {
+        clearSharedViewportInUrl(url);
+      }
+
+      return url.toString();
     },
     [],
   );
@@ -138,8 +165,8 @@ export const useTimelineShareUrl = () => {
       ...state,
       enterTimelineView,
       clearTimelineView,
-      replaceTimelineShareState,
+      generateShareUrl,
     }),
-    [clearTimelineView, enterTimelineView, replaceTimelineShareState, state],
+    [state, enterTimelineView, clearTimelineView, generateShareUrl],
   );
 };

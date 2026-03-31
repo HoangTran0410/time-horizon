@@ -490,7 +490,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
                       <div className="min-w-0 flex-1 basis-48">
-                        <h3 className="truncate text-[1rem] font-semibold text-white">
+                        <h3 className="text-[1rem] font-semibold text-white">
                           {event.title}
                         </h3>
                         <p className="mt-1 truncate font-mono text-[0.76rem] uppercase tracking-[0.12em] text-emerald-500">

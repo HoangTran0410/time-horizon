@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   FolderPlus,
+  Pencil,
   Menu,
   MoreHorizontal,
   Plus,
@@ -34,11 +35,14 @@ interface SidebarProps {
   downloadingCollectionIds: string[];
   collectionEventsById: Record<string, Event[]>;
   collectionColors: Record<string, string | null>;
+  localCollectionIds: string[];
   onSetCollectionColor: (collectionId: string, color: string) => void;
   onDeleteCollection: (collection: EventCollectionMeta) => void;
   onRequestConfirm: (options: ConfirmDialogOptions) => void;
   onEditEvent: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
+  editableCollectionIds: string[];
+  onEditCollection: (collection: EventCollectionMeta) => void;
   onAddEvent: (collectionId?: string) => void;
   onAddCollection: () => void;
   onImportCollections: (file: File) => Promise<string> | string;
@@ -60,11 +64,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   downloadingCollectionIds,
   collectionEventsById,
   collectionColors,
+  localCollectionIds,
   onSetCollectionColor,
   onDeleteCollection,
   onRequestConfirm,
   onEditEvent,
   onDeleteEvent,
+  editableCollectionIds,
+  onEditCollection,
   onAddEvent,
   onAddCollection,
   onImportCollections,
@@ -198,6 +205,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     prevIsOpenRef.current = isOpen;
+  }, [isOpen, visibleCollectionIds]);
+
+  useEffect(() => {
+    if (!isOpen || visibleCollectionIds.length === 0) {
+      return;
+    }
+
+    setSessionPinnedCollectionIds((current) => {
+      const nextPinnedCollectionIds = [...current];
+      let hasChanges = false;
+
+      for (const collectionId of visibleCollectionIds) {
+        if (nextPinnedCollectionIds.includes(collectionId)) continue;
+        nextPinnedCollectionIds.push(collectionId);
+        hasChanges = true;
+      }
+
+      return hasChanges ? nextPinnedCollectionIds : current;
+    });
   }, [isOpen, visibleCollectionIds]);
 
   useEffect(() => {
@@ -578,6 +604,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       openCollectionMenuId === collection.id;
                     const isCollectionBrowserOpen =
                       browsingCollectionId === collection.id;
+                    const isEditableCollection = editableCollectionIds.includes(
+                      collection.id,
+                    );
+                    const isLocalCollection = localCollectionIds.includes(
+                      collection.id,
+                    );
                     const isLoading = downloadingCollectionIds.includes(
                       collection.id,
                     );
@@ -641,6 +673,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <h4 className="truncate text-[0.98rem] font-semibold text-white">
                                   {collection.name}
                                 </h4>
+                                {isLocalCollection ? (
+                                  <span
+                                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.18em] text-sky-200"
+                                    title="This collection is local to this device because it was created, imported, or edited here. It cannot be shared through Share Timeline."
+                                  >
+                                    Local
+                                  </span>
+                                ) : null}
                                 {statusLabel ? (
                                   <span
                                     className={`rounded-full border px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.18em] ${statusClassName}`}
@@ -760,6 +800,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 />
                                 <span>Color</span>
                               </label>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenCollectionMenuId(null);
+                                  onEditCollection(collection);
+                                }}
+                                disabled={!isEditableCollection}
+                                className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem] disabled:cursor-not-allowed disabled:opacity-50"
+                                title={
+                                  isEditableCollection
+                                    ? `Edit ${collection.name}`
+                                    : "Only local or imported collections can be edited"
+                                }
+                              >
+                                <Pencil />
+                                <span>Edit</span>
+                              </button>
                               <button
                                 onClick={(event) => {
                                   event.stopPropagation();

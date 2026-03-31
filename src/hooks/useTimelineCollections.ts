@@ -6,15 +6,13 @@ import { findEventCollectionIdInCollections } from "../stores";
 
 export const useTimelineCollections = () => {
   const {
-    customCollections,
-    collectionEventsById,
+    collectionLibrary,
     visibleCollectionIds,
     downloadingCollectionIds,
     collectionColorPreferences,
   } = useTimelineStore(
     useShallow((state) => ({
-      customCollections: state.customCollections,
-      collectionEventsById: state.collectionEventsById,
+      collectionLibrary: state.collectionLibrary,
       visibleCollectionIds: state.visibleCollectionIds,
       downloadingCollectionIds: state.downloadingCollectionIds,
       collectionColorPreferences: state.collectionColorPreferences,
@@ -32,8 +30,10 @@ export const useTimelineCollections = () => {
     deleteCollection,
     saveEvent,
     addEvent,
+    addEvents,
     deleteEvent,
     createCollection,
+    updateCollection,
     setCollectionColor,
     resetCollectionColor,
   } = useTimelineStore(
@@ -48,22 +48,77 @@ export const useTimelineCollections = () => {
       deleteCollection: state.deleteCollection,
       saveEvent: state.saveEvent,
       addEvent: state.addEvent,
+      addEvents: state.addEvents,
       deleteEvent: state.deleteEvent,
       createCollection: state.createCollection,
+      updateCollection: state.updateCollection,
       setCollectionColor: state.setCollectionColor,
       resetCollectionColor: state.resetCollectionColor,
     })),
   );
 
-  const collections = useMemo(
+  const collectionEventsById = useMemo(
     () =>
-      Object.prototype.hasOwnProperty.call(
-        collectionEventsById,
+      Object.fromEntries(
+        Object.entries(collectionLibrary).map(([collectionId, collection]) => [
+          collectionId,
+          collection.events,
+        ]),
+      ) as Record<string, (typeof collectionLibrary)[string]["events"]>,
+    [collectionLibrary],
+  );
+
+  const collectionMetaById = useMemo(
+    () =>
+      new Map(
+        Object.entries(collectionLibrary).flatMap(([collectionId, collection]) =>
+          collection.meta ? [[collectionId, collection.meta] as const] : [],
+        ),
+      ),
+    [collectionLibrary],
+  );
+
+  const builtInCollectionIds = useMemo(
+    () =>
+      new Set([
+        ...EVENT_COLLECTIONS.map((collection) => collection.id),
+        PLAYGROUND_COLLECTION.id,
+      ]),
+    [],
+  );
+
+  const editableCollectionIds = useMemo(
+    () => Object.keys(collectionLibrary),
+    [collectionLibrary],
+  );
+
+  const localCollectionIds = useMemo(
+    () =>
+      Object.entries(collectionLibrary).flatMap(([collectionId, collection]) =>
+        collection.isLocal ? [collectionId] : [],
+      ),
+    [collectionLibrary],
+  );
+
+  const collections = useMemo(
+    () => {
+      const builtInCollections = EVENT_COLLECTIONS.map(
+        (collection) => collectionMetaById.get(collection.id) ?? collection,
+      );
+      const customCollections = Array.from(collectionMetaById.entries()).flatMap(
+        ([collectionId, collection]) =>
+          builtInCollectionIds.has(collectionId) ? [] : [collection],
+      );
+      const playgroundCollection = Object.prototype.hasOwnProperty.call(
+        collectionLibrary,
         PLAYGROUND_COLLECTION.id,
       )
-        ? [...EVENT_COLLECTIONS, ...customCollections, PLAYGROUND_COLLECTION]
-        : [...EVENT_COLLECTIONS, ...customCollections],
-    [collectionEventsById, customCollections],
+        ? [collectionMetaById.get(PLAYGROUND_COLLECTION.id) ?? PLAYGROUND_COLLECTION]
+        : [];
+
+      return [...builtInCollections, ...customCollections, ...playgroundCollection];
+    },
+    [builtInCollectionIds, collectionLibrary, collectionMetaById],
   );
 
   const writableCollections = useMemo(
@@ -121,6 +176,8 @@ export const useTimelineCollections = () => {
     downloadingCollectionIds,
     collectionColorPreferences,
     collections,
+    localCollectionIds,
+    editableCollectionIds,
     writableCollections,
     collectionColors,
     timelineEvents,
@@ -137,8 +194,10 @@ export const useTimelineCollections = () => {
     handleDeleteCollection: deleteCollection,
     handleSaveEvent: saveEvent,
     handleAddEvent: addEvent,
+    handleAddEvents: addEvents,
     handleDeleteEvent: deleteEvent,
     handleCreateCollection: createCollection,
+    handleUpdateCollection: updateCollection,
     handleSetCollectionColor: setCollectionColor,
     handleResetCollectionColor: resetCollectionColor,
   };
