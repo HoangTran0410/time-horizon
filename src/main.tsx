@@ -3,9 +3,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./styles/index.css";
 import { applyThemeToDocument } from "./constants/theme.ts";
-import { useTimelineStore } from "./stores";
+import { useStore } from "./stores";
 
-applyThemeToDocument(useTimelineStore.getState().theme);
+applyThemeToDocument(useStore.getState().theme);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

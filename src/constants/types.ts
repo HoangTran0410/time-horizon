@@ -47,6 +47,11 @@ export interface EventCollectionMeta {
   createdAt: string;
   /** Optional default accent color for the collection. */
   color?: string | null;
+  /**
+   * For catalog (syncable/public) collections: URL to fetch the events JSON.
+   * Not present for locally-created collections.
+   */
+  dataUrl?: string;
 }
 
 export interface StoredTimelineCollection {

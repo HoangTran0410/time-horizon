@@ -15,7 +15,7 @@ import {
   filterTimelineSearchEvents,
   getTimelineSearchDateInputError,
   hasActiveTimelineSearchFilters,
-  useTimelineStore,
+  useStore,
 } from "../stores";
 
 export const SEARCH_SORT_OPTIONS: Array<{
@@ -104,38 +104,30 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     top: number;
     right: number;
   } | null>(null);
-  const globalSearchQuery = useTimelineStore((state) => state.searchQuery);
-  const globalActiveMediaFilters = useTimelineStore(
+  const globalSearchQuery = useStore((state) => state.searchQuery);
+  const globalActiveMediaFilters = useStore(
     (state) => state.activeMediaFilters,
   );
-  const globalSearchSortMode = useTimelineStore(
-    (state) => state.searchSortMode,
-  );
-  const globalTimeRangeStartInput = useTimelineStore(
+  const globalSearchSortMode = useStore((state) => state.searchSortMode);
+  const globalTimeRangeStartInput = useStore(
     (state) => state.timeRangeStartInput,
   );
-  const globalTimeRangeEndInput = useTimelineStore(
-    (state) => state.timeRangeEndInput,
-  );
-  const globalShowOnlyResultsOnTimeline = useTimelineStore(
+  const globalTimeRangeEndInput = useStore((state) => state.timeRangeEndInput);
+  const globalShowOnlyResultsOnTimeline = useStore(
     (state) => state.showOnlyResultsOnTimeline,
   );
-  const globalSetSearchQuery = useTimelineStore(
-    (state) => state.setSearchQuery,
-  );
-  const globalToggleStoredMediaFilter = useTimelineStore(
+  const globalSetSearchQuery = useStore((state) => state.setSearchQuery);
+  const globalToggleStoredMediaFilter = useStore(
     (state) => state.toggleMediaFilter,
   );
-  const globalSetSearchSortMode = useTimelineStore(
-    (state) => state.setSearchSortMode,
-  );
-  const globalSetTimeRangeStartInput = useTimelineStore(
+  const globalSetSearchSortMode = useStore((state) => state.setSearchSortMode);
+  const globalSetTimeRangeStartInput = useStore(
     (state) => state.setTimeRangeStartInput,
   );
-  const globalSetTimeRangeEndInput = useTimelineStore(
+  const globalSetTimeRangeEndInput = useStore(
     (state) => state.setTimeRangeEndInput,
   );
-  const globalSetShowOnlyResultsOnTimeline = useTimelineStore(
+  const globalSetShowOnlyResultsOnTimeline = useStore(
     (state) => state.setShowOnlyResultsOnTimeline,
   );
   const advancedFiltersContentRef = React.useRef<HTMLDivElement>(null);

@@ -6,7 +6,7 @@ import { MobileEventInfoPanel } from "./MobileEventInfoPanel";
 import { NavigationPanel } from "./NavigationPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
 import { SearchPanel } from "./SearchPanel";
-import { hasActiveTimelineSearch, useTimelineStore } from "../stores";
+import { hasActiveTimelineSearch, useStore } from "../stores";
 
 interface ControllerProps {
   zoomRangeLabel: string;
@@ -59,17 +59,11 @@ export const Controller: React.FC<ControllerProps> = ({
 }) => {
   const [activePanel, setActivePanel] = React.useState<ActivePanel>(null);
   const previousSelectedEventIdRef = React.useRef<string | null>(null);
-  const searchQuery = useTimelineStore((state) => state.searchQuery);
-  const activeMediaFilters = useTimelineStore(
-    (state) => state.activeMediaFilters,
-  );
-  const searchSortMode = useTimelineStore((state) => state.searchSortMode);
-  const timeRangeStartInput = useTimelineStore(
-    (state) => state.timeRangeStartInput,
-  );
-  const timeRangeEndInput = useTimelineStore(
-    (state) => state.timeRangeEndInput,
-  );
+  const searchQuery = useStore((state) => state.searchQuery);
+  const activeMediaFilters = useStore((state) => state.activeMediaFilters);
+  const searchSortMode = useStore((state) => state.searchSortMode);
+  const timeRangeStartInput = useStore((state) => state.timeRangeStartInput);
+  const timeRangeEndInput = useStore((state) => state.timeRangeEndInput);
   const hasActiveSearch = hasActiveTimelineSearch({
     searchQuery,
     activeMediaFilters,

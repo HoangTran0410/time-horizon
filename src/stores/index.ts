@@ -1,26 +1,26 @@
 import { create } from "zustand";
+import { loadCatalogByUrl } from "../hooks/useCatalogCollections";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { ThemeMode, getInitialTheme } from "../constants/theme";
-import {
+import type {
   Event,
   EventCollectionMeta,
-  MEDIA_FILTERS,
   MediaFilter,
-  CollectionCreationInput,
   StoredTimelineCollection,
+  CollectionCreationInput,
 } from "../constants/types";
-import {
-  EVENT_COLLECTIONS,
-  PLAYGROUND_COLLECTION,
-  SYNCABLE_COLLECTION_IDS,
-  loadEventCollection,
-} from "../data/collections";
+import { MEDIA_FILTERS } from "../constants/types";
 import {
   buildCustomCollectionMeta,
   createLocalDateStamp,
   normalizeEventTimeParts,
   slugifyCollectionId,
 } from "../helpers";
+
+export const createLocalCollectionId = (): string =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export type SearchSortMode =
   | "best-match"
@@ -52,6 +52,11 @@ type TimelineStoreState = {
   timeRangeStartInput: string;
   timeRangeEndInput: string;
   showOnlyResultsOnTimeline: boolean;
+  /** Cached syncable collection IDs from catalog metadata */
+  syncableIds: string[];
+  /** Cached catalog collection metadata (id → meta) for quick lookup */
+  catalogMeta: Record<string, EventCollectionMeta>;
+  /** Downloaded collection data */
   collectionLibrary: Record<string, StoredTimelineCollection>;
   visibleCollectionIds: string[];
   downloadingCollectionIds: string[];
@@ -67,6 +72,9 @@ type TimelineStoreState = {
   addingEvent: boolean;
   addingCollectionId: string | null;
   isCreatingCollection: boolean;
+  // Ephemeral sidebar UI state (not persisted)
+  isSidebarOpen: boolean;
+  isSidebarExploreOpen: boolean;
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
   setSearchQuery: (value: string) => void;
@@ -77,8 +85,14 @@ type TimelineStoreState = {
   setShowOnlyResultsOnTimeline: (value: boolean) => void;
   showCollections: (collectionIds: string[]) => void;
   addVisibleCollection: (collectionId: string) => void;
-  ensurePlaygroundCollection: () => void;
+  /** Replace cached catalog metadata (called by UI after fetching data/collections-metadata.json) */
+  setCatalogMeta: (
+    catalogMeta: Record<string, EventCollectionMeta>,
+    syncableIds: string[],
+  ) => void;
+  /** Download a catalog collection by ID */
   downloadCollection: (collectionId: string) => Promise<void>;
+  /** Re-sync / re-download a catalog collection by ID */
   syncCollection: (collectionId: string) => Promise<void>;
   setCollectionVisibility: (collectionId: string, visible: boolean) => void;
   importCollections: (collections: ImportedCollectionInput[]) => {
@@ -112,6 +126,11 @@ type TimelineStoreState = {
   closeEventCreator: () => void;
   openCollectionCreator: () => void;
   closeCollectionCreator: () => void;
+  // Sidebar UI actions
+  openSidebar: () => void;
+  closeSidebar: () => void;
+  openSidebarExplore: () => void;
+  closeSidebarExplore: () => void;
 };
 
 type ImportedCollectionInput = {
@@ -177,11 +196,6 @@ const STORE_KEY = "time-horizon:timeline-store:v1";
 const PARTIAL_DATE_INPUT_PATTERN = /^(-?\d+)(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/;
 const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const EVENT_TIME_RANGE_CACHE = new WeakMap<Event, AbsoluteYearRange>();
-const BUILT_IN_COLLECTION_IDS = new Set(
-  [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION].map(
-    (collection) => collection.id,
-  ),
-);
 const SEARCH_SORT_MODES: SearchSortMode[] = [
   "best-match",
   "time-asc",
@@ -308,15 +322,18 @@ const sanitizeCollectionLibrary = (value: unknown) => {
           {
             events,
             ...(meta ? { meta: { ...meta, id: collectionId } } : {}),
-            isLocal:
-              candidate.isLocal === true ||
-              (meta !== null && !BUILT_IN_COLLECTION_IDS.has(collectionId)),
+            isLocal: candidate.isLocal === true,
           },
         ] as const,
       ];
     }),
   ) as Record<string, StoredTimelineCollection>;
 };
+
+// We no longer have a hardcoded BUILT_IN_COLLECTION_IDS — all collections
+// are discovered from catalog metadata. Legacy migrations may reference IDs
+// so we keep an empty set here for the sanitizer to skip blocking them.
+const BUILT_IN_COLLECTION_IDS = new Set<string>();
 
 const getCollectionEventsById = (
   collectionLibrary: Record<string, StoredTimelineCollection>,
@@ -407,9 +424,7 @@ export const sanitizeImportedEvents = (value: unknown): Event[] => {
     const eventId =
       isNonEmptyString(candidate.id) && candidate.id.trim().length > 0
         ? candidate.id.trim()
-        : typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        : createLocalCollectionId();
 
     return [
       {
@@ -487,6 +502,7 @@ const sanitizeCustomCollections = (
           ? candidate.createdAt.trim()
           : createLocalDateStamp(),
         color: typeof candidate.color === "string" ? candidate.color : null,
+        dataUrl: undefined,
       },
     ];
   });
@@ -740,7 +756,7 @@ const compareTitles = (left: Event, right: Event) =>
   left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
 
 const isLeapYear = (year: number) =>
-  year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  year % 4 === 0 && (year % 100 !== 0 || year % 400 !== 0);
 
 const getDaysInYear = (year: number) => (isLeapYear(year) ? 366 : 365);
 
@@ -1095,12 +1111,19 @@ const findEventCollectionIdInState = (
     eventId,
   );
 
-export const useTimelineStore = create<TimelineStoreState>()(
+/** Load events for a catalog collection by dataUrl */
+const loadCatalogCollectionData = async (dataUrl: string): Promise<Event[]> => {
+  return (await loadCatalogByUrl(dataUrl)) as Event[];
+};
+
+export const useStore = create<TimelineStoreState>()(
   persist(
     (set, get) => {
       return {
         theme: getInitialTheme(),
         ...createInitialTimelineSearchState(),
+        syncableIds: [],
+        catalogMeta: {},
         collectionLibrary: {},
         visibleCollectionIds: [],
         downloadingCollectionIds: [],
@@ -1116,6 +1139,8 @@ export const useTimelineStore = create<TimelineStoreState>()(
         addingEvent: false,
         addingCollectionId: null,
         isCreatingCollection: false,
+        isSidebarOpen: false,
+        isSidebarExploreOpen: false,
         setTheme: (theme) => set({ theme }),
         toggleTheme: () =>
           set((state) => ({
@@ -1165,35 +1190,16 @@ export const useTimelineStore = create<TimelineStoreState>()(
               ? state.visibleCollectionIds
               : [...state.visibleCollectionIds, collectionId],
           })),
-        ensurePlaygroundCollection: () =>
-          set((state) => {
-            const alreadyExists = Object.prototype.hasOwnProperty.call(
-              state.collectionLibrary,
-              PLAYGROUND_COLLECTION.id,
-            );
-            const alreadyVisible = state.visibleCollectionIds.includes(
-              PLAYGROUND_COLLECTION.id,
-            );
-
-            if (alreadyExists && alreadyVisible) return {};
-
-            return {
-              collectionLibrary: alreadyExists
-                ? state.collectionLibrary
-                : {
-                    ...state.collectionLibrary,
-                    [PLAYGROUND_COLLECTION.id]: {
-                      events: [],
-                      meta: PLAYGROUND_COLLECTION,
-                      isLocal: true,
-                    },
-                  },
-              visibleCollectionIds: alreadyVisible
-                ? state.visibleCollectionIds
-                : [...state.visibleCollectionIds, PLAYGROUND_COLLECTION.id],
-            };
-          }),
+        setCatalogMeta: (catalogMeta, syncableIds) =>
+          set({ catalogMeta, syncableIds }),
         downloadCollection: async (collectionId) => {
+          const catalogMeta = get().catalogMeta;
+          const catalogEntry = catalogMeta[collectionId];
+          if (!catalogEntry?.dataUrl) {
+            // Not a catalog collection — nothing to download
+            return;
+          }
+
           const currentState = get();
           if (currentState.collectionLibrary[collectionId]) {
             currentState.addVisibleCollection(collectionId);
@@ -1209,13 +1215,16 @@ export const useTimelineStore = create<TimelineStoreState>()(
           }));
 
           try {
-            const loadedEvents = await loadEventCollection(collectionId);
+            const loadedEvents = await loadCatalogCollectionData(
+              catalogEntry.dataUrl,
+            );
             set((state) => ({
               collectionLibrary: {
                 ...state.collectionLibrary,
                 [collectionId]: {
                   ...state.collectionLibrary[collectionId],
                   events: loadedEvents,
+                  meta: catalogEntry,
                 },
               },
               visibleCollectionIds: state.visibleCollectionIds.includes(
@@ -1235,11 +1244,11 @@ export const useTimelineStore = create<TimelineStoreState>()(
           }
         },
         syncCollection: async (collectionId) => {
-          const currentState = get();
-          if (
-            currentState.downloadingCollectionIds.includes(collectionId) ||
-            !SYNCABLE_COLLECTION_IDS.includes(collectionId)
-          ) {
+          const catalogMeta = get().catalogMeta;
+          const catalogEntry = catalogMeta[collectionId];
+          if (!catalogEntry?.dataUrl) return;
+
+          if (get().downloadingCollectionIds.includes(collectionId)) {
             return;
           }
 
@@ -1252,7 +1261,9 @@ export const useTimelineStore = create<TimelineStoreState>()(
           }));
 
           try {
-            const loadedEvents = await loadEventCollection(collectionId);
+            const loadedEvents = await loadCatalogCollectionData(
+              catalogEntry.dataUrl,
+            );
             set((state) => ({
               collectionLibrary: {
                 ...state.collectionLibrary,
@@ -1284,9 +1295,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
         importCollections: (collections) => {
           const currentState = get();
           const existingCollections = [
-            ...EVENT_COLLECTIONS,
             ...getCustomCollectionsFromLibrary(currentState.collectionLibrary),
-            PLAYGROUND_COLLECTION,
           ];
           const existingIds = new Set(
             existingCollections.map((item) => item.id),
@@ -1341,6 +1350,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
                 typeof candidateMeta.color === "string"
                   ? candidateMeta.color
                   : null,
+              dataUrl: undefined,
             };
 
             nextCollectionLibrary[nextId] = {
@@ -1517,11 +1527,14 @@ export const useTimelineStore = create<TimelineStoreState>()(
             };
           }),
         createCollection: (collection) => {
-          const nextCollection = buildCustomCollectionMeta(collection, [
-            ...EVENT_COLLECTIONS,
-            ...getCustomCollectionsFromLibrary(get().collectionLibrary),
-            PLAYGROUND_COLLECTION,
-          ]);
+          const currentState = get();
+          const existingCollections = [
+            ...getCustomCollectionsFromLibrary(currentState.collectionLibrary),
+          ];
+          const nextCollection = buildCustomCollectionMeta(
+            collection,
+            existingCollections,
+          );
 
           set((state) => ({
             collectionLibrary: {
@@ -1544,11 +1557,7 @@ export const useTimelineStore = create<TimelineStoreState>()(
         updateCollection: (collectionId, collection) =>
           set((state) => {
             const existingCollection = state.collectionLibrary[collectionId];
-            const baseCollection =
-              existingCollection?.meta ??
-              [...EVENT_COLLECTIONS, PLAYGROUND_COLLECTION].find(
-                (item) => item.id === collectionId,
-              );
+            const baseCollection = existingCollection?.meta;
             if (!existingCollection || !baseCollection) {
               return {};
             }
@@ -1647,17 +1656,17 @@ export const useTimelineStore = create<TimelineStoreState>()(
           set({
             isCreatingCollection: false,
           }),
+        openSidebar: () => set({ isSidebarOpen: true }),
+        closeSidebar: () => set({ isSidebarOpen: false }),
+        openSidebarExplore: () => set({ isSidebarOpen: true, isSidebarExploreOpen: true }),
+        closeSidebarExplore: () => set({ isSidebarExploreOpen: false }),
       };
     },
     {
       name: STORE_KEY,
-      version: 3,
+      version: 4,
       storage: timelinePersistStorage,
       migrate: (persistedState) => {
-        // Handle legacy v0 state: if it has `version: 0` or is missing
-        // the `version` field, it means data was stored across multiple
-        // localStorage keys (theme, collection-cache, color-prefs).
-        // Read and merge from those legacy keys before sanitizing.
         const raw = persistedState as Partial<
           TimelinePersistedState & { version?: number }
         >;

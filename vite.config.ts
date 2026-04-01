@@ -10,6 +10,16 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "../",
       emptyOutDir: false,
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (id.includes("node_modules/react")) return "vendor-react";
+            if (id.includes("node_modules/zustand")) return "vendor-zustand";
+            if (id.includes("node_modules/motion")) return "vendor-motion";
+            if (id.includes("node_modules/lucide-react")) return "vendor-icons";
+          },
+        },
+      },
     },
     server: {
       port: 3000,

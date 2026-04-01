@@ -1,7 +1,19 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import React, {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { X } from "lucide-react";
+
+// Lazy-load the heavy Monaco Editor — only loaded when the modal opens
+const Editor = lazy(() =>
+  import("@monaco-editor/react").then((m) => ({ default: m.Editor })),
+);
 
 interface CollectionJsonEditorModalProps {
   collectionId: string;
@@ -153,40 +165,53 @@ export const CollectionJsonEditorModal: React.FC<
 
         {/* Monaco Editor */}
         <div className="min-h-0 flex-1 overflow-hidden">
-          <Editor
-            defaultLanguage="json"
-            value={draft}
-            onChange={handleEditorChange}
-            onMount={handleEditorMount}
-            theme="vs-dark"
-            options={{
-              minimap: { enabled: true, side: "right" },
-              fontSize: 13,
-              fontFamily:
-                "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-              fontLigatures: true,
-              lineNumbers: "on",
-              renderLineHighlight: "line",
-              scrollBeyondLastLine: false,
-              wordWrap: "on",
-              padding: { top: 12, bottom: 12 },
-              smoothScrolling: true,
-              cursorBlinking: "smooth",
-              cursorSmoothCaretAnimation: "on",
-              formatOnPaste: true,
-              tabSize: 2,
-              bracketPairColorization: { enabled: true },
-              suggest: {
-                showWords: false,
-              },
-              overviewRulerBorder: false,
-              hideCursorInOverviewRuler: true,
-              scrollbar: {
-                verticalScrollbarSize: 6,
-                horizontalScrollbarSize: 6,
-              },
-            }}
-          />
+          <Suspense
+            fallback={
+              <div className="flex h-full w-full items-center justify-center bg-[#1e1e1e]">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
+                  <p className="text-[0.78rem] text-zinc-500">
+                    Loading editor…
+                  </p>
+                </div>
+              </div>
+            }
+          >
+            <Editor
+              defaultLanguage="json"
+              value={draft}
+              onChange={handleEditorChange}
+              onMount={handleEditorMount}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: true, side: "right" },
+                fontSize: 13,
+                fontFamily:
+                  "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+                fontLigatures: true,
+                lineNumbers: "on",
+                renderLineHighlight: "line",
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                padding: { top: 12, bottom: 12 },
+                smoothScrolling: true,
+                cursorBlinking: "smooth",
+                cursorSmoothCaretAnimation: "on",
+                formatOnPaste: true,
+                tabSize: 2,
+                bracketPairColorization: { enabled: true },
+                suggest: {
+                  showWords: false,
+                },
+                overviewRulerBorder: false,
+                hideCursorInOverviewRuler: true,
+                scrollbar: {
+                  verticalScrollbarSize: 6,
+                  horizontalScrollbarSize: 6,
+                },
+              }}
+            />
+          </Suspense>
         </div>
 
         {/* Footer */}

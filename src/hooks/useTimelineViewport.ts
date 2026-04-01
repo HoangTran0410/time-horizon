@@ -1538,5 +1538,6 @@ export const useTimelineViewport = ({
     handleZoomDragEnd,
     clearFocusedEvent,
     currentLogZoom: logZoom,
+    hasBootstrappedRef,
   };
 };

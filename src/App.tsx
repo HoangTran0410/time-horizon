@@ -2,27 +2,43 @@ import { startTransition, useEffect, useState } from "react";
 import { LandingPage } from "./components/LandingPage";
 import { Timeline } from "./components/Timeline";
 import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
+import { useCatalogCollections } from "./hooks/useCatalogCollections";
 import { useTimelineShareUrl } from "./hooks/useTimelineShareUrl";
-import { useTimelineStore } from "./stores";
+import { useStore } from "./stores";
 
 type AppView = "landing" | "timeline";
 
 export default function App() {
-  const theme = useTimelineStore((state) => state.theme);
-  const setTheme = useTimelineStore((state) => state.setTheme);
-  const lastOpenedView = useTimelineStore((state) => state.lastOpenedView);
-  const hasHydrated = useTimelineStore((state) => state.hasHydrated);
-  const setLastOpenedView = useTimelineStore((state) => state.setLastOpenedView);
+  const theme = useStore((state) => state.theme);
+  const setTheme = useStore((state) => state.setTheme);
+  const hasHydrated = useStore((state) => state.hasHydrated);
+  const setLastOpenedView = useStore((state) => state.setLastOpenedView);
+  const setCatalogMeta = useStore((state) => state.setCatalogMeta);
   const resolvedTheme = resolveThemeMode(theme);
-  const {
-    shouldOpenTimeline,
-    enterTimelineView,
-    clearTimelineView,
-  } = useTimelineShareUrl();
+
+  // Fetch catalog metadata once at app root
+  const { catalogCollections, isCatalogLoading } = useCatalogCollections();
+
+  // Sync catalog metadata into store so Timeline/Sidebar can use it
+  useEffect(() => {
+    if (!isCatalogLoading && catalogCollections.length > 0) {
+      const meta: Record<string, (typeof catalogCollections)[number]> = {};
+      const ids: string[] = [];
+      for (const item of catalogCollections) {
+        meta[item.id] = item;
+        ids.push(item.id);
+      }
+      setCatalogMeta(
+        meta as Record<string, import("./constants/types").EventCollectionMeta>,
+        ids,
+      );
+    }
+  }, [isCatalogLoading, catalogCollections, setCatalogMeta]);
+
+  const { shouldShowLanding, clearTimelineView } =
+    useTimelineShareUrl();
   const [view, setView] = useState<AppView>(() =>
-    shouldOpenTimeline || lastOpenedView === "timeline"
-      ? "timeline"
-      : "landing",
+    shouldShowLanding ? "landing" : "timeline",
   );
 
   useEffect(() => {
@@ -30,8 +46,8 @@ export default function App() {
   }, [resolvedTheme]);
 
   useEffect(() => {
-    if (shouldOpenTimeline) {
-      setView("timeline");
+    if (shouldShowLanding) {
+      setView("landing");
       return;
     }
 
@@ -39,8 +55,8 @@ export default function App() {
       return;
     }
 
-    setView(lastOpenedView);
-  }, [hasHydrated, lastOpenedView, shouldOpenTimeline]);
+    setView("timeline");
+  }, [hasHydrated, shouldShowLanding]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -57,12 +73,14 @@ export default function App() {
   };
 
   const handleEnterTimeline = () => {
-    enterTimelineView();
+    clearTimelineView();
     setView("timeline");
   };
 
   const handleBackToLanding = () => {
-    clearTimelineView();
+    const url = new URL(window.location.href);
+    url.searchParams.set("l", "1");
+    window.history.replaceState({}, "", url.toString());
     setView("landing");
   };
 
@@ -77,6 +95,7 @@ export default function App() {
       ) : (
         <LandingPage
           theme={resolvedTheme}
+          collectionCount={catalogCollections.length}
           onToggleTheme={handleToggleTheme}
           onEnterTimeline={handleEnterTimeline}
         />

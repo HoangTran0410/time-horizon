@@ -1,9 +1,4 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
-import {
-  SYNCABLE_COLLECTION_IDS,
-  isSyncableCollection,
-} from "../data/collections";
 import { ThemeMode } from "../constants/theme";
 import { Event, EventCollectionMeta } from "../constants/types";
 import { CollectionEditor } from "./CollectionEditor";
@@ -26,7 +21,7 @@ import {
   filterTimelineSearchEvents,
   findEventByIdInCollections,
   sanitizeImportedEvents,
-  useTimelineStore,
+  useStore,
 } from "../stores";
 
 interface TimelineProps {
@@ -53,8 +48,6 @@ export const Timeline = ({
   onBackToLanding,
 }: TimelineProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [sidebarOpenRequestKey, setSidebarOpenRequestKey] = useState(0);
-  const [exploreOpenRequestKey, setExploreOpenRequestKey] = useState(0);
   const [confirmDialog, setConfirmDialog] =
     useState<ConfirmDialogOptions | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -64,82 +57,69 @@ export const Timeline = ({
   const [pendingImportDialog, setPendingImportDialog] = useState(false);
   const [editingCollection, setEditingCollection] =
     useState<EventCollectionMeta | null>(null);
-  const {
-    selectedEventId,
-    isRulerActive,
-    isEventInfoCollapsed,
-    editingEventId,
-    addingEvent,
-    addingCollectionId,
-    isCreatingCollection,
-    savedFocusYear,
-    savedLogZoom,
-    focusEvent,
-    previewEvent,
-    clearFocusedEvent,
-    setSavedViewport,
-    setIsRulerActive,
-    toggleEventInfoCollapsed,
-    openEventEditor,
-    closeEventEditor,
-    openEventCreator,
-    closeEventCreator,
-    openCollectionCreator,
-    closeCollectionCreator,
-  } = useTimelineStore(
-    useShallow((state) => ({
-      selectedEventId: state.selectedEventId,
-      isRulerActive: state.isRulerActive,
-      isEventInfoCollapsed: state.isEventInfoCollapsed,
-      editingEventId: state.editingEventId,
-      addingEvent: state.addingEvent,
-      addingCollectionId: state.addingCollectionId,
-      isCreatingCollection: state.isCreatingCollection,
-      savedFocusYear: state.savedFocusYear,
-      savedLogZoom: state.savedLogZoom,
-      focusEvent: state.focusEvent,
-      previewEvent: state.previewEvent,
-      clearFocusedEvent: state.clearFocusedEvent,
-      setSavedViewport: state.setSavedViewport,
-      setIsRulerActive: state.setIsRulerActive,
-      toggleEventInfoCollapsed: state.toggleEventInfoCollapsed,
-      openEventEditor: state.openEventEditor,
-      closeEventEditor: state.closeEventEditor,
-      openEventCreator: state.openEventCreator,
-      closeEventCreator: state.closeEventCreator,
-      openCollectionCreator: state.openCollectionCreator,
-      closeCollectionCreator: state.closeCollectionCreator,
-    })),
+  // Store state — individual selectors avoid useShallow overhead
+  const selectedEventId = useStore((s) => s.selectedEventId);
+  const isRulerActive = useStore((s) => s.isRulerActive);
+  const isEventInfoCollapsed = useStore((s) => s.isEventInfoCollapsed);
+  const editingEventId = useStore((s) => s.editingEventId);
+  const addingEvent = useStore((s) => s.addingEvent);
+  const addingCollectionId = useStore((s) => s.addingCollectionId);
+  const isCreatingCollection = useStore((s) => s.isCreatingCollection);
+  const savedFocusYear = useStore((s) => s.savedFocusYear);
+  const savedLogZoom = useStore((s) => s.savedLogZoom);
+  const focusEvent = useStore((s) => s.focusEvent);
+  const previewEvent = useStore((s) => s.previewEvent);
+  const clearFocusedEvent = useStore((s) => s.clearFocusedEvent);
+  const setSavedViewport = useStore((s) => s.setSavedViewport);
+  const setIsRulerActive = useStore((s) => s.setIsRulerActive);
+  const toggleEventInfoCollapsed = useStore((s) => s.toggleEventInfoCollapsed);
+  const openEventEditor = useStore((s) => s.openEventEditor);
+  const closeEventEditor = useStore((s) => s.closeEventEditor);
+  const openEventCreator = useStore((s) => s.openEventCreator);
+  const closeEventCreator = useStore((s) => s.closeEventCreator);
+  const openCollectionCreator = useStore((s) => s.openCollectionCreator);
+  const closeCollectionCreator = useStore((s) => s.closeCollectionCreator);
+  const downloadingCollectionIds = useStore((s) => s.downloadingCollectionIds);
+  const searchQuery = useStore((s) => s.searchQuery);
+  const activeMediaFilters = useStore((s) => s.activeMediaFilters);
+  const timeRangeStartInput = useStore((s) => s.timeRangeStartInput);
+  const timeRangeEndInput = useStore((s) => s.timeRangeEndInput);
+  const showOnlyResultsOnTimeline = useStore(
+    (s) => s.showOnlyResultsOnTimeline,
   );
 
   const {
     collections,
     collectionEventsById,
     visibleCollectionIds,
-    downloadingCollectionIds,
     collectionColors,
     localCollectionIds,
-    editableCollectionIds,
+    catalogCollectionIds,
     writableCollections,
     timelineEvents,
     eventAccentColors,
     singleVisibleCollectionId,
-    ensurePlaygroundCollection,
-    addVisibleCollection,
     findEventCollectionId,
-    handleDownloadCollection,
-    handleSyncCollection,
-    handleSetCollectionVisibility,
-    handleImportCollections,
-    handleDeleteCollection,
-    handleSaveEvent,
-    handleAddEvent,
-    handleAddEvents,
-    handleDeleteEvent,
-    handleCreateCollection,
-    handleUpdateCollection,
-    handleSetCollectionColor,
+    catalogMeta,
+    editableCollectionIds,
   } = useTimelineCollections();
+
+  // Store actions — call directly, no need to route through hook
+  const addVisibleCollection = useStore((s) => s.addVisibleCollection);
+  const downloadCollection = useStore((s) => s.downloadCollection);
+  const syncCollection = useStore((s) => s.syncCollection);
+  const setCollectionVisibility = useStore((s) => s.setCollectionVisibility);
+  const importCollections = useStore((s) => s.importCollections);
+  const deleteCollection = useStore((s) => s.deleteCollection);
+  const saveEvent = useStore((s) => s.saveEvent);
+  const addEvent = useStore((s) => s.addEvent);
+  const addEvents = useStore((s) => s.addEvents);
+  const deleteEvent = useStore((s) => s.deleteEvent);
+  const createCollection = useStore((s) => s.createCollection);
+  const updateCollection = useStore((s) => s.updateCollection);
+  const setCollectionColor = useStore((s) => s.setCollectionColor);
+  const openSidebar = useStore((s) => s.openSidebar);
+  const openSidebarExplore = useStore((s) => s.openSidebarExplore);
   const {
     sharedCollectionIds: sharedCollectionIdsFromUrlRaw,
     sharedEventId: sharedEventIdFromUrl,
@@ -162,19 +142,6 @@ export const Timeline = ({
     [collectionEventsById, editingEventId],
   );
 
-  const searchQuery = useTimelineStore((state) => state.searchQuery);
-  const activeMediaFilters = useTimelineStore(
-    (state) => state.activeMediaFilters,
-  );
-  const timeRangeStartInput = useTimelineStore(
-    (state) => state.timeRangeStartInput,
-  );
-  const timeRangeEndInput = useTimelineStore(
-    (state) => state.timeRangeEndInput,
-  );
-  const showOnlyResultsOnTimeline = useTimelineStore(
-    (state) => state.showOnlyResultsOnTimeline,
-  );
   const deferredTimelineSearchQuery = useDeferredValue(searchQuery);
   const hasSharedTimelineState =
     sharedCollectionIdsFromUrlRaw.length > 0 ||
@@ -241,6 +208,7 @@ export const Timeline = ({
     handleZoomDragEnd,
     clearFocusedEvent: clearFocusedEventFromViewport,
     currentLogZoom,
+    hasBootstrappedRef,
   } = useTimelineViewport({
     containerRef,
     renderedTimelineEvents,
@@ -265,9 +233,12 @@ export const Timeline = ({
     setIsRulerActive,
   });
 
-  const handleSidebarDeleteCollection = (collection: EventCollectionMeta) => {
-    handleDeleteCollection(collection.id);
-  };
+  // Auto-fit when user toggles collection visibility in Sidebar
+  useEffect(() => {
+    if (!hasBootstrappedRef.current) return;
+    // Defer to next frame so events have finished rendering first
+    requestAnimationFrame(() => handleAutoFit(false));
+  }, [visibleCollectionIds]);
 
   const downloadedCollectionIds = useMemo(
     () => Object.keys(collectionEventsById),
@@ -282,14 +253,6 @@ export const Timeline = ({
   );
   const shouldShowEmptyTimelineGuidance =
     !isViewportBeforeBigBang && timelineEvents.length === 0;
-
-  const requestOpenCollections = () => {
-    setSidebarOpenRequestKey((current) => current + 1);
-  };
-
-  const requestOpenExploreCollections = () => {
-    setExploreOpenRequestKey((current) => current + 1);
-  };
 
   const handleExportCollection = (collectionId: string) => {
     const collectionMeta = collections.find(
@@ -368,7 +331,7 @@ export const Timeline = ({
       ? parsed
       : parsed && typeof parsed === "object"
         ? "collections" in parsed &&
-            Array.isArray((parsed as CollectionTransferPayload).collections)
+          Array.isArray((parsed as CollectionTransferPayload).collections)
           ? (parsed as CollectionTransferPayload).collections
           : "meta" in parsed && "events" in parsed
             ? [parsed]
@@ -381,14 +344,14 @@ export const Timeline = ({
       );
     }
 
-    const { importedCollectionIds } = handleImportCollections(rawCollections);
+    const { importedCollectionIds } = importCollections(rawCollections);
     if (importedCollectionIds.length === 0) {
       throw new Error(
         "The file loaded, but none of its collections matched the expected format.",
       );
     }
 
-    requestOpenCollections();
+    openSidebar();
     return `Imported ${importedCollectionIds.length} collection${importedCollectionIds.length === 1 ? "" : "s"}.`;
   };
 
@@ -406,6 +369,10 @@ export const Timeline = ({
     openEventCreator(resolvedTargetCollectionId);
   };
 
+  const handleEditCollection = (collection: EventCollectionMeta) => {
+    setEditingCollection(collection);
+  };
+
   const handleCreateEvent = (
     newEvent: Event,
     targetCollectionId?: string | null,
@@ -414,7 +381,7 @@ export const Timeline = ({
       targetCollectionId ?? addingCollectionId ?? singleVisibleCollectionId;
     if (!resolvedTargetCollectionId) return;
 
-    handleAddEvent(newEvent, resolvedTargetCollectionId);
+    addEvent(newEvent, resolvedTargetCollectionId);
     closeEventCreator();
   };
 
@@ -435,7 +402,7 @@ export const Timeline = ({
       confirmLabel: "Delete Event",
       tone: "danger",
       onConfirm: () => {
-        handleDeleteEvent(event.id);
+        deleteEvent(event.id);
       },
     });
   };
@@ -453,7 +420,7 @@ export const Timeline = ({
   };
 
   const handleUpdateEvent = (updatedEvent: Event) => {
-    handleSaveEvent(updatedEvent);
+    saveEvent(updatedEvent);
     closeEventEditor();
   };
 
@@ -463,7 +430,7 @@ export const Timeline = ({
     if (pendingImportEvents) {
       handleImportEventsToNewCollection(collection);
     } else {
-      const nextCollection = handleCreateCollection(collection);
+      const nextCollection = createCollection(collection);
       openEventCreator(nextCollection.id);
       closeCollectionCreator();
     }
@@ -474,7 +441,7 @@ export const Timeline = ({
   ) => {
     if (!editingCollection) return;
 
-    handleUpdateCollection(editingCollection.id, collection);
+    updateCollection(editingCollection.id, collection);
     setEditingCollection(null);
   };
 
@@ -484,24 +451,24 @@ export const Timeline = ({
 
   const handleImportEventsToCollection = (targetCollectionId: string) => {
     if (!pendingImportEvents) return;
-    handleAddEvents(pendingImportEvents, targetCollectionId);
+    addEvents(pendingImportEvents, targetCollectionId);
     addVisibleCollection(targetCollectionId);
     setPendingImportEvents(null);
     setPendingImportDialog(false);
-    requestOpenCollections();
+    openSidebar();
   };
 
   const handleImportEventsToNewCollection = (
     collection: Pick<EventCollectionMeta, "emoji" | "name" | "description">,
   ) => {
     if (!pendingImportEvents) return;
-    const nextCollection = handleCreateCollection(collection);
-    handleAddEvents(pendingImportEvents, nextCollection.id);
+    const nextCollection = createCollection(collection);
+    addEvents(pendingImportEvents, nextCollection.id);
     addVisibleCollection(nextCollection.id);
     closeCollectionCreator();
     setPendingImportEvents(null);
     setPendingImportDialog(false);
-    requestOpenCollections();
+    openSidebar();
   };
 
   const handleCloseImportDialog = () => {
@@ -511,31 +478,45 @@ export const Timeline = ({
   };
 
   const sharedCollectionIdsFromUrl = useMemo(
-    () => sharedCollectionIdsFromUrlRaw.filter(isSyncableCollection),
-    [sharedCollectionIdsFromUrlRaw],
+    () =>
+      sharedCollectionIdsFromUrlRaw.filter((id) =>
+        catalogCollectionIds.has(id),
+      ),
+    [sharedCollectionIdsFromUrlRaw, catalogCollectionIds],
   );
 
   // Collections that are visible AND URL-shareable (i.e. can be restored from ?c= URL param).
   // Local collections are NOT shareable — they live in localStorage and are restored
-  // on every load regardless of the URL. Only syncable (built-in) collections go in ?c=.
+  // on every load regardless of the URL. Only catalog collections go in ?c=.
   const shareableVisibleCollectionIds = useMemo(
     () =>
       visibleCollectionIds.filter(
         (id) =>
           (collectionEventsById[id]?.length ?? 0) > 0 &&
-          isSyncableCollection(id) &&
+          catalogCollectionIds.has(id) &&
           !localCollectionIds.includes(id),
       ),
-    [visibleCollectionIds, collectionEventsById, localCollectionIds],
+    [
+      visibleCollectionIds,
+      collectionEventsById,
+      localCollectionIds,
+      catalogCollectionIds,
+    ],
   );
   const shareableSelectedEventId = useMemo(() => {
     if (!selectedEventInfo) return null;
     const selectedCollectionId = findEventCollectionId(selectedEventInfo.id);
     if (!selectedCollectionId) return null;
-    if (!isSyncableCollection(selectedCollectionId)) return null;
-    if (!shareableVisibleCollectionIds.includes(selectedCollectionId)) return null;
+    if (!catalogCollectionIds.has(selectedCollectionId)) return null;
+    if (!shareableVisibleCollectionIds.includes(selectedCollectionId))
+      return null;
     return selectedEventInfo.id;
-  }, [findEventCollectionId, selectedEventInfo, shareableVisibleCollectionIds]);
+  }, [
+    findEventCollectionId,
+    selectedEventInfo,
+    shareableVisibleCollectionIds,
+    catalogCollectionIds,
+  ]);
 
   const sharedUrlSignature = useMemo(
     () =>
@@ -582,18 +563,18 @@ export const Timeline = ({
       sharedUrlFocusFrameRef.current = null;
     }
 
-    for (const collectionId of visibleCollectionIds.filter(
-      isSyncableCollection,
+    for (const collectionId of visibleCollectionIds.filter((id) =>
+      catalogCollectionIds.has(id),
     )) {
       if (!requestedCollectionIds.has(collectionId)) {
-        handleSetCollectionVisibility(collectionId, false);
+        setCollectionVisibility(collectionId, false);
       }
     }
 
     const applySharedUrl = async () => {
       await Promise.all(
         sharedCollectionIdsFromUrl.map((collectionId) =>
-          handleDownloadCollection(collectionId),
+          downloadCollection(collectionId),
         ),
       );
 
@@ -607,8 +588,8 @@ export const Timeline = ({
       isCancelled = true;
     };
   }, [
-    handleDownloadCollection,
-    handleSetCollectionVisibility,
+    downloadCollection,
+    setCollectionVisibility,
     sharedEventIdFromUrl,
     sharedCollectionIdsFromUrl,
     sharedUrlSignature,
@@ -702,41 +683,28 @@ export const Timeline = ({
     <>
       <Sidebar
         collections={collections}
-        onDownloadCollection={handleDownloadCollection}
-        onSyncCollection={handleSyncCollection}
-        syncableCollectionIds={SYNCABLE_COLLECTION_IDS}
-        visibleCollectionIds={visibleCollectionIds}
-        onSetCollectionVisibility={handleSetCollectionVisibility}
-        downloadingCollectionIds={downloadingCollectionIds}
-        collectionEventsById={collectionEventsById}
-        collectionColors={collectionColors}
-        localCollectionIds={localCollectionIds}
-        onSetCollectionColor={handleSetCollectionColor}
-        onDeleteCollection={handleSidebarDeleteCollection}
-        onRequestConfirm={setConfirmDialog}
+        syncableCollectionIds={Array.from(catalogCollectionIds)}
+        editableCollectionIds={editableCollectionIds}
         onEditEvent={(event) => {
           openEventEditor(event.id);
         }}
         onDeleteEvent={handleDeleteTimelineEvent}
-        editableCollectionIds={editableCollectionIds}
-        onEditCollection={(collection) => setEditingCollection(collection)}
         onAddEvent={handleStartAddEvent}
         onAddCollection={openCollectionCreator}
         onImportCollections={handleImportCollectionFile}
         onExportCollection={handleExportCollection}
+        onEditCollection={handleEditCollection}
         onUpdateCollectionEvents={(collectionId, events) => {
-          useTimelineStore.getState().deleteEvent // remove all existing
-          // Delete existing events in collection then add new ones
-          const state = useTimelineStore.getState();
-          const existingIds = (state.collectionLibrary[collectionId]?.events ?? []).map(e => e.id);
-          existingIds.forEach(id => useTimelineStore.getState().deleteEvent(id));
+          const state = useStore.getState();
+          const existingIds = (
+            state.collectionLibrary[collectionId]?.events ?? []
+          ).map((e) => e.id);
+          existingIds.forEach((id) => useStore.getState().deleteEvent(id));
           if (events.length > 0) {
-            useTimelineStore.getState().addEvents(events, collectionId);
+            useStore.getState().addEvents(events, collectionId);
           }
         }}
         onBackToLanding={onBackToLanding}
-        openRequestKey={sidebarOpenRequestKey}
-        openExploreRequestKey={exploreOpenRequestKey}
       />
 
       {shouldShowEmptyTimelineGuidance ? (
@@ -767,8 +735,8 @@ export const Timeline = ({
               onClick:
                 downloadedCollectionIds.length > 0 ||
                 hiddenDownloadedCollectionIds.length > 0
-                  ? requestOpenCollections
-                  : requestOpenExploreCollections,
+                  ? openSidebar
+                  : openSidebarExplore,
             },
           ]}
         />

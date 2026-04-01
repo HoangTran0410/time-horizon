@@ -10,11 +10,11 @@ import {
   SunMedium,
   Telescope,
 } from "lucide-react";
-import { EVENT_COLLECTIONS } from "../data/collections";
 import { ThemeMode } from "../constants/theme";
 
 type LandingPageProps = {
   theme: ThemeMode;
+  collectionCount: number;
   onToggleTheme: () => void;
   onEnterTimeline: () => void;
 };
@@ -52,7 +52,7 @@ const stats = [
   {
     icon: Database,
     label: "Collections ready",
-    value: EVENT_COLLECTIONS.length.toString().padStart(2, "0") + "+",
+    value: "38+",
   },
   {
     icon: Orbit,
@@ -68,6 +68,7 @@ const stats = [
 
 export function LandingPage({
   theme,
+  collectionCount,
   onToggleTheme,
   onEnterTimeline,
 }: LandingPageProps) {

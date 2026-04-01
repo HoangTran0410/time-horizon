@@ -1,60 +1,19 @@
 import { useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
-import { EVENT_COLLECTIONS, PLAYGROUND_COLLECTION } from "../data/collections";
-import { useTimelineStore } from "../stores";
-import { findEventCollectionIdInCollections } from "../stores";
+import type { EventCollectionMeta } from "../constants/types";
+import { findEventCollectionIdInCollections, useStore } from "../stores";
 
+/**
+ * Core derived collections logic — only computes values that depend on
+ * multiple store slices. Store state/actions are consumed directly by
+ * components via useStore.
+ */
 export const useTimelineCollections = () => {
-  const {
-    collectionLibrary,
-    visibleCollectionIds,
-    downloadingCollectionIds,
-    collectionColorPreferences,
-  } = useTimelineStore(
-    useShallow((state) => ({
-      collectionLibrary: state.collectionLibrary,
-      visibleCollectionIds: state.visibleCollectionIds,
-      downloadingCollectionIds: state.downloadingCollectionIds,
-      collectionColorPreferences: state.collectionColorPreferences,
-    })),
-  );
-
-  const {
-    showCollections,
-    addVisibleCollection,
-    ensurePlaygroundCollection,
-    downloadCollection,
-    syncCollection,
-    setCollectionVisibility,
-    importCollections,
-    deleteCollection,
-    saveEvent,
-    addEvent,
-    addEvents,
-    deleteEvent,
-    createCollection,
-    updateCollection,
-    setCollectionColor,
-    resetCollectionColor,
-  } = useTimelineStore(
-    useShallow((state) => ({
-      showCollections: state.showCollections,
-      addVisibleCollection: state.addVisibleCollection,
-      ensurePlaygroundCollection: state.ensurePlaygroundCollection,
-      downloadCollection: state.downloadCollection,
-      syncCollection: state.syncCollection,
-      setCollectionVisibility: state.setCollectionVisibility,
-      importCollections: state.importCollections,
-      deleteCollection: state.deleteCollection,
-      saveEvent: state.saveEvent,
-      addEvent: state.addEvent,
-      addEvents: state.addEvents,
-      deleteEvent: state.deleteEvent,
-      createCollection: state.createCollection,
-      updateCollection: state.updateCollection,
-      setCollectionColor: state.setCollectionColor,
-      resetCollectionColor: state.resetCollectionColor,
-    })),
+  const catalogMeta = useStore((state) => state.catalogMeta);
+  const syncableIds = useStore((state) => state.syncableIds);
+  const collectionLibrary = useStore((state) => state.collectionLibrary);
+  const visibleCollectionIds = useStore((state) => state.visibleCollectionIds);
+  const collectionColorPreferences = useStore(
+    (state) => state.collectionColorPreferences,
   );
 
   const collectionEventsById = useMemo(
@@ -68,28 +27,32 @@ export const useTimelineCollections = () => {
     [collectionLibrary],
   );
 
-  const collectionMetaById = useMemo(
-    () =>
-      new Map(
-        Object.entries(collectionLibrary).flatMap(([collectionId, collection]) =>
-          collection.meta ? [[collectionId, collection.meta] as const] : [],
-        ),
-      ),
-    [collectionLibrary],
-  );
+  /**
+   * All collections that appear in the UI.
+   * Built from catalog metadata + any persisted (downloaded/imported) collection meta.
+   */
+  const collections = useMemo(() => {
+    // Start with catalog metadata
+    const result = new Map<string, EventCollectionMeta>(
+      Object.entries(catalogMeta) as [string, EventCollectionMeta][],
+    );
 
-  const builtInCollectionIds = useMemo(
-    () =>
-      new Set([
-        ...EVENT_COLLECTIONS.map((collection) => collection.id),
-        PLAYGROUND_COLLECTION.id,
-      ]),
-    [],
-  );
+    // Override with persisted meta from collectionLibrary (downloads/imports win)
+    for (const [id, entry] of Object.entries(collectionLibrary)) {
+      if (entry.meta) {
+        result.set(id, entry.meta);
+      }
+    }
 
-  const editableCollectionIds = useMemo(
-    () => Object.keys(collectionLibrary),
-    [collectionLibrary],
+    return Array.from(result.values());
+  }, [catalogMeta, collectionLibrary]);
+
+  /**
+   * IDs of catalog/syncable collections (from metadata).
+   */
+  const catalogCollectionIds = useMemo(
+    () => new Set(syncableIds),
+    [syncableIds],
   );
 
   const localCollectionIds = useMemo(
@@ -98,27 +61,6 @@ export const useTimelineCollections = () => {
         collection.isLocal ? [collectionId] : [],
       ),
     [collectionLibrary],
-  );
-
-  const collections = useMemo(
-    () => {
-      const builtInCollections = EVENT_COLLECTIONS.map(
-        (collection) => collectionMetaById.get(collection.id) ?? collection,
-      );
-      const customCollections = Array.from(collectionMetaById.entries()).flatMap(
-        ([collectionId, collection]) =>
-          builtInCollectionIds.has(collectionId) ? [] : [collection],
-      );
-      const playgroundCollection = Object.prototype.hasOwnProperty.call(
-        collectionLibrary,
-        PLAYGROUND_COLLECTION.id,
-      )
-        ? [collectionMetaById.get(PLAYGROUND_COLLECTION.id) ?? PLAYGROUND_COLLECTION]
-        : [];
-
-      return [...builtInCollections, ...customCollections, ...playgroundCollection];
-    },
-    [builtInCollectionIds, collectionLibrary, collectionMetaById],
   );
 
   const writableCollections = useMemo(
@@ -167,15 +109,20 @@ export const useTimelineCollections = () => {
   const singleVisibleCollectionId =
     visibleCollectionIds.length === 1 ? visibleCollectionIds[0] : null;
 
+  const editableCollectionIds = useMemo(
+    () => Object.keys(collectionLibrary),
+    [collectionLibrary],
+  );
+
   const findEventCollectionId = (eventId: string) =>
     findEventCollectionIdInCollections(collectionEventsById, eventId);
 
   return {
+    // Derived data
     collectionEventsById,
-    visibleCollectionIds,
-    downloadingCollectionIds,
-    collectionColorPreferences,
     collections,
+    catalogCollectionIds,
+    catalogMeta,
     localCollectionIds,
     editableCollectionIds,
     writableCollections,
@@ -183,22 +130,9 @@ export const useTimelineCollections = () => {
     timelineEvents,
     eventAccentColors,
     singleVisibleCollectionId,
-    showCollections,
-    addVisibleCollection,
-    ensurePlaygroundCollection,
+    visibleCollectionIds,
+    collectionColorPreferences,
+    // Helpers that depend on derived data
     findEventCollectionId,
-    handleDownloadCollection: downloadCollection,
-    handleSyncCollection: syncCollection,
-    handleSetCollectionVisibility: setCollectionVisibility,
-    handleImportCollections: importCollections,
-    handleDeleteCollection: deleteCollection,
-    handleSaveEvent: saveEvent,
-    handleAddEvent: addEvent,
-    handleAddEvents: addEvents,
-    handleDeleteEvent: deleteEvent,
-    handleCreateCollection: createCollection,
-    handleUpdateCollection: updateCollection,
-    handleSetCollectionColor: setCollectionColor,
-    handleResetCollectionColor: resetCollectionColor,
   };
 };

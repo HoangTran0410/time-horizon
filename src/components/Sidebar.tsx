@@ -18,85 +18,110 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { ConfirmDialogOptions } from "./ConfirmDialog";
+import { ConfirmDialog, ConfirmDialogOptions } from "./ConfirmDialog";
 import { ExploreCollectionsModal } from "./ExploreCollectionsModal";
 import { SearchPanel, SearchPanelStateAdapter } from "./SearchPanel";
 import { CollectionJsonEditorModal } from "./CollectionJsonEditorModal";
-import { DEFAULT_SEARCH_SORT_MODE, type SearchSortMode } from "../stores";
+import {
+  DEFAULT_SEARCH_SORT_MODE,
+  type SearchSortMode,
+  useStore,
+} from "../stores";
 
+// Props that cannot be derived from the store alone
 interface SidebarProps {
   collections: EventCollectionMeta[];
-  onDownloadCollection: (collectionId: string) => Promise<void> | void;
-  onSyncCollection: (collectionId: string) => Promise<void> | void;
   syncableCollectionIds: string[];
-  visibleCollectionIds: string[];
-  onSetCollectionVisibility: (
-    collectionId: string,
-    visible: boolean,
-  ) => Promise<void> | void;
-  downloadingCollectionIds: string[];
-  collectionEventsById: Record<string, Event[]>;
-  collectionColors: Record<string, string | null>;
-  localCollectionIds: string[];
-  onSetCollectionColor: (collectionId: string, color: string) => void;
-  onDeleteCollection: (collection: EventCollectionMeta) => void;
-  onRequestConfirm: (options: ConfirmDialogOptions) => void;
+  editableCollectionIds: string[];
+  /** For passing to Timeline (app-level concern, not sidebar UI state) */
+  onBackToLanding: () => void;
+  /** External file import — requires user interaction in this component */
+  onImportCollections: (file: File) => Promise<string> | string;
+  /** User event interactions — controlled by parent */
   onEditEvent: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
-  editableCollectionIds: string[];
-  onEditCollection: (collection: EventCollectionMeta) => void;
   onAddEvent: (collectionId?: string) => void;
   onAddCollection: () => void;
+  /** JSON editor saves directly to store via this callback */
   onUpdateCollectionEvents: (collectionId: string, events: Event[]) => void;
-  onImportCollections: (file: File) => Promise<string> | string;
-  onExportCollection: (
-    collectionId: string,
-  ) => Promise<string | void> | string | void;
-  onBackToLanding: () => void;
-  openRequestKey?: number;
-  openExploreRequestKey?: number;
+  /** Opens the event editor for a collection (owned by Timeline) */
+  onEditCollection: (collection: EventCollectionMeta) => void;
+  /** Exports a collection to file (owned by Timeline) */
+  onExportCollection: (collectionId: string) => Promise<string>;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   collections,
-  onDownloadCollection,
-  onSyncCollection,
   syncableCollectionIds,
-  visibleCollectionIds,
-  onSetCollectionVisibility,
-  downloadingCollectionIds,
-  collectionEventsById,
-  collectionColors,
-  localCollectionIds,
-  onSetCollectionColor,
-  onDeleteCollection,
-  onRequestConfirm,
+  editableCollectionIds,
+  onBackToLanding,
+  onImportCollections,
   onEditEvent,
   onDeleteEvent,
-  editableCollectionIds,
-  onEditCollection,
   onAddEvent,
   onAddCollection,
   onUpdateCollectionEvents,
-  onImportCollections,
+  onEditCollection,
   onExportCollection,
-  onBackToLanding,
-  openRequestKey = 0,
-  openExploreRequestKey = 0,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isExploreOpen, setIsExploreOpen] = useState(false);
+  // ── Store state (read directly) ──────────────────────────────────────────
+  const collectionLibrary = useStore((s) => s.collectionLibrary);
+  const catalogMeta = useStore((s) => s.catalogMeta);
+  const visibleCollectionIds = useStore((s) => s.visibleCollectionIds);
+  const downloadingCollectionIds = useStore((s) => s.downloadingCollectionIds);
+  const collectionColorPreferences = useStore((s) => s.collectionColorPreferences);
+
+  // Derive from store data (no prop needed)
+  const collectionEventsById: Record<string, Event[]> = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(collectionLibrary).map(([id, c]) => [id, c.events]),
+      ),
+    [collectionLibrary],
+  );
+
+  const collectionColors: Record<string, string | null> = useMemo(
+    () =>
+      Object.fromEntries(
+        collections.map((c) => [
+          c.id,
+          collectionColorPreferences[c.id] ?? c.color ?? null,
+        ]),
+      ),
+    [collectionColorPreferences, collections],
+  );
+
+  const localCollectionIds: string[] = useMemo(
+    () =>
+      Object.entries(collectionLibrary)
+        .filter(([, c]) => c.isLocal)
+        .map(([id]) => id),
+    [collectionLibrary],
+  );
+
+  // Store actions
+  const downloadCollection = useStore((s) => s.downloadCollection);
+  const syncCollection = useStore((s) => s.syncCollection);
+  const setCollectionVisibility = useStore((s) => s.setCollectionVisibility);
+  const deleteCollection = useStore((s) => s.deleteCollection);
+  const setCollectionColor = useStore((s) => s.setCollectionColor);
+  const openSidebarExplore = useStore((s) => s.openSidebarExplore);
+  const closeSidebarExplore = useStore((s) => s.closeSidebarExplore);
+  const isSidebarOpen = useStore((s) => s.isSidebarOpen);
+  const isSidebarExploreOpen = useStore((s) => s.isSidebarExploreOpen);
+
+  const toggleSidebar = () =>
+    isSidebarOpen
+      ? useStore.getState().closeSidebar()
+      : useStore.getState().openSidebar();
+
+  // ── Local UI state ────────────────────────────────────────────────────────
   const importInputRef = useRef<HTMLInputElement>(null);
   const [collectionQuery, setCollectionQuery] = useState("");
-  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
-    null,
-  );
-  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<
-    string | null
-  >(null);
-  const [sessionPinnedCollectionIds, setSessionPinnedCollectionIds] = useState<
-    string[]
-  >([]);
+  const [, setActiveCollectionId] = useState<string | null>(null);
+  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<string | null>(null);
+  const [sessionPinnedCollectionIds, setSessionPinnedCollectionIds] = useState<string[]>([]);
+
   const [browsingCollectionId, setBrowsingCollectionId] = useState<
     string | null
   >(null);
@@ -116,9 +141,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   } | null>(null);
   const [jsonEditorCollection, setJsonEditorCollection] =
     useState<EventCollectionMeta | null>(null);
-  const prevIsOpenRef = useRef(false);
-  const prevOpenRequestKeyRef = useRef(openRequestKey);
-  const prevOpenExploreRequestKeyRef = useRef(openExploreRequestKey);
 
   const normalizedCollectionQuery = collectionQuery.trim().toLowerCase();
 
@@ -149,12 +171,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ),
     [downloadedCollections],
   );
+  // Build catalog collections: prefer downloaded meta, fall back to catalog metadata
+  const catalogCollectionMetaById = useMemo((): Record<string, EventCollectionMeta> => {
+      const syncableSet = new Set(syncableCollectionIds);
+      const allCollections = [...collections].filter((c) =>
+        syncableSet.has(c.id),
+      );
+      const result: Record<string, EventCollectionMeta> = {};
+      // Catalog metadata: loaded from data/collections-metadata.json
+      for (const [id, meta] of Object.entries(catalogMeta)) {
+        result[id] = meta as EventCollectionMeta;
+      }
+      // Downloaded/persisted meta overrides catalog meta
+      for (const c of allCollections) {
+        result[c.id] = c;
+      }
+      return result;
+    },
+    [catalogMeta, collections, syncableCollectionIds],
+  );
+
   const publicCollections = useMemo(
     () =>
-      collections.filter((collection) =>
-        syncableCollectionIds.includes(collection.id),
+      (Object.values(catalogCollectionMetaById) as EventCollectionMeta[]).filter(
+        (collection) => syncableCollectionIds.includes(collection.id),
       ),
-    [collections, syncableCollectionIds],
+    [catalogCollectionMetaById, syncableCollectionIds],
   );
   const filteredCollections = useMemo(
     () =>
@@ -197,75 +239,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen && !prevIsOpenRef.current) {
-      setSessionPinnedCollectionIds(visibleCollectionIds);
+    if (isSidebarOpen && visibleCollectionIds.length > 0) {
+      setSessionPinnedCollectionIds((prev) => {
+        const next = [...prev];
+        let changed = false;
+        for (const id of visibleCollectionIds) {
+          if (!next.includes(id)) {
+            next.push(id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
     }
-
-    if (!isOpen && prevIsOpenRef.current) {
-      setSessionPinnedCollectionIds([]);
-      setActiveCollectionId(null);
-      setOpenCollectionMenuId(null);
-      setBrowsingCollectionId(null);
-      setLibraryTransferStatus(null);
-      resetCollectionSearchState();
-    }
-
-    prevIsOpenRef.current = isOpen;
-  }, [isOpen, visibleCollectionIds]);
-
-  useEffect(() => {
-    if (!isOpen || visibleCollectionIds.length === 0) {
-      return;
-    }
-
-    setSessionPinnedCollectionIds((current) => {
-      const nextPinnedCollectionIds = [...current];
-      let hasChanges = false;
-
-      for (const collectionId of visibleCollectionIds) {
-        if (nextPinnedCollectionIds.includes(collectionId)) continue;
-        nextPinnedCollectionIds.push(collectionId);
-        hasChanges = true;
-      }
-
-      return hasChanges ? nextPinnedCollectionIds : current;
-    });
-  }, [isOpen, visibleCollectionIds]);
+  }, [isSidebarOpen, visibleCollectionIds]);
 
   useEffect(() => {
     if (!libraryTransferStatus) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setLibraryTransferStatus(null);
-    }, 5000);
-
-    return () => window.clearTimeout(timeoutId);
+    const id = window.setTimeout(() => setLibraryTransferStatus(null), 5000);
+    return () => window.clearTimeout(id);
   }, [libraryTransferStatus]);
-
-  useEffect(() => {
-    if (openRequestKey === prevOpenRequestKeyRef.current) return;
-    prevOpenRequestKeyRef.current = openRequestKey;
-    setIsOpen(true);
-  }, [openRequestKey]);
-
-  useEffect(() => {
-    if (openExploreRequestKey === prevOpenExploreRequestKeyRef.current) return;
-    prevOpenExploreRequestKeyRef.current = openExploreRequestKey;
-    setIsOpen(true);
-    setIsExploreOpen(true);
-  }, [openExploreRequestKey]);
 
   const togglePinnedCollection = async (collectionId: string) => {
     const isVisible = visibleCollectionIds.includes(collectionId);
-    await onSetCollectionVisibility(collectionId, !isVisible);
+    setCollectionVisibility(collectionId, !isVisible);
 
     setSessionPinnedCollectionIds((prev) =>
       prev.includes(collectionId) ? prev : [...prev, collectionId],
     );
   };
 
+  const [confirmDialogOptions, setConfirmDialogOptions] = useState<ConfirmDialogOptions | null>(null);
+
   const handleDeleteCollection = (collection: EventCollectionMeta) => {
-    onRequestConfirm({
+    setConfirmDialogOptions({
       title: "Delete collection?",
       description:
         collection.author === "You"
@@ -277,7 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setSessionPinnedCollectionIds((prev) =>
           prev.filter((id) => id !== collection.id),
         );
-        onDeleteCollection(collection);
+        deleteCollection(collection.id);
       },
     });
   };
@@ -338,6 +345,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleCloseSidebarSearch = () => {
     setBrowsingCollectionId(null);
     resetCollectionSearchState();
+    closeSidebarExplore();
   };
 
   const handleExportCollection = async (collectionId: string) => {
@@ -367,7 +375,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         tone: "success",
         message: message || `Imported ${file.name}.`,
       });
-      setIsOpen(true);
+      openSidebarExplore();
     } catch (error) {
       const message =
         error instanceof Error
@@ -380,17 +388,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleSidebar}
         className="ui-panel fixed left-4 top-4 z-95 flex h-12 w-12 items-center justify-center rounded-[1.25rem] text-white"
       >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
+        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
       <div
         onPointerDown={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
         className={`ui-sidebar-shell fixed left-0 top-0 z-90 flex h-full w-screen max-w-[26rem] transform flex-col transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-20">
@@ -445,7 +453,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
             <button
-              onClick={() => setIsExploreOpen(true)}
+              onClick={openSidebarExplore}
               className="ui-button ui-button-secondary mt-2 w-full rounded-[1.1rem] px-4 py-3"
             >
               <Compass size={16} />
@@ -518,7 +526,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     collection to start organizing events.
                   </p>
                   <button
-                    onClick={() => setIsExploreOpen(true)}
+                    onClick={openSidebarExplore}
                     className="ui-button ui-button-secondary mt-4 px-4 py-2.5 text-[0.84rem]"
                   >
                     <Compass size={14} />
@@ -580,7 +588,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   type="color"
                                   value={collectionColor}
                                   onChange={(event) =>
-                                    onSetCollectionColor(
+                                    setCollectionColor(
                                       collection.id,
                                       event.target.value,
                                     )
@@ -604,8 +612,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     const isVisibleOnTimeline = visibleCollectionIds.includes(
                       collection.id,
                     );
-                    const isCollectionActive =
-                      activeCollectionId === collection.id;
                     const isCollectionMenuOpen =
                       openCollectionMenuId === collection.id;
                     const isCollectionBrowserOpen =
@@ -792,7 +798,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   type="color"
                                   value={collectionColor}
                                   onChange={(event) =>
-                                    onSetCollectionColor(
+                                    setCollectionColor(
                                       collection.id,
                                       event.target.value,
                                     )
@@ -850,7 +856,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setOpenCollectionMenuId(null);
-                                    void onSyncCollection(collection.id);
+                                    void syncCollection(collection.id);
                                   }}
                                   disabled={isLoading}
                                   className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem] disabled:cursor-wait disabled:opacity-60"
@@ -932,16 +938,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       ) : null}
 
-      {isExploreOpen ? (
+      {isSidebarExploreOpen ? (
         <ExploreCollectionsModal
           collections={publicCollections}
           visibleCollectionIds={visibleCollectionIds}
           downloadingCollectionIds={downloadingCollectionIds}
           collectionEventsById={collectionEventsById}
-          onClose={() => setIsExploreOpen(false)}
-          onDownloadCollection={onDownloadCollection}
+          onClose={closeSidebarExplore}
+          onDownloadCollection={downloadCollection}
           onDeleteCollection={handleDeleteCollection}
-          onSetCollectionVisibility={onSetCollectionVisibility}
+          onSetCollectionVisibility={setCollectionVisibility}
         />
       ) : null}
       {jsonEditorCollection ? (
@@ -960,6 +966,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClose={() => setJsonEditorCollection(null)}
         />
       ) : null}
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmDialogOptions)}
+        title={confirmDialogOptions?.title ?? ""}
+        description={confirmDialogOptions?.description ?? ""}
+        confirmLabel={confirmDialogOptions?.confirmLabel}
+        cancelLabel={confirmDialogOptions?.cancelLabel}
+        tone={confirmDialogOptions?.tone}
+        onConfirm={() => {
+          confirmDialogOptions?.onConfirm();
+          setConfirmDialogOptions(null);
+        }}
+        onCancel={() => setConfirmDialogOptions(null)}
+      />
     </>
   );
 };

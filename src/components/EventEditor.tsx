@@ -1,7 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Event, EventCollectionMeta } from "../constants/types";
-import EmojiPicker, { type Theme } from "emoji-picker-react";
 import { ChevronDown, X } from "lucide-react";
+
+// Lazy-load the heavy emoji picker — only loaded when user opens the picker UI
+const EmojiPicker = lazy(() =>
+  import("emoji-picker-react").then((m) => ({ default: m.default })),
+);
+type EmojiPickerTheme = import("emoji-picker-react").Theme;
 import {
   normalizeEmbedVideoUrl,
   normalizeEventTimeParts,
@@ -408,8 +413,15 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 </button>
                 {showEmojiPicker && (
                   <div className="emoji-trigger absolute z-10 mt-1">
+                    <Suspense
+                      fallback={
+                        <div className="flex h-\[400px\] w-\[320px\] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900">
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
+                        </div>
+                      }
+                    >
                     <EmojiPicker
-                      theme={"dark" as Theme}
+                      theme={"dark" as EmojiPickerTheme}
                       onEmojiClick={(emojiData) => {
                         setEditedEvent((prev) => ({
                           ...prev,
@@ -420,6 +432,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                       height={400}
                       width={320}
                     />
+                    </Suspense>
                   </div>
                 )}
               </div>
