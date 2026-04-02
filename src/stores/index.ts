@@ -1,6 +1,8 @@
 import { create } from "zustand";
+import { produce } from "immer";
 import { loadCatalogByUrl } from "../hooks/useCatalogCollections";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
 import { ThemeMode, getInitialTheme } from "../constants/theme";
 import type {
   Event,
@@ -1117,8 +1119,9 @@ const loadCatalogCollectionData = async (dataUrl: string): Promise<Event[]> => {
 };
 
 export const useStore = create<TimelineStoreState>()(
-  persist(
-    (set, get) => {
+  immer(
+    persist(
+      (set, get) => {
       return {
         theme: getInitialTheme(),
         ...createInitialTimelineSearchState(),
@@ -1148,50 +1151,54 @@ export const useStore = create<TimelineStoreState>()(
           })),
         setSearchQuery: (value) => set({ searchQuery: value }),
         toggleMediaFilter: (filter) =>
-          set((state) => ({
-            activeMediaFilters: state.activeMediaFilters.includes(filter)
-              ? state.activeMediaFilters.filter((item) => item !== filter)
-              : [...state.activeMediaFilters, filter],
-          })),
+          set(
+            produce((state) => {
+              const idx = state.activeMediaFilters.indexOf(filter);
+              if (idx >= 0) {
+                state.activeMediaFilters.splice(idx, 1);
+              } else {
+                state.activeMediaFilters.push(filter);
+              }
+            }),
+          ),
         setSearchSortMode: (value) => set({ searchSortMode: value }),
         setTimeRangeStartInput: (value) => set({ timeRangeStartInput: value }),
         setTimeRangeEndInput: (value) => set({ timeRangeEndInput: value }),
         setShowOnlyResultsOnTimeline: (value) =>
           set({ showOnlyResultsOnTimeline: value }),
         showCollections: (collectionIds) =>
-          set((state) => {
-            const nextVisibleCollectionIds = collectionIds.reduce<string[]>(
-              (visibleIds, collectionId) => {
+          set(
+            produce((state) => {
+              collectionIds.forEach((collectionId) => {
                 if (
-                  !Object.prototype.hasOwnProperty.call(
+                  Object.prototype.hasOwnProperty.call(
                     state.collectionLibrary,
                     collectionId,
-                  ) ||
-                  visibleIds.includes(collectionId)
+                  ) &&
+                  !state.visibleCollectionIds.includes(collectionId)
                 ) {
-                  return visibleIds;
+                  state.visibleCollectionIds.push(collectionId);
                 }
-
-                return [...visibleIds, collectionId];
-              },
-              state.visibleCollectionIds,
-            );
-
-            return {
-              ...createInitialTimelineSearchState(),
-              visibleCollectionIds: nextVisibleCollectionIds,
-            };
-          }),
+              });
+              const init = createInitialTimelineSearchState();
+              Object.assign(state, init);
+            }),
+          ),
         addVisibleCollection: (collectionId) =>
-          set((state) => ({
-            visibleCollectionIds: state.visibleCollectionIds.includes(
-              collectionId,
-            )
-              ? state.visibleCollectionIds
-              : [...state.visibleCollectionIds, collectionId],
-          })),
+          set(
+            produce((state) => {
+              if (!state.visibleCollectionIds.includes(collectionId)) {
+                state.visibleCollectionIds.push(collectionId);
+              }
+            }),
+          ),
         setCatalogMeta: (catalogMeta, syncableIds) =>
-          set({ catalogMeta, syncableIds }),
+          set(
+            produce((state) => {
+              state.catalogMeta = catalogMeta;
+              state.syncableIds = syncableIds;
+            }),
+          ),
         downloadCollection: async (collectionId) => {
           const catalogMeta = get().catalogMeta;
           const catalogEntry = catalogMeta[collectionId];
@@ -1206,41 +1213,40 @@ export const useStore = create<TimelineStoreState>()(
             return;
           }
 
-          set((state) => ({
-            downloadingCollectionIds: state.downloadingCollectionIds.includes(
-              collectionId,
-            )
-              ? state.downloadingCollectionIds
-              : [...state.downloadingCollectionIds, collectionId],
-          }));
+          set(
+            produce((state) => {
+              if (!state.downloadingCollectionIds.includes(collectionId)) {
+                state.downloadingCollectionIds.push(collectionId);
+              }
+            }),
+          );
 
           try {
             const loadedEvents = await loadCatalogCollectionData(
               catalogEntry.dataUrl,
             );
-            set((state) => ({
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [collectionId]: {
+            set(
+              produce((state) => {
+                state.collectionLibrary[collectionId] = {
                   ...state.collectionLibrary[collectionId],
                   events: loadedEvents,
                   meta: catalogEntry,
-                },
-              },
-              visibleCollectionIds: state.visibleCollectionIds.includes(
-                collectionId,
-              )
-                ? state.visibleCollectionIds
-                : [...state.visibleCollectionIds, collectionId],
-            }));
+                };
+                if (!state.visibleCollectionIds.includes(collectionId)) {
+                  state.visibleCollectionIds.push(collectionId);
+                }
+              }),
+            );
           } catch (error) {
             console.error(error);
           } finally {
-            set((state) => ({
-              downloadingCollectionIds: state.downloadingCollectionIds.filter(
-                (id) => id !== collectionId,
-              ),
-            }));
+            set(
+              produce((state) => {
+                state.downloadingCollectionIds = state.downloadingCollectionIds.filter(
+                  (id) => id !== collectionId,
+                );
+              }),
+            );
           }
         },
         syncCollection: async (collectionId) => {
@@ -1252,46 +1258,54 @@ export const useStore = create<TimelineStoreState>()(
             return;
           }
 
-          set((state) => ({
-            downloadingCollectionIds: state.downloadingCollectionIds.includes(
-              collectionId,
-            )
-              ? state.downloadingCollectionIds
-              : [...state.downloadingCollectionIds, collectionId],
-          }));
+          set(
+            produce((state) => {
+              if (!state.downloadingCollectionIds.includes(collectionId)) {
+                state.downloadingCollectionIds.push(collectionId);
+              }
+            }),
+          );
 
           try {
             const loadedEvents = await loadCatalogCollectionData(
               catalogEntry.dataUrl,
             );
-            set((state) => ({
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [collectionId]: {
+            set(
+              produce((state) => {
+                state.collectionLibrary[collectionId] = {
                   ...state.collectionLibrary[collectionId],
                   events: loadedEvents,
-                },
-              },
-            }));
+                };
+              }),
+            );
           } catch (error) {
             console.error(error);
           } finally {
-            set((state) => ({
-              downloadingCollectionIds: state.downloadingCollectionIds.filter(
-                (id) => id !== collectionId,
-              ),
-            }));
+            set(
+              produce((state) => {
+                state.downloadingCollectionIds = state.downloadingCollectionIds.filter(
+                  (id) => id !== collectionId,
+                );
+              }),
+            );
           }
         },
         setCollectionVisibility: (collectionId, visible) =>
-          set((state) => ({
-            ...createInitialTimelineSearchState(),
-            visibleCollectionIds: visible
-              ? state.visibleCollectionIds.includes(collectionId)
-                ? state.visibleCollectionIds
-                : [...state.visibleCollectionIds, collectionId]
-              : state.visibleCollectionIds.filter((id) => id !== collectionId),
-          })),
+          set(
+            produce((state) => {
+              if (visible) {
+                if (!state.visibleCollectionIds.includes(collectionId)) {
+                  state.visibleCollectionIds.push(collectionId);
+                }
+              } else {
+                state.visibleCollectionIds = state.visibleCollectionIds.filter(
+                  (id) => id !== collectionId,
+                );
+              }
+              const init = createInitialTimelineSearchState();
+              Object.assign(state, init);
+            }),
+          ),
         importCollections: (collections) => {
           const currentState = get();
           const existingCollections = [
@@ -1300,14 +1314,16 @@ export const useStore = create<TimelineStoreState>()(
           const existingIds = new Set(
             existingCollections.map((item) => item.id),
           );
-          const nextCollectionLibrary = { ...currentState.collectionLibrary };
-          const nextCollectionColorPreferences = {
-            ...currentState.collectionColorPreferences,
-          };
-          const nextVisibleCollectionIds = [
-            ...currentState.visibleCollectionIds,
-          ];
           const importedCollectionIds: string[] = [];
+
+          // Pre-compute what will be written so we can assign directly in produce
+          const collectionWrites: Array<{
+            id: string;
+            events: Event[];
+            meta: EventCollectionMeta;
+            colorPref?: string;
+            visible: boolean;
+          }> = [];
 
           collections.forEach((collection) => {
             const candidateMeta = collection.meta;
@@ -1324,9 +1340,7 @@ export const useStore = create<TimelineStoreState>()(
                 ? candidateMeta.description.trim()
                 : "";
 
-            if (!name || !emoji) {
-              return;
-            }
+            if (!name || !emoji) return;
 
             const importedEvents = sanitizeImportedEvents(collection.events);
             const preferredId =
@@ -1353,179 +1367,140 @@ export const useStore = create<TimelineStoreState>()(
               dataUrl: undefined,
             };
 
-            nextCollectionLibrary[nextId] = {
-              events: importedEvents,
-              meta: nextCollection,
-              isLocal: true,
-            };
             importedCollectionIds.push(nextId);
 
-            if (
-              typeof collection.color === "string" &&
-              collection.color.trim()
-            ) {
-              nextCollectionColorPreferences[nextId] = collection.color;
-            } else if (nextCollection.color) {
-              nextCollectionColorPreferences[nextId] = nextCollection.color;
-            }
+            const colorPref =
+              typeof collection.color === "string" && collection.color.trim()
+                ? collection.color.trim()
+                : nextCollection.color ?? undefined;
 
-            if (
-              collection.visible !== false &&
-              !nextVisibleCollectionIds.includes(nextId)
-            ) {
-              nextVisibleCollectionIds.push(nextId);
-            }
+            collectionWrites.push({
+              id: nextId,
+              events: importedEvents,
+              meta: nextCollection,
+              colorPref,
+              visible: collection.visible !== false,
+            });
           });
 
           if (importedCollectionIds.length === 0) {
             return { importedCollectionIds };
           }
 
-          set({
-            ...createInitialTimelineSearchState(),
-            collectionLibrary: nextCollectionLibrary,
-            collectionColorPreferences: nextCollectionColorPreferences,
-            visibleCollectionIds: nextVisibleCollectionIds,
-          });
+          set(
+            produce((state) => {
+              const init = createInitialTimelineSearchState();
+              Object.assign(state, init);
+              collectionWrites.forEach(({ id, events, meta, colorPref, visible }) => {
+                state.collectionLibrary[id] = { events, meta, isLocal: true };
+                if (colorPref) state.collectionColorPreferences[id] = colorPref;
+                if (visible && !state.visibleCollectionIds.includes(id)) {
+                  state.visibleCollectionIds.push(id);
+                }
+              });
+            }),
+          );
 
           return { importedCollectionIds };
         },
         deleteCollection: (collectionId) =>
-          set((state) => {
-            const selectedInCollection =
-              state.selectedEventId !== null &&
-              findEventCollectionIdInState(state, state.selectedEventId) ===
-                collectionId;
-            const editingInCollection =
-              state.editingEventId !== null &&
-              findEventCollectionIdInState(state, state.editingEventId) ===
-                collectionId;
-            const nextCollectionLibrary = { ...state.collectionLibrary };
-            delete nextCollectionLibrary[collectionId];
-
-            const nextCollectionColorPreferences = {
-              ...state.collectionColorPreferences,
-            };
-            delete nextCollectionColorPreferences[collectionId];
-
-            return {
-              collectionLibrary: nextCollectionLibrary,
-              visibleCollectionIds: state.visibleCollectionIds.filter(
+          set(
+            produce((state) => {
+              const selectedInCollection =
+                state.selectedEventId !== null &&
+                findEventCollectionIdInState(state, state.selectedEventId) ===
+                  collectionId;
+              const editingInCollection =
+                state.editingEventId !== null &&
+                findEventCollectionIdInState(state, state.editingEventId) ===
+                  collectionId;
+              delete state.collectionLibrary[collectionId];
+              delete state.collectionColorPreferences[collectionId];
+              state.visibleCollectionIds = state.visibleCollectionIds.filter(
                 (id) => id !== collectionId,
-              ),
-              downloadingCollectionIds: state.downloadingCollectionIds.filter(
+              );
+              state.downloadingCollectionIds = state.downloadingCollectionIds.filter(
                 (id) => id !== collectionId,
-              ),
-              collectionColorPreferences: nextCollectionColorPreferences,
-              selectedEventId: selectedInCollection
-                ? null
-                : state.selectedEventId,
-              isRulerActive: selectedInCollection ? false : state.isRulerActive,
-              editingEventId: editingInCollection ? null : state.editingEventId,
-              addingEvent:
-                state.addingCollectionId === collectionId
-                  ? false
-                  : state.addingEvent,
-              addingCollectionId:
-                state.addingCollectionId === collectionId
-                  ? null
-                  : state.addingCollectionId,
-            };
-          }),
+              );
+              if (selectedInCollection) {
+                state.selectedEventId = null;
+                state.isRulerActive = false;
+              }
+              if (editingInCollection) {
+                state.editingEventId = null;
+              }
+              if (state.addingCollectionId === collectionId) {
+                state.addingEvent = false;
+                state.addingCollectionId = null;
+              }
+            }),
+          ),
         saveEvent: (updatedEvent) =>
-          set((state) => {
-            const ownerCollectionId = findEventCollectionIdInState(
-              state,
-              updatedEvent.id,
-            );
-            if (!ownerCollectionId) return {};
-
-            const ownerCollection = state.collectionLibrary[ownerCollectionId];
-            if (!ownerCollection) return {};
-
-            return {
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [ownerCollectionId]: {
-                  ...ownerCollection,
-                  events: ownerCollection.events.map((event) =>
-                    event.id === updatedEvent.id ? updatedEvent : event,
-                  ),
-                },
-              },
-            };
-          }),
+          set(
+            produce((state) => {
+              const ownerCollectionId = findEventCollectionIdInState(
+                state,
+                updatedEvent.id,
+              );
+              if (!ownerCollectionId) return;
+              const ownerCollection = state.collectionLibrary[ownerCollectionId];
+              if (!ownerCollection) return;
+              const idx = ownerCollection.events.findIndex(
+                (event) => event.id === updatedEvent.id,
+              );
+              if (idx >= 0) ownerCollection.events[idx] = updatedEvent;
+            }),
+          ),
         addEvent: (newEvent, targetCollectionId) =>
-          set((state) => {
-            const existingEvents =
-              state.collectionLibrary[targetCollectionId]?.events ?? [];
-
-            return {
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [targetCollectionId]: {
-                  ...state.collectionLibrary[targetCollectionId],
-                  events: [...existingEvents, newEvent],
-                },
-              },
-              visibleCollectionIds: state.visibleCollectionIds.includes(
-                targetCollectionId,
-              )
-                ? state.visibleCollectionIds
-                : [...state.visibleCollectionIds, targetCollectionId],
-            };
-          }),
+          set(
+            produce((state) => {
+              if (!state.collectionLibrary[targetCollectionId]) {
+                state.collectionLibrary[targetCollectionId] = {
+                  events: [],
+                };
+              }
+              state.collectionLibrary[targetCollectionId].events.push(newEvent);
+              if (!state.visibleCollectionIds.includes(targetCollectionId)) {
+                state.visibleCollectionIds.push(targetCollectionId);
+              }
+            }),
+          ),
         addEvents: (newEvents, targetCollectionId) =>
-          set((state) => {
-            const existingEvents =
-              state.collectionLibrary[targetCollectionId]?.events ?? [];
-
-            return {
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [targetCollectionId]: {
-                  ...state.collectionLibrary[targetCollectionId],
-                  events: [...existingEvents, ...newEvents],
-                },
-              },
-              visibleCollectionIds: state.visibleCollectionIds.includes(
-                targetCollectionId,
-              )
-                ? state.visibleCollectionIds
-                : [...state.visibleCollectionIds, targetCollectionId],
-            };
-          }),
+          set(
+            produce((state) => {
+              if (!state.collectionLibrary[targetCollectionId]) {
+                state.collectionLibrary[targetCollectionId] = { events: [] };
+              }
+              state.collectionLibrary[targetCollectionId].events.push(
+                ...newEvents,
+              );
+              if (!state.visibleCollectionIds.includes(targetCollectionId)) {
+                state.visibleCollectionIds.push(targetCollectionId);
+              }
+            }),
+          ),
         deleteEvent: (eventId) =>
-          set((state) => {
-            const ownerCollectionId = findEventCollectionIdInState(
-              state,
-              eventId,
-            );
-            if (!ownerCollectionId) return {};
-
-            const ownerCollection = state.collectionLibrary[ownerCollectionId];
-            if (!ownerCollection) return {};
-
-            return {
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [ownerCollectionId]: {
-                  ...ownerCollection,
-                  events: ownerCollection.events.filter(
-                    (event) => event.id !== eventId,
-                  ),
-                },
-              },
-              selectedEventId:
-                state.selectedEventId === eventId
-                  ? null
-                  : state.selectedEventId,
-              isRulerActive:
-                state.selectedEventId === eventId ? false : state.isRulerActive,
-              editingEventId:
-                state.editingEventId === eventId ? null : state.editingEventId,
-            };
-          }),
+          set(
+            produce((state) => {
+              const ownerCollectionId = findEventCollectionIdInState(
+                state,
+                eventId,
+              );
+              if (!ownerCollectionId) return;
+              const ownerCollection = state.collectionLibrary[ownerCollectionId];
+              if (!ownerCollection) return;
+              ownerCollection.events = ownerCollection.events.filter(
+                (event) => event.id !== eventId,
+              );
+              if (state.selectedEventId === eventId) {
+                state.selectedEventId = null;
+                state.isRulerActive = false;
+              }
+              if (state.editingEventId === eventId) {
+                state.editingEventId = null;
+              }
+            }),
+          ),
         createCollection: (collection) => {
           const currentState = get();
           const existingCollections = [
@@ -1536,66 +1511,51 @@ export const useStore = create<TimelineStoreState>()(
             existingCollections,
           );
 
-          set((state) => ({
-            collectionLibrary: {
-              ...state.collectionLibrary,
-              [nextCollection.id]: {
+          set(
+            produce((state) => {
+              state.collectionLibrary[nextCollection.id] = {
                 events: [],
                 meta: nextCollection,
                 isLocal: true,
-              },
-            },
-            visibleCollectionIds: state.visibleCollectionIds.includes(
-              nextCollection.id,
-            )
-              ? state.visibleCollectionIds
-              : [...state.visibleCollectionIds, nextCollection.id],
-          }));
+              };
+              if (!state.visibleCollectionIds.includes(nextCollection.id)) {
+                state.visibleCollectionIds.push(nextCollection.id);
+              }
+            }),
+          );
 
           return nextCollection;
         },
         updateCollection: (collectionId, collection) =>
-          set((state) => {
-            const existingCollection = state.collectionLibrary[collectionId];
-            const baseCollection = existingCollection?.meta;
-            if (!existingCollection || !baseCollection) {
-              return {};
-            }
-
-            return {
-              collectionLibrary: {
-                ...state.collectionLibrary,
-                [collectionId]: {
-                  ...existingCollection,
-                  isLocal: true,
-                  meta: {
-                    ...baseCollection,
-                    emoji: collection.emoji.trim() || baseCollection.emoji,
-                    name: collection.name.trim() || baseCollection.name,
-                    description: collection.description.trim(),
-                  },
+          set(
+            produce((state) => {
+              const existingCollection = state.collectionLibrary[collectionId];
+              const baseCollection = existingCollection?.meta;
+              if (!existingCollection || !baseCollection) return;
+              state.collectionLibrary[collectionId] = {
+                ...existingCollection,
+                isLocal: true,
+                meta: {
+                  ...baseCollection,
+                  emoji: collection.emoji.trim() || baseCollection.emoji,
+                  name: collection.name.trim() || baseCollection.name,
+                  description: collection.description.trim(),
                 },
-              },
-            };
-          }),
+              };
+            }),
+          ),
         setCollectionColor: (collectionId, color) =>
-          set((state) => ({
-            collectionColorPreferences: {
-              ...state.collectionColorPreferences,
-              [collectionId]: color,
-            },
-          })),
+          set(
+            produce((state) => {
+              state.collectionColorPreferences[collectionId] = color;
+            }),
+          ),
         resetCollectionColor: (collectionId) =>
-          set((state) => {
-            const nextCollectionColorPreferences = {
-              ...state.collectionColorPreferences,
-            };
-            delete nextCollectionColorPreferences[collectionId];
-
-            return {
-              collectionColorPreferences: nextCollectionColorPreferences,
-            };
-          }),
+          set(
+            produce((state) => {
+              delete state.collectionColorPreferences[collectionId];
+            }),
+          ),
         focusEvent: (eventId) =>
           set({
             selectedEventId: eventId,
@@ -1658,7 +1618,8 @@ export const useStore = create<TimelineStoreState>()(
           }),
         openSidebar: () => set({ isSidebarOpen: true }),
         closeSidebar: () => set({ isSidebarOpen: false }),
-        openSidebarExplore: () => set({ isSidebarOpen: true, isSidebarExploreOpen: true }),
+        openSidebarExplore: () =>
+          set({ isSidebarOpen: true, isSidebarExploreOpen: true }),
         closeSidebarExplore: () => set({ isSidebarExploreOpen: false }),
       };
     },
@@ -1702,6 +1663,6 @@ export const useStore = create<TimelineStoreState>()(
         savedLogZoom: state.savedLogZoom,
         lastOpenedView: state.lastOpenedView,
       }),
-    },
+    }),
   ),
 );

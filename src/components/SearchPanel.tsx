@@ -18,6 +18,12 @@ import {
   useStore,
 } from "../stores";
 
+export interface CollectionOption {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
 export const SEARCH_SORT_OPTIONS: Array<{
   label: string;
   value: SearchSortMode;
@@ -62,6 +68,14 @@ interface SearchPanelProps {
   panelClassName?: string;
   maxHeight?: string;
   onClose?: () => void;
+  /** Pass multiple collections to enable per-collection filtering. */
+  collections?: CollectionOption[];
+  /**
+   * Events grouped by collection ID. When provided alongside `collections`,
+   * the panel shows a collection filter and scopes searches per collection.
+   * Ignored when `searchableEvents` is also provided without this.
+   */
+  eventsByCollectionId?: Record<string, Event[]>;
 }
 
 const INITIAL_VISIBLE_RESULTS = 16;
@@ -90,10 +104,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   panelClassName,
   maxHeight = SEARCH_PANEL_MAX_HEIGHT,
   onClose,
+  collections,
+  eventsByCollectionId,
 }) => {
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] =
     React.useState(false);
   const [advancedFiltersHeight, setAdvancedFiltersHeight] = React.useState(0);
+  const [activeCollectionId, setActiveCollectionId] =
+    React.useState<string | null>(null);
   const [isResultsReady, setIsResultsReady] = React.useState(false);
   const [visibleResultCount, setVisibleResultCount] = React.useState(
     INITIAL_VISIBLE_RESULTS,
@@ -206,17 +224,21 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       return EMPTY_RESULTS;
     }
 
-    return filterTimelineSearchEvents(
-      searchableEvents,
-      deferredSearchQuery,
-      safeActiveMediaFilters,
-      {
-        sortMode: searchSortMode,
-        startTimeInput: safeTimeRangeStartInput,
-        endTimeInput: safeTimeRangeEndInput,
-      },
-    );
+    // Derive the event pool: if a collection is selected and we have
+    // eventsByCollectionId, scope to that collection only.
+    const pool =
+      activeCollectionId && eventsByCollectionId
+        ? eventsByCollectionId[activeCollectionId] ?? []
+        : searchableEvents;
+
+    return filterTimelineSearchEvents(pool, deferredSearchQuery, safeActiveMediaFilters, {
+      sortMode: searchSortMode,
+      startTimeInput: safeTimeRangeStartInput,
+      endTimeInput: safeTimeRangeEndInput,
+    });
   }, [
+    activeCollectionId,
+    eventsByCollectionId,
     safeActiveMediaFilters,
     deferredSearchQuery,
     searchSortMode,
@@ -254,13 +276,24 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     if (searchSortMode !== SEARCH_SORT_OPTIONS[0]?.value) count += 1;
     if (safeTimeRangeStartInput.trim()) count += 1;
     if (safeTimeRangeEndInput.trim()) count += 1;
+    if (activeCollectionId !== null) count += 1;
     return count;
   }, [
     safeActiveMediaFilters.length,
     searchSortMode,
     safeTimeRangeEndInput,
     safeTimeRangeStartInput,
+    activeCollectionId,
   ]);
+
+  // The total pool size shown in the "X/Y resultLabel" counter.
+  const poolLength = React.useMemo(() => {
+    if (!shouldHydrateResults) return 0;
+    if (activeCollectionId && eventsByCollectionId) {
+      return eventsByCollectionId[activeCollectionId]?.length ?? 0;
+    }
+    return searchableEvents.length;
+  }, [activeCollectionId, eventsByCollectionId, searchableEvents, shouldHydrateResults]);
 
   React.useLayoutEffect(() => {
     const content = advancedFiltersContentRef.current;
@@ -644,6 +677,39 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     );
                   })}
                 </div>
+                {collections && collections.length > 1 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      key="__all__"
+                      type="button"
+                      onClick={() =>
+                        React.startTransition(() => setActiveCollectionId(null))
+                      }
+                      className="ui-chip"
+                      data-active={activeCollectionId === null}
+                    >
+                      All collections
+                    </button>
+                    {collections.map((col) => (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() =>
+                          React.startTransition(() =>
+                            setActiveCollectionId(
+                              activeCollectionId === col.id ? null : col.id,
+                            ),
+                          )
+                        }
+                        className="ui-chip"
+                        data-active={activeCollectionId === col.id}
+                      >
+                        <span>{col.emoji}</span>
+                        <span>{col.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <select
                   value={searchSortMode}
                   onChange={(e) => handleSortModeChange(e.target.value)}
@@ -705,9 +771,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             )}
           <div className="mb-3 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500">
             {shouldHydrateResults ? filteredResults.length : "…"}
-            {shouldHydrateResults &&
-            filteredResults.length != searchableEvents.length
-              ? `/${searchableEvents.length}`
+            {shouldHydrateResults && filteredResults.length != poolLength
+              ? `/${poolLength}`
               : ""}{" "}
             {resultLabel}
           </div>

@@ -68,10 +68,7 @@ type UseTimelineViewportParams = {
   renderedTimelineEvents: Event[];
   selectedEventId: string | null;
   onSelectEvent: (event: Event | null) => void;
-  onViewportChange?: (viewport: {
-    focusYear: number;
-    logZoom: number;
-  }) => void;
+  onViewportChange?: (viewport: { focusYear: number; logZoom: number }) => void;
   setIsRulerActive: (value: boolean) => void;
   /** Optional: deep-link focus year. When provided, viewport boots to this year instead of auto-fit. */
   initialFocusYear?: number | null;
@@ -103,8 +100,7 @@ export const useTimelineViewport = ({
   const [logicFps, setLogicFps] = useState(0);
   const [renderFps, setRenderFps] = useState(0);
   const [zoomRangeLabel, setZoomRangeLabel] = useState("");
-  const [isViewportBeforeBigBang, setIsViewportBeforeBigBang] =
-    useState(false);
+  const [isViewportBeforeBigBang, setIsViewportBeforeBigBang] = useState(false);
 
   const logicFpsSampleRef = useRef<FpsSampleState>({
     sampleStart: 0,
@@ -775,18 +771,20 @@ export const useTimelineViewport = ({
         },
       });
 
-      if (hasDuration) {
-        targetLogZoom.current = Math.log(targetZoom);
-        animateLogZoom(targetLogZoom.current, travelOptions);
-      }
+      // Always animate zoom alongside pan — even when the target zoom equals
+      // the current zoom (duration=0), animating with easeInOut keeps all three
+      // motion values (focusPixel, focusYear, logZoom) in sync so the derived
+      // panX produces a smooth, coherent motion.
+      targetLogZoom.current = Math.log(targetZoom);
+      animateLogZoom(targetLogZoom.current, travelOptions);
 
       return;
     }
 
-    if (hasDuration) {
-      targetLogZoom.current = Math.log(targetZoom);
-      animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
-    }
+    // Short travel: spring for all three — zoom always included so pan and zoom
+    // settle together, even when targetZoom ≈ currentZoom.
+    targetLogZoom.current = Math.log(targetZoom);
+    animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
     animateFocusPixel(width / 2, FOCUS_SPRING);
     animateFocusYear(eventYear, FOCUS_SPRING);
   };
@@ -848,6 +846,10 @@ export const useTimelineViewport = ({
 
       targetLogZoom.current = Math.log(newZoom);
       animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
+      // NOTE: do NOT call scheduleLayoutUpdate() here — layout is driven
+      // solely by scheduleZoomSettle() in the logZoom "change" listener.
+      // Calling it here restarts every event's y-spring on every wheel delta,
+      // causing visible jitter/flicker during active zooming.
     }
   };
 
@@ -1034,9 +1036,6 @@ export const useTimelineViewport = ({
 
   const handlePointerUp = (event: PointerEvent) => {
     activePointersRef.current.delete(event.pointerId);
-    clearDragFrame();
-    flushPendingDrag();
-    const finalVelocity = velocity.current;
 
     if (containerRef.current?.hasPointerCapture(event.pointerId)) {
       containerRef.current.releasePointerCapture(event.pointerId);
@@ -1052,6 +1051,10 @@ export const useTimelineViewport = ({
       pinchGestureRef.current = null;
 
       if (activePointersRef.current.size === 1) {
+        // Second finger lifted — transition to single-finger drag.
+        // startDragAt resets velocity=0; the pending finger's eventual
+        // pointer-up will read velocity≈0 and skip inertia naturally.
+        resetDragState();
         const remainingPointer = getFirstActivePointer();
         if (remainingPointer) {
           startDragAt(remainingPointer.clientX);
@@ -1063,11 +1066,16 @@ export const useTimelineViewport = ({
       return;
     }
 
+    // Normal single-finger pan release: flush pending drag first to capture
+    // velocity, THEN reset state so inertia can use the captured value.
+    flushPendingDrag();
+    const finalVelocity = velocity.current;
     resetDragState();
+
+    if (Math.abs(finalVelocity) < 0.1) return;
 
     const startVelocity =
       Math.sign(finalVelocity) * Math.min(Math.abs(finalVelocity) * 20, 80);
-    if (Math.abs(startVelocity) < 0.1) return;
     const friction = 0.985;
     let currentVelocity = startVelocity;
 
@@ -1160,6 +1168,12 @@ export const useTimelineViewport = ({
         window.clearTimeout(zoomLabelTimeoutRef.current);
         zoomLabelTimeoutRef.current = null;
       }
+      // Cancel any pending RAF from scheduleLayoutUpdate so only one layout
+      // pass fires (flushZoomLayoutUpdate), avoiding double-layout jank.
+      if (layoutUpdateFrame.current !== null) {
+        cancelAnimationFrame(layoutUpdateFrame.current);
+        layoutUpdateFrame.current = null;
+      }
 
       flushTickUpdate();
       flushZoomRangeLabel(logZoom.get());
@@ -1236,6 +1250,12 @@ export const useTimelineViewport = ({
     clearFocusedEvent();
     stopCameraAnimations();
 
+    // Animate zoom to a reasonable level for the target year so that pan and
+    // zoom settle together (keeping all three motion values in sync).
+    // Show roughly ±1 year around the target.
+    const jumpZoom = Math.max(MIN_ZOOM, Math.min(width / 2, MAX_ZOOM));
+    targetLogZoom.current = Math.log(jumpZoom);
+
     if (pixelDist > width * LONG_TRAVEL_VIEWPORT_MULTIPLIER) {
       const duration = Math.min(1.2, 0.3 + pixelDist / 4000);
       const phase1Duration = duration * 0.7;
@@ -1245,21 +1265,30 @@ export const useTimelineViewport = ({
       setIsWarping(true);
       setWarpDirection(isWarpingLeft ? -1 : 1);
 
-      animateFocusPixel(isWarpingLeft ? width * 0.88 : width * 0.12, {
+      const travelOptions = {
         duration: phase1Duration,
-        ease: "easeInOut",
-      });
-      animateFocusYear(targetYear, {
-        duration: phase1Duration,
-        ease: "easeInOut",
-        onComplete: () => {
-          setIsWarping(false);
-          animateFocusPixel(width / 2, CAMERA_SPRING);
-        },
+        ease: "easeInOut" as const,
+      };
+      animateFocusPixel(
+        isWarpingLeft ? width * 0.88 : width * 0.12,
+        travelOptions,
+      );
+      animateFocusYear(targetYear, travelOptions);
+      animateLogZoom(targetLogZoom.current, travelOptions);
+
+      // Phase 2: snap to center
+      const phase2Options = {
+        duration: duration * 0.3,
+        ease: "easeInOut" as const,
+      };
+      animateFocusPixel(width / 2, {
+        ...phase2Options,
+        onComplete: () => setIsWarping(false),
       });
       return;
     }
 
+    animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
     animateFocusPixel(width / 2, FOCUS_SPRING);
     animateFocusYear(targetYear, FOCUS_SPRING);
   };

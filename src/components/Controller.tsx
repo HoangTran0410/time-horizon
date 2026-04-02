@@ -1,7 +1,7 @@
 import React from "react";
 import { AnimatePresence, motion, MotionValue } from "motion/react";
 import { Compass, FileText, Search } from "lucide-react";
-import { Event, AutoFitRangeTarget, DateJumpTarget } from "../constants/types";
+import { Event, AutoFitRangeTarget, DateJumpTarget, EventCollectionMeta } from "../constants/types";
 import { MobileEventInfoPanel } from "./MobileEventInfoPanel";
 import { NavigationPanel } from "./NavigationPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
@@ -13,6 +13,8 @@ interface ControllerProps {
   searchableEvents: Event[];
   selectedEvent: Event | null;
   isRulerActive: boolean;
+  visibleCollections?: EventCollectionMeta[];
+  collectionEventsById?: Record<string, Event[]>;
   onQuickZoom: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onJumpToDate: (target: DateJumpTarget) => void;
   onSearchSelect: (event: Event) => void;
@@ -39,6 +41,8 @@ export const Controller: React.FC<ControllerProps> = ({
   searchableEvents,
   selectedEvent,
   isRulerActive,
+  visibleCollections,
+  collectionEventsById,
   onQuickZoom,
   onJumpToDate,
   onSearchSelect,
@@ -175,6 +179,8 @@ export const Controller: React.FC<ControllerProps> = ({
                     onSearchSelect={handleSearchSelect}
                     onEditEvent={onEditEvent}
                     onDeleteEvent={onDeleteEvent}
+                    collections={visibleCollections}
+                    eventsByCollectionId={collectionEventsById}
                   />
                 ) : null}
                 {activePanel === "info" ? (

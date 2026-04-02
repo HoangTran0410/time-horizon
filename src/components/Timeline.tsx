@@ -1,4 +1,11 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { FileText } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
 import { Event, EventCollectionMeta } from "../constants/types";
 import { CollectionEditor } from "./CollectionEditor";
@@ -57,6 +64,7 @@ export const Timeline = ({
   const [pendingImportDialog, setPendingImportDialog] = useState(false);
   const [editingCollection, setEditingCollection] =
     useState<EventCollectionMeta | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   // Store state — individual selectors avoid useShallow overhead
   const selectedEventId = useStore((s) => s.selectedEventId);
   const isRulerActive = useStore((s) => s.isRulerActive);
@@ -103,6 +111,10 @@ export const Timeline = ({
     catalogMeta,
     editableCollectionIds,
   } = useTimelineCollections();
+
+  const visibleCollections = collections.filter((c) =>
+    visibleCollectionIds.includes(c.id),
+  );
 
   // Store actions — call directly, no need to route through hook
   const addVisibleCollection = useStore((s) => s.addVisibleCollection);
@@ -353,6 +365,35 @@ export const Timeline = ({
 
     openSidebar();
     return `Imported ${importedCollectionIds.length} collection${importedCollectionIds.length === 1 ? "" : "s"}.`;
+  };
+
+  // ── Full-page drag-and-drop ───────────────────────────────────────────────
+  const handleFileDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("Files")) setIsDraggingFile(true);
+  };
+
+  const handleFileDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("Files"))
+      e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleFileDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget === e.target) setIsDraggingFile(false);
+  };
+
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    try {
+      await handleImportCollectionFile(file);
+    } catch (error) {
+      // silent — error is handled inside handleImportCollectionFile via store toast
+      console.error(error);
+    }
   };
 
   const handleStartAddEvent = (targetCollectionId?: string) => {
@@ -681,288 +722,326 @@ export const Timeline = ({
 
   return (
     <>
-      <Sidebar
-        collections={collections}
-        syncableCollectionIds={Array.from(catalogCollectionIds)}
-        editableCollectionIds={editableCollectionIds}
-        onEditEvent={(event) => {
-          openEventEditor(event.id);
-        }}
-        onDeleteEvent={handleDeleteTimelineEvent}
-        onAddEvent={handleStartAddEvent}
-        onAddCollection={openCollectionCreator}
-        onImportCollections={handleImportCollectionFile}
-        onExportCollection={handleExportCollection}
-        onEditCollection={handleEditCollection}
-        onUpdateCollectionEvents={(collectionId, events) => {
-          const state = useStore.getState();
-          const existingIds = (
-            state.collectionLibrary[collectionId]?.events ?? []
-          ).map((e) => e.id);
-          existingIds.forEach((id) => useStore.getState().deleteEvent(id));
-          if (events.length > 0) {
-            useStore.getState().addEvents(events, collectionId);
-          }
-        }}
-        onBackToLanding={onBackToLanding}
-      />
+      {isDraggingFile && (
+        <div
+          onDragEnter={handleFileDragEnter}
+          onDragOver={handleFileDragOver}
+          onDragLeave={handleFileDragLeave}
+          onDrop={handleFileDrop}
+          className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center"
+        >
+          <div className="pointer-events-auto flex h-full w-full items-center justify-center rounded-[2rem] border-2 border-dashed border-emerald-400/70 bg-emerald-950/85 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-emerald-500/15">
+                <FileText size={36} className="text-emerald-300" />
+              </div>
+              <div>
+                <div className="text-[1.15rem] font-semibold text-emerald-100">
+                  Drop to import
+                </div>
+                <div className="mt-1 text-[0.85rem] text-emerald-300/70">
+                  Time Horizon collection file (.json)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {shouldShowEmptyTimelineGuidance ? (
-        <TimelineGuidanceOverlay
-          eyebrow="Timeline Empty"
-          title={
-            hiddenDownloadedCollectionIds.length > 0
-              ? "Nothing is visible right now."
-              : downloadedCollectionIds.length > 0
-                ? "Your visible timeline is empty."
-                : "Welcome to Time Horizon."
-          }
-          description={
-            hiddenDownloadedCollectionIds.length > 0
-              ? `You already have ${hiddenDownloadedCollectionIds.length} collection${
-                  hiddenDownloadedCollectionIds.length === 1 ? "" : "s"
-                } downloaded, but they are currently hidden from the timeline.`
-              : downloadedCollectionIds.length > 0
-                ? "Open the collections panel to browse what is installed, toggle visibility, or pull in a different collection."
-                : "Browse the catalog or import a collection file to populate the timeline with events."
-          }
-          actions={[
-            {
-              label:
-                downloadedCollectionIds.length > 0
-                  ? "Open Collections"
-                  : "Browse Collections",
-              onClick:
-                downloadedCollectionIds.length > 0 ||
-                hiddenDownloadedCollectionIds.length > 0
-                  ? openSidebar
-                  : openSidebarExplore,
-            },
-          ]}
+      <div
+        onDragEnter={handleFileDragEnter}
+        onDragOver={handleFileDragOver}
+        onDragLeave={handleFileDragLeave}
+        onDrop={handleFileDrop}
+        className="contents"
+      >
+        <Sidebar
+          collections={collections}
+          syncableCollectionIds={Array.from(catalogCollectionIds)}
+          editableCollectionIds={editableCollectionIds}
+          onEditEvent={(event) => {
+            openEventEditor(event.id);
+          }}
+          onDeleteEvent={handleDeleteTimelineEvent}
+          onAddEvent={handleStartAddEvent}
+          onAddCollection={openCollectionCreator}
+          onImportCollections={handleImportCollectionFile}
+          onExportCollection={handleExportCollection}
+          onEditCollection={handleEditCollection}
+          onUpdateCollectionEvents={(collectionId, events) => {
+            const state = useStore.getState();
+            const existingIds = (
+              state.collectionLibrary[collectionId]?.events ?? []
+            ).map((e) => e.id);
+            existingIds.forEach((id) => useStore.getState().deleteEvent(id));
+            if (events.length > 0) {
+              useStore.getState().addEvents(events, collectionId);
+            }
+          }}
+          onBackToLanding={onBackToLanding}
         />
-      ) : null}
 
-      {isViewportBeforeBigBang ? (
-        <TimelineGuidanceOverlay
-          eyebrow="Beyond Big Bang"
-          position="top"
-          title="There is nothing earlier than this horizon."
-          description="You have moved the camera before the beginning of this timeline, so ticks and events stop rendering here. Jump back to the Big Bang to continue exploring."
-          actions={[
-            {
-              label: "Return To Big Bang",
-              onClick: handleFocusBigBang,
-            },
-          ]}
+        {shouldShowEmptyTimelineGuidance ? (
+          <TimelineGuidanceOverlay
+            eyebrow="Timeline Empty"
+            title={
+              hiddenDownloadedCollectionIds.length > 0
+                ? "Nothing is visible right now."
+                : downloadedCollectionIds.length > 0
+                  ? "Your visible timeline is empty."
+                  : "Welcome to Time Horizon."
+            }
+            description={
+              hiddenDownloadedCollectionIds.length > 0
+                ? `You already have ${hiddenDownloadedCollectionIds.length} collection${
+                    hiddenDownloadedCollectionIds.length === 1 ? "" : "s"
+                  } downloaded, but they are currently hidden from the timeline.`
+                : downloadedCollectionIds.length > 0
+                  ? "Open the collections panel to browse what is installed, toggle visibility, or pull in a different collection."
+                  : "Browse the catalog or import a collection file to populate the timeline with events."
+            }
+            actions={[
+              {
+                label:
+                  downloadedCollectionIds.length > 0
+                    ? "Open Collections"
+                    : "Browse Collections",
+                onClick:
+                  downloadedCollectionIds.length > 0 ||
+                  hiddenDownloadedCollectionIds.length > 0
+                    ? openSidebar
+                    : openSidebarExplore,
+              },
+            ]}
+          />
+        ) : null}
+
+        {isViewportBeforeBigBang ? (
+          <TimelineGuidanceOverlay
+            eyebrow="Beyond Big Bang"
+            position="top"
+            title="There is nothing earlier than this horizon."
+            description="You have moved the camera before the beginning of this timeline, so ticks and events stop rendering here. Jump back to the Big Bang to continue exploring."
+            actions={[
+              {
+                label: "Return To Big Bang",
+                onClick: handleFocusBigBang,
+              },
+            ]}
+          />
+        ) : null}
+
+        <TimelineCanvasViewport
+          theme={theme}
+          containerRef={containerRef}
+          focusPixel={focusPixel}
+          focusYear={focusYear}
+          zoom={zoom}
+          ticks={ticks}
+          timelineEvents={renderedTimelineEvents}
+          collapsedGroups={collapsedGroups}
+          expandedCollapsedGroup={expandedCollapsedGroup}
+          visibleBounds={visibleBounds}
+          eventLayouts={eventLayouts}
+          focusedEventId={selectedEventInfo?.id ?? null}
+          rulerEvent={isRulerActive ? selectedEventInfo : null}
+          eventAccentColors={eventAccentColors}
+          onRenderFrame={recordRenderFrame}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          consumeClickSuppression={consumeClickSuppression}
+          onFocusBigBang={handleFocusBigBang}
+          onFocusEvent={handleFocusEvent}
+          onFocusCollapsedGroup={handleFocusCollapsedGroup}
         />
-      ) : null}
 
-      <TimelineCanvasViewport
-        theme={theme}
-        containerRef={containerRef}
-        focusPixel={focusPixel}
-        focusYear={focusYear}
-        zoom={zoom}
-        ticks={ticks}
-        timelineEvents={renderedTimelineEvents}
-        collapsedGroups={collapsedGroups}
-        expandedCollapsedGroup={expandedCollapsedGroup}
-        visibleBounds={visibleBounds}
-        eventLayouts={eventLayouts}
-        focusedEventId={selectedEventInfo?.id ?? null}
-        rulerEvent={isRulerActive ? selectedEventInfo : null}
-        eventAccentColors={eventAccentColors}
-        onRenderFrame={recordRenderFrame}
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        consumeClickSuppression={consumeClickSuppression}
-        onFocusBigBang={handleFocusBigBang}
-        onFocusEvent={handleFocusEvent}
-        onFocusCollapsedGroup={handleFocusCollapsedGroup}
-      />
+        <Toolbar
+          logicFps={logicFps}
+          renderFps={renderFps}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          onShare={() => setShareModalOpen(true)}
+        />
 
-      <Toolbar
-        logicFps={logicFps}
-        renderFps={renderFps}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        onShare={() => setShareModalOpen(true)}
-      />
-
-      <Controller
-        zoomRangeLabel={zoomRangeLabel}
-        searchableEvents={timelineEvents}
-        selectedEvent={selectedEventInfo}
-        isRulerActive={isRulerActive}
-        onQuickZoom={handleQuickZoom}
-        onJumpToDate={handleJumpToDate}
-        onSearchSelect={handleFocusEvent}
-        onEditEvent={(event) => {
-          openEventEditor(event.id);
-        }}
-        onDeleteEvent={handleDeleteTimelineEvent}
-        onAutoFitAll={() => handleAutoFit()}
-        onAutoFitRange={handleAutoFitRange}
-        onFocusSelectedEvent={() => {
-          if (selectedEventInfo) {
-            handleFocusEvent(selectedEventInfo);
-          }
-        }}
-        onEditSelectedEvent={() => {
-          if (selectedEventInfo) {
-            openEventEditor(selectedEventInfo.id);
-          }
-        }}
-        onDeleteSelectedEvent={() => {
-          if (selectedEventInfo) {
-            handleDeleteTimelineEvent(selectedEventInfo);
-          }
-        }}
-        onToggleSelectedEventRuler={() => {
-          setIsRulerActive(!isRulerActive);
-        }}
-        onCloseSelectedEvent={clearFocusedEventFromViewport}
-        zoomTrackRef={zoomTrackRef}
-        zoomThumbY={zoomThumbY}
-        onZoomDragStart={handleZoomDragStart}
-        onZoomDragMove={handleZoomDragMove}
-        onZoomDragEnd={handleZoomDragEnd}
-      />
-
-      {selectedEventInfo && (
-        <EventInfoPanel
-          event={selectedEventInfo}
+        <Controller
+          zoomRangeLabel={zoomRangeLabel}
+          searchableEvents={timelineEvents}
+          selectedEvent={selectedEventInfo}
+          visibleCollections={visibleCollections}
+          collectionEventsById={collectionEventsById}
           isRulerActive={isRulerActive}
-          isCollapsed={isEventInfoCollapsed}
-          hideOnMobile
-          onFocus={() => {
-            handleFocusEvent(selectedEventInfo);
+          onQuickZoom={handleQuickZoom}
+          onJumpToDate={handleJumpToDate}
+          onSearchSelect={handleFocusEvent}
+          onEditEvent={(event) => {
+            openEventEditor(event.id);
           }}
-          onEdit={() => {
-            openEventEditor(selectedEventInfo.id);
+          onDeleteEvent={handleDeleteTimelineEvent}
+          onAutoFitAll={() => handleAutoFit()}
+          onAutoFitRange={handleAutoFitRange}
+          onFocusSelectedEvent={() => {
+            if (selectedEventInfo) {
+              handleFocusEvent(selectedEventInfo);
+            }
           }}
-          onDelete={() => handleDeleteTimelineEvent(selectedEventInfo)}
-          onToggleRuler={() => {
+          onEditSelectedEvent={() => {
+            if (selectedEventInfo) {
+              openEventEditor(selectedEventInfo.id);
+            }
+          }}
+          onDeleteSelectedEvent={() => {
+            if (selectedEventInfo) {
+              handleDeleteTimelineEvent(selectedEventInfo);
+            }
+          }}
+          onToggleSelectedEventRuler={() => {
             setIsRulerActive(!isRulerActive);
           }}
-          onToggleCollapsed={() => {
-            toggleEventInfoCollapsed();
-          }}
-          onClose={clearFocusedEventFromViewport}
+          onCloseSelectedEvent={clearFocusedEventFromViewport}
+          zoomTrackRef={zoomTrackRef}
+          zoomThumbY={zoomThumbY}
+          onZoomDragStart={handleZoomDragStart}
+          onZoomDragMove={handleZoomDragMove}
+          onZoomDragEnd={handleZoomDragEnd}
         />
-      )}
 
-      {editingEvent && (
-        <EventEditor
-          mode="edit"
-          event={editingEvent}
-          onSave={handleUpdateEvent}
-          onClose={closeEventEditor}
+        {selectedEventInfo && (
+          <EventInfoPanel
+            event={selectedEventInfo}
+            isRulerActive={isRulerActive}
+            isCollapsed={isEventInfoCollapsed}
+            hideOnMobile
+            onFocus={() => {
+              handleFocusEvent(selectedEventInfo);
+            }}
+            onEdit={() => {
+              openEventEditor(selectedEventInfo.id);
+            }}
+            onDelete={() => handleDeleteTimelineEvent(selectedEventInfo)}
+            onToggleRuler={() => {
+              setIsRulerActive(!isRulerActive);
+            }}
+            onToggleCollapsed={() => {
+              toggleEventInfoCollapsed();
+            }}
+            onClose={clearFocusedEventFromViewport}
+          />
+        )}
+
+        {editingEvent && (
+          <EventEditor
+            mode="edit"
+            event={editingEvent}
+            onSave={handleUpdateEvent}
+            onClose={closeEventEditor}
+          />
+        )}
+
+        {addingEvent && (
+          <EventEditor
+            mode="create"
+            event={createNewTimelineEvent()}
+            availableCollections={writableCollections}
+            initialCollectionId={addingCollectionId}
+            onAddCollection={openCollectionCreator}
+            onSave={handleCreateEvent}
+            onClose={handleCloseAddEvent}
+          />
+        )}
+
+        {isCreatingCollection && (
+          <CollectionEditor
+            mode="create"
+            onSubmit={handleCreateNewCollection}
+            onClose={handleCloseImportDialog}
+            title={
+              pendingImportEvents ? "New Collection for Import" : undefined
+            }
+          />
+        )}
+
+        {editingCollection && (
+          <CollectionEditor
+            mode="edit"
+            initialValue={{
+              emoji: editingCollection.emoji,
+              name: editingCollection.name,
+              description: editingCollection.description,
+            }}
+            onSubmit={handleUpdateExistingCollection}
+            onClose={() => setEditingCollection(null)}
+            title="Edit Collection"
+          />
+        )}
+
+        {shareModalOpen && (
+          <ShareModal
+            focusYear={focusYear.get()}
+            logZoom={currentLogZoom.get()}
+            selectedEventId={shareableSelectedEventId}
+            visibleCollectionIds={shareableVisibleCollectionIds}
+            collectionNames={Object.fromEntries(
+              shareableVisibleCollectionIds.map((id) => {
+                const collection = collections.find((c) => c.id === id);
+                return [id, collection?.name ?? id];
+              }),
+            )}
+            onGenerateUrl={(opts) =>
+              generateShareUrl({
+                // Website is always included — share links always open timeline directly
+                includeWebsite: true,
+                includeCollections: opts.includeCollections,
+                includeSelectedEvent: opts.includeSelectedEvent,
+                includeViewport: opts.includeViewport,
+                // Only syncable collections can be restored from ?c= URL param.
+                // Local collections are persisted separately in localStorage.
+                collectionIds: shareableVisibleCollectionIds,
+                focusYear: focusYear.get(),
+                logZoom: currentLogZoom.get(),
+                overrideEventId: opts.includeSelectedEvent
+                  ? shareableSelectedEventId
+                  : null,
+              })
+            }
+            onClose={() => setShareModalOpen(false)}
+          />
+        )}
+
+        <ConfirmDialog
+          isOpen={Boolean(confirmDialog)}
+          title={confirmDialog?.title ?? ""}
+          description={confirmDialog?.description ?? ""}
+          confirmLabel={confirmDialog?.confirmLabel}
+          cancelLabel={confirmDialog?.cancelLabel}
+          tone={confirmDialog?.tone}
+          onConfirm={handleConfirmDialog}
+          onCancel={handleCloseConfirmDialog}
         />
-      )}
 
-      {addingEvent && (
-        <EventEditor
-          mode="create"
-          event={createNewTimelineEvent()}
-          availableCollections={writableCollections}
-          initialCollectionId={addingCollectionId}
-          onAddCollection={openCollectionCreator}
-          onSave={handleCreateEvent}
-          onClose={handleCloseAddEvent}
+        {pendingImportDialog && (
+          <ImportEventsDialog
+            eventCount={pendingImportEvents?.length ?? 0}
+            collections={writableCollections}
+            onImportToCollection={handleImportEventsToCollection}
+            onCreateNewCollection={() => {
+              setPendingImportDialog(false);
+              openCollectionCreator();
+            }}
+            onCancel={handleCloseImportDialog}
+          />
+        )}
+
+        <WarpOverlay
+          isWarping={isWarping}
+          mode={warpMode}
+          direction={warpDirection}
+          theme={theme}
+          zoom={zoom}
+          zoomPivotX={focusPixel}
         />
-      )}
-
-      {isCreatingCollection && (
-        <CollectionEditor
-          mode="create"
-          onSubmit={handleCreateNewCollection}
-          onClose={handleCloseImportDialog}
-          title={pendingImportEvents ? "New Collection for Import" : undefined}
-        />
-      )}
-
-      {editingCollection && (
-        <CollectionEditor
-          mode="edit"
-          initialValue={{
-            emoji: editingCollection.emoji,
-            name: editingCollection.name,
-            description: editingCollection.description,
-          }}
-          onSubmit={handleUpdateExistingCollection}
-          onClose={() => setEditingCollection(null)}
-          title="Edit Collection"
-        />
-      )}
-
-      {shareModalOpen && (
-        <ShareModal
-          focusYear={focusYear.get()}
-          logZoom={currentLogZoom.get()}
-          selectedEventId={shareableSelectedEventId}
-          visibleCollectionIds={shareableVisibleCollectionIds}
-          collectionNames={Object.fromEntries(
-            shareableVisibleCollectionIds.map((id) => {
-              const collection = collections.find((c) => c.id === id);
-              return [id, collection?.name ?? id];
-            }),
-          )}
-          onGenerateUrl={(opts) =>
-            generateShareUrl({
-              // Website is always included — share links always open timeline directly
-              includeWebsite: true,
-              includeCollections: opts.includeCollections,
-              includeSelectedEvent: opts.includeSelectedEvent,
-              includeViewport: opts.includeViewport,
-              // Only syncable collections can be restored from ?c= URL param.
-              // Local collections are persisted separately in localStorage.
-              collectionIds: shareableVisibleCollectionIds,
-              focusYear: focusYear.get(),
-              logZoom: currentLogZoom.get(),
-              overrideEventId: opts.includeSelectedEvent
-                ? shareableSelectedEventId
-                : null,
-            })
-          }
-          onClose={() => setShareModalOpen(false)}
-        />
-      )}
-
-      <ConfirmDialog
-        isOpen={Boolean(confirmDialog)}
-        title={confirmDialog?.title ?? ""}
-        description={confirmDialog?.description ?? ""}
-        confirmLabel={confirmDialog?.confirmLabel}
-        cancelLabel={confirmDialog?.cancelLabel}
-        tone={confirmDialog?.tone}
-        onConfirm={handleConfirmDialog}
-        onCancel={handleCloseConfirmDialog}
-      />
-
-      {pendingImportDialog && (
-        <ImportEventsDialog
-          eventCount={pendingImportEvents?.length ?? 0}
-          collections={writableCollections}
-          onImportToCollection={handleImportEventsToCollection}
-          onCreateNewCollection={() => {
-            setPendingImportDialog(false);
-            openCollectionCreator();
-          }}
-          onCancel={handleCloseImportDialog}
-        />
-      )}
-
-      <WarpOverlay
-        isWarping={isWarping}
-        mode={warpMode}
-        direction={warpDirection}
-        theme={theme}
-        zoom={zoom}
-        zoomPivotX={focusPixel}
-      />
+      </div>
     </>
   );
 };

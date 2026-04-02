@@ -105,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const setCollectionVisibility = useStore((s) => s.setCollectionVisibility);
   const deleteCollection = useStore((s) => s.deleteCollection);
   const setCollectionColor = useStore((s) => s.setCollectionColor);
+  const openSidebar = useStore((s) => s.openSidebar);
   const openSidebarExplore = useStore((s) => s.openSidebarExplore);
   const closeSidebarExplore = useStore((s) => s.closeSidebarExplore);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
@@ -375,7 +376,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         tone: "success",
         message: message || `Imported ${file.name}.`,
       });
-      openSidebarExplore();
+      openSidebar();
     } catch (error) {
       const message =
         error instanceof Error
