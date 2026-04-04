@@ -66,9 +66,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      {/* <div className="ui-badge font-mono text-[0.72rem]">
+      <div className="ui-badge font-mono text-[0.72rem]">
         {logicFps}|{renderFps}
-      </div> */}
+      </div>
       {supportsFullscreen ? (
         <button
           type="button"

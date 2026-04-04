@@ -446,7 +446,10 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                     <input
                       type="text"
                       value={titleDraft[option.value]}
-                      onChange={handleLocalizedFieldChange("title", option.value)}
+                      onChange={handleLocalizedFieldChange(
+                        "title",
+                        option.value,
+                      )}
                       placeholder={`${t("title")} • ${option.label}`}
                       className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
                     />
@@ -491,350 +494,357 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </div>
 
           <div className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium text-zinc-400">
-                {t("icon")}
-              </label>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="emoji-trigger flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
-                  onClick={() => setShowEmojiPicker((value) => !value)}
-                >
-                  <span className="text-lg">{editedEvent.emoji}</span>
-                  <ChevronDown
-                    width={14}
-                    height={14}
-                    className="text-zinc-500"
-                  />
-                </button>
-                {showEmojiPicker && (
-                  <div className="emoji-trigger absolute z-10 mt-1">
-                    <Suspense
-                      fallback={
-                        <div className="flex h-\[400px\] w-\[320px\] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900">
-                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
-                        </div>
-                      }
-                    >
-                    <EmojiPicker
-                      theme={"dark" as EmojiPickerTheme}
-                      onEmojiClick={(emojiData) => {
-                        setEditedEvent((prev) => ({
-                          ...prev,
-                          emoji: emojiData.emoji,
-                        }));
-                        setShowEmojiPicker(false);
-                      }}
-                      height={400}
-                      width={320}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium text-zinc-400">
+                  {t("icon")}
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="emoji-trigger flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
+                    onClick={() => setShowEmojiPicker((value) => !value)}
+                  >
+                    <span className="text-lg">{editedEvent.emoji}</span>
+                    <ChevronDown
+                      width={14}
+                      height={14}
+                      className="text-zinc-500"
                     />
-                    </Suspense>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium text-zinc-400">
-                {t("color")}
-              </label>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="color-trigger flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
-                  onClick={() => setShowColorPicker((value) => !value)}
-                >
-                  <span
-                    className="h-5 w-5 shrink-0 rounded border border-zinc-600"
-                    style={{
-                      backgroundColor: editedEvent.color ?? "transparent",
-                    }}
-                  />
-                  <span className="text-sm text-zinc-300">
-                    {COLOR_SWATCHES.find(
-                      (swatch) => swatch.value === (editedEvent.color ?? null),
-                    )?.label ?? t("none")}
-                  </span>
-                  <ChevronDown
-                    width={14}
-                    height={14}
-                    className="ml-auto text-zinc-500"
-                  />
-                </button>
-
-                {showColorPicker && (
-                  <div className="color-trigger absolute z-10 mt-1 rounded-xl border border-zinc-700 bg-zinc-800 p-3">
-                    <div className="grid grid-cols-4 gap-2">
-                      {COLOR_SWATCHES.map((swatch) => (
-                        <button
-                          key={swatch.value ?? "none"}
-                          type="button"
-                          title={swatch.label}
-                          onClick={() => {
-                            handleColorChange(swatch.value);
-                            setShowColorPicker(false);
+                  </button>
+                  {showEmojiPicker && (
+                    <div className="emoji-trigger absolute z-10 mt-1">
+                      <Suspense
+                        fallback={
+                          <div className="flex h-\[400px\] w-\[320px\] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900">
+                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
+                          </div>
+                        }
+                      >
+                        <EmojiPicker
+                          theme={"dark" as EmojiPickerTheme}
+                          onEmojiClick={(emojiData) => {
+                            setEditedEvent((prev) => ({
+                              ...prev,
+                              emoji: emojiData.emoji,
+                            }));
+                            setShowEmojiPicker(false);
                           }}
-                          className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
-                            (swatch.value ?? null) ===
-                            (editedEvent.color ?? null)
-                              ? "scale-110 border-white"
-                              : "border-zinc-600"
-                          }`}
-                          style={{
-                            backgroundColor: swatch.value ?? "transparent",
-                            backgroundImage:
-                              swatch.value === null
-                                ? "linear-gradient(135deg, #fff 45%, transparent 45%, transparent 55%, #fff 55%)"
-                                : undefined,
-                          }}
+                          height={400}
+                          width={320}
                         />
-                      ))}
+                      </Suspense>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium text-zinc-400">
+                  {t("color")}
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="color-trigger flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
+                    onClick={() => setShowColorPicker((value) => !value)}
+                  >
+                    <span
+                      className="h-5 w-5 shrink-0 rounded border border-zinc-600"
+                      style={{
+                        backgroundColor: editedEvent.color ?? "transparent",
+                      }}
+                    />
+                    <span className="text-sm text-zinc-300">
+                      {COLOR_SWATCHES.find(
+                        (swatch) =>
+                          swatch.value === (editedEvent.color ?? null),
+                      )?.label ?? t("none")}
+                    </span>
+                    <ChevronDown
+                      width={14}
+                      height={14}
+                      className="ml-auto text-zinc-500"
+                    />
+                  </button>
+
+                  {showColorPicker && (
+                    <div className="color-trigger absolute z-10 mt-1 rounded-xl border border-zinc-700 bg-zinc-800 p-3">
+                      <div className="grid grid-cols-4 gap-2">
+                        {COLOR_SWATCHES.map((swatch) => (
+                          <button
+                            key={swatch.value ?? "none"}
+                            type="button"
+                            title={swatch.label}
+                            onClick={() => {
+                              handleColorChange(swatch.value);
+                              setShowColorPicker(false);
+                            }}
+                            className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                              (swatch.value ?? null) ===
+                              (editedEvent.color ?? null)
+                                ? "scale-110 border-white"
+                                : "border-zinc-600"
+                            }`}
+                            style={{
+                              backgroundColor: swatch.value ?? "transparent",
+                              backgroundImage:
+                                swatch.value === null
+                                  ? "linear-gradient(135deg, #fff 45%, transparent 45%, transparent 55%, #fff 55%)"
+                                  : undefined,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-400">{t("time")}</label>
-              {canUseDateInput && (
+            <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-sm font-medium text-zinc-400">
+                  {t("time")}
+                </label>
+                {canUseDateInput && (
+                  <input
+                    type="date"
+                    value={toDateInputValue(editedEvent.time)}
+                    onChange={(e) => handleDateInputChange(e.target.value)}
+                    className="cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">
+                  {t("year")} *
+                </label>
                 <input
-                  type="date"
-                  value={toDateInputValue(editedEvent.time)}
-                  onChange={(e) => handleDateInputChange(e.target.value)}
-                  className="cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  type="number"
+                  value={year}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setEditedEvent((prev) => ({
+                      ...prev,
+                      time: normalizeEventTime([
+                        value,
+                        prev.time[1],
+                        prev.time[2],
+                        prev.time[3],
+                        prev.time[4],
+                        prev.time[5],
+                      ]),
+                    }));
+                    setDateError(null);
+                  }}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                 />
+              </div>
+
+              {year !== null && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      {t("month")}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={month ?? ""}
+                      onChange={(e) => handleTimeChange(1, e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                      placeholder="null"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleClearTimeField(1)}
+                    title={t("clearMonthAndBelow")}
+                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
+                  >
+                    <X width={14} height={14} />
+                  </button>
+                </div>
+              )}
+
+              {hasMonth && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      {t("day")}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={day ?? ""}
+                      onChange={(e) => handleTimeChange(2, e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                      placeholder="null"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleClearTimeField(2)}
+                    title={t("clearDayAndBelow")}
+                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
+                  >
+                    <X width={14} height={14} />
+                  </button>
+                </div>
+              )}
+
+              {hasDay && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      {t("hour")}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={hour ?? ""}
+                      onChange={(e) => handleTimeChange(3, e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                      placeholder="null"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleClearTimeField(3)}
+                    title={t("clearHourAndBelow")}
+                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
+                  >
+                    <X width={14} height={14} />
+                  </button>
+                </div>
+              )}
+
+              {hasHour && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      {t("minute")}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={minute ?? ""}
+                      onChange={(e) => handleTimeChange(4, e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                      placeholder="null"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleClearTimeField(4)}
+                    title={t("clearMinuteAndBelow")}
+                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
+                  >
+                    <X width={14} height={14} />
+                  </button>
+                </div>
+              )}
+
+              {hasMinute && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      {t("seconds")}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={seconds ?? ""}
+                      onChange={(e) => handleTimeChange(5, e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                      placeholder="null"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleClearTimeField(5)}
+                    title={t("clearSeconds")}
+                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
+                  >
+                    <X width={14} height={14} />
+                  </button>
+                </div>
+              )}
+
+              {dateError && (
+                <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-400">
+                  {dateError}
+                </p>
               )}
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs text-zinc-500">{t("year")} *</label>
-              <input
-                type="number"
-                value={year}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  setEditedEvent((prev) => ({
-                    ...prev,
-                    time: normalizeEventTime([
-                      value,
-                      prev.time[1],
-                      prev.time[2],
-                      prev.time[3],
-                      prev.time[4],
-                      prev.time[5],
-                    ]),
-                  }));
-                  setDateError(null);
-                }}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            {year !== null && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    {t("month")}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={month ?? ""}
-                    onChange={(e) => handleTimeChange(1, e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                    placeholder="null"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleClearTimeField(1)}
-                  title={t("clearMonthAndBelow")}
-                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                >
-                  <X width={14} height={14} />
-                </button>
+            <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-sm font-medium text-zinc-400">
+                  {t("mediaLinks")}
+                </label>
+                <span className="text-xs text-zinc-500">{t("optional")}</span>
               </div>
-            )}
 
-            {hasMonth && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    {t("day")}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={day ?? ""}
-                    onChange={(e) => handleTimeChange(2, e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                    placeholder="null"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleClearTimeField(2)}
-                  title={t("clearDayAndBelow")}
-                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                >
-                  <X width={14} height={14} />
-                </button>
-              </div>
-            )}
-
-            {hasDay && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    {t("hour")}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={hour ?? ""}
-                    onChange={(e) => handleTimeChange(3, e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                    placeholder="null"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleClearTimeField(3)}
-                  title={t("clearHourAndBelow")}
-                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                >
-                  <X width={14} height={14} />
-                </button>
-              </div>
-            )}
-
-            {hasHour && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    {t("minute")}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    value={minute ?? ""}
-                    onChange={(e) => handleTimeChange(4, e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                    placeholder="null"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleClearTimeField(4)}
-                  title={t("clearMinuteAndBelow")}
-                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                >
-                  <X width={14} height={14} />
-                </button>
-              </div>
-            )}
-
-            {hasMinute && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    {t("seconds")}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    value={seconds ?? ""}
-                    onChange={(e) => handleTimeChange(5, e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                    placeholder="null"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleClearTimeField(5)}
-                  title={t("clearSeconds")}
-                  className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                >
-                  <X width={14} height={14} />
-                </button>
-              </div>
-            )}
-
-            {dateError && (
-              <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-400">
-                {dateError}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-400">
-                {t("mediaLinks")}
-              </label>
-              <span className="text-xs text-zinc-500">{t("optional")}</span>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-zinc-500">
-                {t("imageUrl")}
-              </label>
-              <input
-                type="text"
-                value={editedEvent.image ?? ""}
-                onChange={handleOptionalFieldChange("image")}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                placeholder="https://upload.wikimedia.org/..."
-              />
-              {/* <p className="mt-1 text-xs text-zinc-500">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">
+                  {t("imageUrl")}
+                </label>
+                <input
+                  type="text"
+                  value={editedEvent.image ?? ""}
+                  onChange={handleOptionalFieldChange("image")}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  placeholder="https://upload.wikimedia.org/..."
+                />
+                {/* <p className="mt-1 text-xs text-zinc-500">
                 Paste any direct image URL.
               </p> */}
-            </div>
+              </div>
 
-            <div>
-              <label className="mb-1 block text-xs text-zinc-500">{t("video")}</label>
-              <input
-                type="text"
-                value={editedEvent.video ?? ""}
-                onChange={handleOptionalFieldChange("video")}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                placeholder="id or https://youtu.be/<id>"
-              />
-              {/* <p className="mt-1 text-xs text-zinc-500">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">
+                  {t("video")}
+                </label>
+                <input
+                  type="text"
+                  value={editedEvent.video ?? ""}
+                  onChange={handleOptionalFieldChange("video")}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  placeholder="id or https://youtu.be/<id>"
+                />
+                {/* <p className="mt-1 text-xs text-zinc-500">
                 Supports YouTube IDs, `youtu.be`, and full YouTube links. Other
                 video URLs still work as-is.
               </p> */}
-            </div>
+              </div>
 
-            <div>
-              <label className="mb-1 block text-xs text-zinc-500">
-                {t("externalLink")}
-              </label>
-              <input
-                type="text"
-                value={editedEvent.link ?? ""}
-                onChange={handleOptionalFieldChange("link")}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                placeholder="Apollo_11 or https://en.wikipedia.org/wiki/Apollo_11"
-              />
-              {/* <p className="mt-1 text-xs text-zinc-500">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">
+                  {t("externalLink")}
+                </label>
+                <input
+                  type="text"
+                  value={editedEvent.link ?? ""}
+                  onChange={handleOptionalFieldChange("link")}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  placeholder="Apollo_11 or https://en.wikipedia.org/wiki/Apollo_11"
+                />
+                {/* <p className="mt-1 text-xs text-zinc-500">
                 Paste any URL, or enter a Wikipedia article name and it will be
                 expanded automatically when you save.
               </p> */}
+              </div>
             </div>
-          </div>
 
-          <div>
+            {/* <div>
             <label className="mb-1 block text-sm font-medium text-zinc-400">
               Duration (years, optional)
             </label>
@@ -855,20 +865,20 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             <p className="mt-1 text-xs text-zinc-500">
               Used for auto-zoom when focusing this event.
             </p>
-          </div>
+          </div> */}
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              {t("priority")}
-            </label>
-            <input
-              type="number"
-              name="priority"
-              value={editedEvent.priority}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
+                {t("priority")}
+              </label>
+              <input
+                type="number"
+                name="priority"
+                value={editedEvent.priority}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -881,9 +891,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </button>
           <button
             onClick={handleSave}
-            disabled={
-              mode === "create" && availableCollections.length === 0
-            }
+            disabled={mode === "create" && availableCollections.length === 0}
             className="ui-button ui-button-primary px-6 py-3 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {mode === "create" ? t("addEvent") : t("save")}

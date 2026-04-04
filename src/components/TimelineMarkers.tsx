@@ -260,7 +260,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             }}
           />
         </>
-      ) : mode !== "travel" ? (
+      ) : (
         <motion.div
           className="absolute left-0 top-0 h-0 w-0"
           style={{ x: pivotX, top: "50%" }}
@@ -296,7 +296,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             />
           </div>
         </motion.div>
-      ) : null}
+      )}
 
       <style>{`
       @keyframes warp-streak {

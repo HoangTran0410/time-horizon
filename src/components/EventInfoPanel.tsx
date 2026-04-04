@@ -506,7 +506,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                           {title}
                         </h3>
                         <p className="mt-1 font-mono text-[0.76rem] uppercase tracking-[0.12em] text-emerald-500">
-                          {getEventDisplayLabel(event)}
+                          {getEventDisplayLabel(event, language)}
                         </p>
                       </div>
 
@@ -552,7 +552,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                       </div>
                     </div>
 
-                    <p className="mt-2 text-[0.84rem] leading-6 text-zinc-300">
+                    <p className="mt-2 text-[0.84rem] text-zinc-300">
                       {description}
                     </p>
                     {(imageUrl || embeddedVideoUrl || externalLinkUrl) && (

@@ -144,7 +144,7 @@ export const LanguagePickerButton: React.FC<LanguagePickerButtonProps> = ({
         aria-label={t("language")}
         title={t("language")}
       >
-        <span className={{}}>
+        <span className="">
           {/* {currentOption.shortLabel} */}
           <Languages size={15} />
         </span>

@@ -39,7 +39,7 @@ interface SidebarProps {
   /** For passing to Timeline (app-level concern, not sidebar UI state) */
   onBackToLanding: () => void;
   /** External file import — requires user interaction in this component */
-  onImportCollections: (file: File) => Promise<string> | string;
+  onImportCollections: (file: File) => Promise<string | void> | string | void;
   /** User event interactions — controlled by parent */
   onEditEvent: (event: Event) => void;
   onDeleteEvent: (event: Event) => void;
@@ -597,9 +597,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 }
                               >
                                 <span>{collection.emoji}</span>
-                                <span className="max-w-24 truncate">
-                                  {collection.name}
-                                </span>
+                                <span className="">{collection.name}</span>
                                 {isVisible ? (
                                   <Eye size={12} />
                                 ) : (
@@ -747,7 +745,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         </div>
 
-                        <p className="mt-3 line-clamp-2 text-[0.84rem] leading-6 text-zinc-400">
+                        <p className="mt-2 text-[0.84rem] text-zinc-400">
                           {collection.description}
                         </p>
 

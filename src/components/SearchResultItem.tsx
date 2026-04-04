@@ -35,7 +35,7 @@ export const SearchResultItem = React.memo<SearchResultItemProps>(
             </div>
           </div>
           <div className="mt-1 text-[0.66rem] font-mono uppercase tracking-[0.18em] text-zinc-500">
-            {getEventDisplayLabel(event)}
+            {getEventDisplayLabel(event, language)}
           </div>
           {(event.image || event.video || event.link) && (
             <div className="mt-2 flex flex-wrap gap-1.5">

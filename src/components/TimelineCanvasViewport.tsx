@@ -386,7 +386,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       nextVisibleEvents.push({
         event,
         year,
-        label: getEventDisplayLabel(event),
+        label: getEventDisplayLabel(event, language),
       });
     }
 
@@ -394,7 +394,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     for (const tick of ticks) {
       nextTicks.push({
         tick,
-        label: formatTimelineTick(tick.year, tick.interval),
+        label: formatTimelineTick(tick.year, tick.interval, language),
       });
     }
 
@@ -411,6 +411,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       eventAccentColors,
     };
   }, [
+    language,
     ticks,
     timelineEvents,
     collapsedGroups,

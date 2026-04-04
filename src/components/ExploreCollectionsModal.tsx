@@ -133,7 +133,10 @@ export const ExploreCollectionsModal: React.FC<
   const filteredCollections = useMemo(
     () =>
       collections.filter((collection) => {
-        const matchesQuery = matchesCollectionQuery(collection, normalizedQuery);
+        const matchesQuery = matchesCollectionQuery(
+          collection,
+          normalizedQuery,
+        );
         if (!matchesQuery) return false;
 
         if (
@@ -420,7 +423,8 @@ export const ExploreCollectionsModal: React.FC<
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredCollections.map((collection) => {
-                  const collectionCategories = getCollectionCategories(collection);
+                  const collectionCategories =
+                    getCollectionCategories(collection);
                   const isDownloaded = installedCollectionIds.has(
                     collection.id,
                   );
@@ -503,7 +507,9 @@ export const ExploreCollectionsModal: React.FC<
                             className="ui-button ui-button-primary w-full rounded-[0.95rem] px-3 py-2.5 text-[0.8rem] disabled:cursor-wait disabled:opacity-60"
                           >
                             <Download size={14} />
-                            <span>{isLoading ? t("downloading") : t("download")}</span>
+                            <span>
+                              {isLoading ? t("downloading") : t("download")}
+                            </span>
                           </button>
                         )}
 

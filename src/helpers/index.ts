@@ -12,8 +12,14 @@ import {
   ImportedEvent,
   StoredEvent,
   EventTime,
+  SupportedLanguage,
 } from "../constants/types";
 import { normalizeLocalizedText } from "./localization";
+
+const LOCALE_MAP: Record<SupportedLanguage, string> = {
+  vi: "vi-VN",
+  en: "en-US",
+};
 
 export const normalizeEventTimeParts = (time: EventTime): Required<EventTime> =>
   [
@@ -166,9 +172,12 @@ export const getEventTimelineYear = (event: Event): number => {
   return result;
 };
 
-// Cache: event time is immutable — label never changes.
-// WeakMap avoids memory leaks.
-const _displayLabelCache = new WeakMap<Event, string>();
+// Cache: event time is immutable — label only varies by locale.
+// WeakMap avoids memory leaks. undefined = locale not yet computed.
+const _displayLabelCache = new WeakMap<
+  Event,
+  Partial<Record<SupportedLanguage, string>>
+>();
 
 /** Strip trailing zeros from toFixed output, e.g. "100.0B" → "100B" */
 const stripTrailingZeros = (s: string): string =>
@@ -345,9 +354,15 @@ export const formatYear = (absoluteYear: number): string => {
   return d.toLocaleString(undefined, DATE_TIME_FORMAT);
 };
 
-const formatEventTime = (event: Event): string => {
+const formatEventTime = (
+  event: Event,
+  locale: SupportedLanguage,
+): string => {
   const cached = _displayLabelCache.get(event);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    const hit = cached[locale];
+    if (hit !== undefined) return hit;
+  }
 
   const [year, month, day, hour, minute, seconds] = normalizeEventTimeParts(
     event.time,
@@ -371,16 +386,18 @@ const formatEventTime = (event: Event): string => {
       seconds ?? 0,
     );
 
+    const localeStr = LOCALE_MAP[locale];
+
     if (isNaN(d.getTime())) {
       label = formatYear(getEventTimelineYear(event));
     } else if (day == null) {
-      label = d.toLocaleDateString(undefined, MONTH_YEAR_FORMAT);
+      label = d.toLocaleDateString(localeStr, MONTH_YEAR_FORMAT);
     } else {
       const hasTime = hour != null || minute != null || seconds != null;
       if (!hasTime) {
-        label = d.toLocaleDateString(undefined, FULL_DATE_FORMAT);
+        label = d.toLocaleDateString(localeStr, FULL_DATE_FORMAT);
       } else {
-        label = d.toLocaleString(undefined, {
+        label = d.toLocaleString(localeStr, {
           ...DATE_TIME_FORMAT,
           second: seconds != null ? "2-digit" : undefined,
         });
@@ -388,12 +405,19 @@ const formatEventTime = (event: Event): string => {
     }
   }
 
-  _displayLabelCache.set(event, label);
+  // Persist per-locale so other locales can still hit cache.
+  // Only write to cache after confirming label is non-empty (guards against
+  // partial cache entry from a parallel caller).
+  const existing = _displayLabelCache.get(event) ?? { vi: undefined, en: undefined };
+  existing[locale] = label;
+  _displayLabelCache.set(event, existing);
   return label;
 };
 
-export const getEventDisplayLabel = (event: Event): string =>
-  formatEventTime(event);
+export const getEventDisplayLabel = (
+  event: Event,
+  locale: SupportedLanguage,
+): string => formatEventTime(event, locale);
 
 export const formatElapsedTimelineTime = (years: number): string => {
   const absoluteYears = Math.abs(years);
@@ -465,7 +489,11 @@ export const getNiceInterval = (ideal: number): number => {
   return best;
 };
 
-export const formatTick = (absoluteYear: number, interval: number): string => {
+export const formatTick = (
+  absoluteYear: number,
+  interval: number,
+  locale: SupportedLanguage,
+): string => {
   if (isYearZero(absoluteYear)) return "0";
 
   const absYear = Math.abs(absoluteYear);
@@ -490,21 +518,24 @@ export const formatTick = (absoluteYear: number, interval: number): string => {
   const d = parseAbsoluteYearToDate(absoluteYear);
   if (isNaN(d.getTime())) return formatAbsoluteYear(absoluteYear);
 
+  const localeStr = LOCALE_MAP[locale];
+
   if (interval >= 1 / 12) {
-    return d.toLocaleDateString(undefined, MONTH_YEAR_NUMERIC_FORMAT);
+    return d.toLocaleDateString(localeStr, MONTH_YEAR_NUMERIC_FORMAT);
   }
 
   if (interval >= 1 / 365.25) {
-    return d.toLocaleDateString(undefined, DAY_MONTH_YEAR_NUMERIC_FORMAT);
+    return d.toLocaleDateString(localeStr, DAY_MONTH_YEAR_NUMERIC_FORMAT);
   }
 
-  return d.toLocaleDateString(undefined, DAY_MONTH_YEAR_NUMERIC_FORMAT);
+  return d.toLocaleDateString(localeStr, DAY_MONTH_YEAR_NUMERIC_FORMAT);
 };
 
 export const formatTimelineTick = (
   absoluteYear: number,
   interval: number,
-): string => formatTick(absoluteYear, interval);
+  locale: SupportedLanguage,
+): string => formatTick(absoluteYear, interval, locale);
 
 export const generateCalendarTimelineTickYears = (
   startYear: number,
@@ -792,7 +823,7 @@ export const getStableTickLabelWidthEstimate = (interval: number) => {
   const estimate = Math.max(
     80,
     ...sampleYears.map(
-      (year) => formatTimelineTick(year, interval).length * 8 + 40,
+      (year) => formatTimelineTick(year, interval, "en").length * 8 + 40,
     ),
   );
   tickLabelWidthEstimateCache.set(interval, estimate);

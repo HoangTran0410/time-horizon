@@ -43,10 +43,9 @@ body,
 }
 
 :root {
-  --font-sans: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
-  --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
-  --font-mono:
-    "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Be Vietnam Pro", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-serif: "Lora", "Iowan Old Style", "Palatino Linotype", serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --app-bg: #0b0f14;
   --app-bg-image:
     radial-gradient(
@@ -262,7 +261,6 @@ body {
   box-sizing: border-box;
 }
 
-button,
 input,
 textarea,
 select {

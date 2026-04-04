@@ -131,7 +131,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                     {eventTitle}
                   </h3>
                   <p className="mt-1 text-[0.72rem] font-mono uppercase tracking-[0.14em] text-emerald-400">
-                    {getEventDisplayLabel(event)}
+                    {getEventDisplayLabel(event, language)}
                   </p>
                 </div>
                 <button

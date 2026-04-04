@@ -1,7 +1,7 @@
 export const APP_FONT_FAMILIES = {
-  sans: '"Manrope", "IBM Plex Sans", "Segoe UI", sans-serif',
-  serif: '"Fraunces", "Iowan Old Style", "Palatino Linotype", serif',
-  mono: '"IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace',
+  sans: '"Be Vietnam Pro", "Segoe UI", "Helvetica Neue", sans-serif',
+  serif: '"Lora", "Iowan Old Style", "Palatino Linotype", serif',
+  mono: '"JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace',
   emoji: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"',
 } as const;
 

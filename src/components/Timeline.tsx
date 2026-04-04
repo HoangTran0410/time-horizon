@@ -278,10 +278,10 @@ export const Timeline = ({
   const shouldShowEmptyTimelineGuidance =
     !isViewportBeforeBigBang && timelineEvents.length === 0;
 
-  const handleExportCollection = (
+  const handleExportCollection = async (
     collectionId: string,
     format: "csv" | "json" = "csv",
-  ) => {
+  ): Promise<string> => {
     const collectionMeta = collections.find((c) => c.id === collectionId);
     if (!collectionMeta) {
       throw new Error("That collection could not be found for export.");

@@ -249,8 +249,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 readOnly
                 value={shareUrl}
                 className="share-url-input"
-                onFocus={(e) => e.target.select()}
-                onClick={(e) => e.target.select()}
+                onFocus={(e) => (e.target as HTMLInputElement).select()}
+                onClick={(e) => (e.target as HTMLInputElement).select()}
               />
             </div>
 
