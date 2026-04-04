@@ -31,3 +31,5 @@ dist-ssr
 docs
 # plans
 .agents
+
+.omx
