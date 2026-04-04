@@ -1,5 +1,10 @@
 import type { MotionValue } from "motion";
 
+export const SUPPORTED_LANGUAGES = ["vi", "en"] as const;
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export type LocalizedTextRecord = Record<string, string>;
+export type LocalizedText = string | LocalizedTextRecord;
+
 export type EventTime = [
   year: number,
   month?: number | null,
@@ -11,8 +16,8 @@ export type EventTime = [
 
 export interface Event {
   id: string;
-  title: string;
-  description: string;
+  title: LocalizedText;
+  description: LocalizedText;
   link?: string;
   image?: string;
   video?: string;
@@ -33,6 +38,9 @@ export interface Event {
   priority: number; // Higher number = higher priority (shown when zoomed out)
 }
 
+export type StoredEvent = Omit<Event, "id">;
+export type ImportedEvent = StoredEvent & { id?: string };
+
 export interface TimelineState {
   zoom: number; // Pixels per year
   offset: number; // Scroll position in pixels
@@ -45,6 +53,7 @@ export interface EventCollectionMeta {
   description: string;
   author: string;
   createdAt: string;
+  categories?: string[];
   /** Optional default accent color for the collection. */
   color?: string | null;
   /**

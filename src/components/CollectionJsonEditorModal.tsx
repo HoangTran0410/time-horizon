@@ -9,6 +9,7 @@ import React, {
 import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { X } from "lucide-react";
+import { useI18n } from "../i18n";
 
 // Lazy-load the heavy Monaco Editor — only loaded when the modal opens
 const Editor = lazy(() =>
@@ -26,6 +27,7 @@ interface CollectionJsonEditorModalProps {
 export const CollectionJsonEditorModal: React.FC<
   CollectionJsonEditorModalProps
 > = ({ collectionName, jsonData, onSave, onClose }) => {
+  const { t } = useI18n();
   const [draft, setDraft] = useState(jsonData);
   const [parseError, setParseError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -51,9 +53,9 @@ export const CollectionJsonEditorModal: React.FC<
       onSave(draft);
       requestClose();
     } catch {
-      setParseError("Invalid JSON — please fix errors before saving.");
+      setParseError(t("invalidJsonFixBeforeSaving"));
     }
-  }, [draft, onSave, parseError, requestClose]);
+  }, [draft, onSave, parseError, requestClose, t]);
 
   const handleValidate = useCallback((value: string) => {
     if (!value.trim()) {
@@ -64,9 +66,9 @@ export const CollectionJsonEditorModal: React.FC<
       JSON.parse(value);
       setParseError(null);
     } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Invalid JSON syntax");
+      setParseError(err instanceof Error ? err.message : t("invalidJsonSyntax"));
     }
-  }, []);
+  }, [t]);
 
   const handleEditorMount: OnMount = useCallback(
     (editor, monaco) => {
@@ -148,8 +150,9 @@ export const CollectionJsonEditorModal: React.FC<
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-800 px-5 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
           <div className="min-w-0">
-            <div className="ui-kicker mb-1">JSON Editor</div>
-            <h2 className="ui-display-title truncate text-[1.3rem] leading-none text-white sm:text-[1.5rem] sm:leading-none">
+            <div className="ui-kicker mb-1">{t("jsonEditor")}</div>
+            
+            <h2 className="ui-display-title text-[1.3rem] leading-none text-white sm:text-[1.5rem] sm:leading-none">
               {collectionName}
             </h2>
           </div>
@@ -157,7 +160,7 @@ export const CollectionJsonEditorModal: React.FC<
           <button
             onClick={requestClose}
             className="ui-icon-button h-9 w-9 shrink-0"
-            aria-label="Close editor"
+            aria-label={t("close")}
           >
             <X size={16} />
           </button>
@@ -171,7 +174,7 @@ export const CollectionJsonEditorModal: React.FC<
                 <div className="flex flex-col items-center gap-3">
                   <div className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
                   <p className="text-[0.78rem] text-zinc-500">
-                    Loading editor…
+                    {t("loadingEditor")}
                   </p>
                 </div>
               </div>
@@ -241,14 +244,14 @@ export const CollectionJsonEditorModal: React.FC<
               onClick={requestClose}
               className="ui-button ui-button-secondary rounded-[0.9rem] px-4 py-2 text-[0.82rem] sm:px-5 sm:py-2.5"
             >
-              Cancel
+              {t("cancel")}
             </button>
             <button
               onClick={() => void handleSave()}
               disabled={Boolean(parseError)}
               className="ui-button ui-button-primary rounded-[0.9rem] px-4 py-2 text-[0.82rem] sm:px-5 sm:py-2.5 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Save Changes
+              {t("saveChanges")}
             </button>
           </div>
         </div>

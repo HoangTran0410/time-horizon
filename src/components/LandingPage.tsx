@@ -1,3 +1,4 @@
+import React from "react";
 import {
   ArrowRight,
   Clock3,
@@ -11,6 +12,8 @@ import {
   Telescope,
 } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
+import { LanguagePickerButton } from "./LanguagePickerButton";
+import { useI18n } from "../i18n";
 
 type LandingPageProps = {
   theme: ThemeMode;
@@ -19,60 +22,70 @@ type LandingPageProps = {
   onEnterTimeline: () => void;
 };
 
-const previewMoments = [
-  { year: "13.8B years ago", title: "Big Bang", tone: "emerald" },
-  { year: "4.54B years ago", title: "Earth forms", tone: "amber" },
-  { year: "66M years ago", title: "Dinosaurs vanish", tone: "zinc" },
-  { year: "1969", title: "Moon landing", tone: "emerald" },
-  { year: "Right now", title: "Your own custom events", tone: "amber" },
-] as const;
-
-const featureCards = [
-  {
-    icon: Telescope,
-    eyebrow: "Scale Shift",
-    title: "Zoom from deep time to one life.",
-    copy: "Move from billions of years to a single moment in seconds.",
-  },
-  {
-    icon: Layers3,
-    eyebrow: "Curated Layers",
-    title: "Mix eras, people, and ideas.",
-    copy: "Place multiple collections on one shared timeline.",
-  },
-  {
-    icon: Clock3,
-    eyebrow: "Focus Mode",
-    title: "Focus without losing context.",
-    copy: "Nearby events stay visible while you inspect one point in time.",
-  },
-] as const;
-
-const stats = [
-  {
-    icon: Database,
-    label: "Collections ready",
-    value: "38+",
-  },
-  {
-    icon: Orbit,
-    label: "Time span",
-    value: "13.8B+ yrs",
-  },
-  {
-    icon: Sparkles,
-    label: "Custom events",
-    value: "Yours",
-  },
-] as const;
-
 export function LandingPage({
   theme,
   collectionCount,
   onToggleTheme,
   onEnterTimeline,
 }: LandingPageProps) {
+  const { t } = useI18n();
   const ThemeIcon = theme === "dark" ? SunMedium : MoonStar;
+  const previewMoments = [
+    {
+      year: t("yearsAgoBillion", { value: "13.8" }),
+      title: "Big Bang",
+      tone: "emerald",
+    },
+    {
+      year: t("yearsAgoBillion", { value: "4.54" }),
+      title: t("earthForms"),
+      tone: "amber",
+    },
+    {
+      year: t("yearsAgoMillion", { value: "66" }),
+      title: t("dinosaursVanish"),
+      tone: "zinc",
+    },
+    { year: "1969", title: t("moonLanding"), tone: "emerald" },
+    { year: t("rightNow"), title: t("customEventsPreview"), tone: "amber" },
+  ] as const;
+  const featureCards = [
+    {
+      icon: Telescope,
+      eyebrow: t("scaleShift"),
+      title: t("featureZoomTitle"),
+      copy: t("featureZoomCopy"),
+    },
+    {
+      icon: Layers3,
+      eyebrow: t("curatedLayers"),
+      title: t("featureLayersTitle"),
+      copy: t("featureLayersCopy"),
+    },
+    {
+      icon: Clock3,
+      eyebrow: t("focusMode"),
+      title: t("featureFocusTitle"),
+      copy: t("featureFocusCopy"),
+    },
+  ] as const;
+  const stats = [
+    {
+      icon: Database,
+      label: t("collectionsReady"),
+      value: `${collectionCount}+`,
+    },
+    {
+      icon: Orbit,
+      label: t("timeSpan"),
+      value: "13.8B+ yrs",
+    },
+    {
+      icon: Sparkles,
+      label: t("customEvents"),
+      value: t("yours"),
+    },
+  ] as const;
 
   return (
     <div className="landing-shell relative min-h-screen overflow-hidden text-zinc-50">
@@ -88,24 +101,30 @@ export function LandingPage({
               <MoonStar size={18} strokeWidth={1.8} />
             </div>
             <div>
-              <div className="ui-kicker text-[0.62rem]">Chronology Engine</div>
+              <div className="ui-kicker text-[0.62rem]">
+                {t("chronologyEngine")}
+              </div>
               <div className="landing-brand-title font-semibold tracking-[0.02em] text-zinc-100">
                 Time Horizon
               </div>
             </div>
           </div>
 
-          <div className="landing-nav-actions flex items-center gap-2 sm:gap-3">
+          <div className="landing-nav-actions flex items-center">
+            <LanguagePickerButton
+              buttonClassName="landing-theme-button landing-theme-button-icon font-mono text-[0.72rem] font-semibold uppercase tracking-[0.16em]"
+              textClassName="leading-none"
+            />
             <button
               type="button"
               className="landing-theme-button landing-theme-button-icon"
               onClick={onToggleTheme}
               aria-label={
                 theme === "dark"
-                  ? "Switch to light mode"
-                  : "Switch to dark mode"
+                  ? t("switchToLightTheme")
+                  : t("switchToDarkTheme")
               }
-              title={theme === "dark" ? "Light mode" : "Dark mode"}
+              title={theme === "dark" ? t("lightMode") : t("darkMode")}
             >
               <ThemeIcon size={18} strokeWidth={1.9} />
             </button>
@@ -118,18 +137,24 @@ export function LandingPage({
               <span className="landing-kicker-icon" aria-hidden="true">
                 <Sparkles size={14} strokeWidth={2} />
               </span>
-              <span className="ui-kicker">Interactive history atlas</span>
+              <span className="ui-kicker">{t("interactiveHistoryAtlas")}</span>
+
               <span className="landing-kicker-line" aria-hidden="true" />
             </div>
 
             <h1 className="ui-display-title landing-title mt-6 max-w-4xl text-5xl leading-[0.94] sm:text-6xl lg:text-7xl">
-              History.
-              <br />
-              One line.
+              {t("historyOneLine")
+                .split("\n")
+                .map((line, index, lines) => (
+                  <React.Fragment key={line}>
+                    {line}
+                    {index < lines.length - 1 ? <br /> : null}
+                  </React.Fragment>
+                ))}
             </h1>
 
             <p className="landing-copy mt-6 max-w-2xl text-base sm:text-lg">
-              From the Big Bang to modern history, all in one place.
+              {t("landingSubtitle")}
             </p>
 
             <div className="landing-action-row mt-8 flex flex-col gap-3 sm:flex-row">
@@ -139,7 +164,7 @@ export function LandingPage({
                 onClick={onEnterTimeline}
               >
                 <Compass size={17} strokeWidth={2} />
-                Enter Timeline
+                {t("enterTimeline")}
                 <ArrowRight size={17} strokeWidth={2} />
               </button>
             </div>
@@ -163,10 +188,10 @@ export function LandingPage({
           <section className="landing-reveal landing-delay-4">
             <div className="landing-preview-panel">
               <div className="landing-preview-topline">
-                <span className="ui-kicker">Preview Trajectory</span>
+                <span className="ui-kicker">{t("previewTrajectory")}</span>
                 <div className="landing-live-pill">
                   <Sparkles size={14} strokeWidth={1.9} />
-                  Context stays visible
+                  {t("contextStaysVisible")}
                 </div>
               </div>
 
@@ -191,7 +216,7 @@ export function LandingPage({
               </div>
 
               <div className="landing-preview-footer">
-                Jump to any event and still see what happened around it.
+                {t("landingPreviewFooter")}
               </div>
             </div>
           </section>

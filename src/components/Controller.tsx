@@ -6,6 +6,7 @@ import { MobileEventInfoPanel } from "./MobileEventInfoPanel";
 import { NavigationPanel } from "./NavigationPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
 import { SearchPanel } from "./SearchPanel";
+import { useI18n } from "../i18n";
 import { hasActiveTimelineSearch, useStore } from "../stores";
 
 interface ControllerProps {
@@ -61,6 +62,7 @@ export const Controller: React.FC<ControllerProps> = ({
   onZoomDragMove,
   onZoomDragEnd,
 }) => {
+  const { t } = useI18n();
   const [activePanel, setActivePanel] = React.useState<ActivePanel>(null);
   const previousSelectedEventIdRef = React.useRef<string | null>(null);
   const searchQuery = useStore((state) => state.searchQuery);
@@ -115,8 +117,8 @@ export const Controller: React.FC<ControllerProps> = ({
         <PanelToggleButton
           isOpen={activePanel === "navigate"}
           onClick={() => togglePanel("navigate")}
-          openLabel="Open timeline navigation"
-          closeLabel="Close timeline navigation"
+          openLabel={t("openTimelineNavigation")}
+          closeLabel={t("closeTimelineNavigation")}
         >
           <Compass width={18} height={18} />
         </PanelToggleButton>
@@ -124,8 +126,8 @@ export const Controller: React.FC<ControllerProps> = ({
         <PanelToggleButton
           isOpen={activePanel === "search"}
           onClick={() => togglePanel("search")}
-          openLabel="Open event search"
-          closeLabel="Close event search"
+          openLabel={t("openEventSearch")}
+          closeLabel={t("closeEventSearch")}
           showIndicator={hasActiveSearch}
         >
           <Search width={16} height={16} />
@@ -136,8 +138,8 @@ export const Controller: React.FC<ControllerProps> = ({
             <PanelToggleButton
               isOpen={activePanel === "info"}
               onClick={() => togglePanel("info")}
-              openLabel="Open selected event info"
-              closeLabel="Close selected event info"
+              openLabel={t("openSelectedEventInfo")}
+              closeLabel={t("closeSelectedEventInfo")}
             >
               <FileText width={16} height={16} />
             </PanelToggleButton>

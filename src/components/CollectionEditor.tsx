@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { EventCollectionMeta } from "../constants/types";
 import { ChevronDown, X } from "lucide-react";
+import { useI18n } from "../i18n";
 
 // Lazy-load the heavy emoji picker — only loaded when user opens the picker UI
 const EmojiPicker = lazy(() =>
@@ -24,6 +24,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
   onClose,
   title,
 }) => {
+  const { t } = useI18n();
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
   const [draft, setDraft] = useState<CollectionCreationInput>(
@@ -84,7 +85,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
     const description = draft.description.trim();
 
     if (!name) {
-      setError("Name is required.");
+      setError(t("collectionNameRequired"));
       return;
     }
 
@@ -127,15 +128,17 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
       >
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <div className="ui-kicker mb-2">Library Builder</div>
+            <div className="ui-kicker mb-2">{t("libraryBuilder")}</div>
+
             <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
-              {title ?? (mode === "edit" ? "Edit Collection" : "New Collection")}
+              {title ??
+                (mode === "edit" ? t("editCollection") : t("newCollection"))}
             </h2>
           </div>
           <button
             onClick={requestClose}
             className="ui-icon-button h-10 w-10"
-            aria-label="Close"
+            aria-label={t("close")}
           >
             <X width={20} height={20} />
           </button>
@@ -143,7 +146,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
 
         <div className="space-y-4">
           <div>
-            <label className="ui-label">Icon</label>
+            <label className="ui-label">{t("icon")}</label>
             <div className="relative">
               <button
                 type="button"
@@ -162,15 +165,18 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
                       </div>
                     }
                   >
-                  <EmojiPicker
-                    theme={"dark" as EmojiPickerTheme}
-                    onEmojiClick={(emojiData) => {
-                      setDraft((prev) => ({ ...prev, emoji: emojiData.emoji }));
-                      setShowEmojiPicker(false);
-                    }}
-                    height={400}
-                    width={320}
-                  />
+                    <EmojiPicker
+                      theme={"dark" as EmojiPickerTheme}
+                      onEmojiClick={(emojiData) => {
+                        setDraft((prev) => ({
+                          ...prev,
+                          emoji: emojiData.emoji,
+                        }));
+                        setShowEmojiPicker(false);
+                      }}
+                      height={400}
+                      width={320}
+                    />
                   </Suspense>
                 </div>
               )}
@@ -178,7 +184,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           </div>
 
           <div>
-            <label className="ui-label">Name</label>
+            <label className="ui-label">{t("name")}</label>
             <input
               type="text"
               value={draft.name}
@@ -187,12 +193,12 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
                 setError(null);
               }}
               className="ui-field"
-              placeholder="Renaissance, Space Missions, Ancient Egypt..."
+              placeholder={t("collectionNamePlaceholder")}
             />
           </div>
 
           <div>
-            <label className="ui-label">Description</label>
+            <label className="ui-label">{t("description")}</label>
             <textarea
               value={draft.description}
               onChange={(e) => {
@@ -201,7 +207,7 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
               }}
               rows={4}
               className="ui-field min-h-28 resize-y"
-              placeholder="A short description for what this collection covers."
+              placeholder={t("collectionDescriptionPlaceholder")}
             />
           </div>
 
@@ -217,13 +223,13 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
             onClick={requestClose}
             className="ui-button ui-button-secondary px-6 py-3"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             onClick={handleSubmit}
             className="ui-button ui-button-primary px-6 py-3"
           >
-            {mode === "edit" ? "Save Changes" : "Create Collection"}
+            {mode === "edit" ? t("saveChanges") : t("newCollection")}
           </button>
         </div>
       </div>

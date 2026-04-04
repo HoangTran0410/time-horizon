@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle } from "lucide-react";
+import { useI18n } from "../i18n";
 
 export interface ConfirmDialogOptions {
   title: string;
@@ -27,14 +28,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   tone = "default",
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useI18n();
   const shouldCloseOnPointerUpRef = useRef(false);
   const isDangerTone = tone === "danger";
+  const resolvedConfirmLabel = confirmLabel ?? t("confirm");
+  const resolvedCancelLabel = cancelLabel ?? t("cancel");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,7 +109,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   <AlertTriangle size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="ui-kicker">Confirm Action</div>
+                  <div className="ui-kicker">{t("confirmAction")}</div>
                   <h2 className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white">
                     {title}
                   </h2>
@@ -122,7 +126,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onClick={onCancel}
                 className="ui-button ui-button-secondary"
               >
-                {cancelLabel}
+                {resolvedCancelLabel}
               </button>
               <button
                 type="button"
@@ -131,7 +135,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   isDangerTone ? "ui-button-danger" : "ui-button-primary"
                 }`}
               >
-                {confirmLabel}
+                {resolvedConfirmLabel}
               </button>
             </div>
           </motion.div>

@@ -2,6 +2,7 @@ import React from "react";
 import { motion, MotionValue } from "motion/react";
 import { ChevronDown } from "lucide-react";
 import { AutoFitRangeTarget, DateJumpTarget } from "../constants/types";
+import { useI18n } from "../i18n";
 
 interface NavigationPanelProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   onZoomDragEnd,
   onComplete,
 }) => {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = React.useState<NavigationTab>("zoom");
   const [yearInput, setYearInput] = React.useState("");
   const [monthInput, setMonthInput] = React.useState("");
@@ -60,34 +62,34 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
 
     const trimmedYear = yearInput.trim();
     if (!trimmedYear) {
-      setJumpError("Year is required.");
+      setJumpError(t("yearRequired"));
       return;
     }
 
     const year = Number(trimmedYear);
     if (!Number.isFinite(year) || !Number.isInteger(year)) {
-      setJumpError("Year must be an integer.");
+      setJumpError(t("yearMustBeInteger"));
       return;
     }
 
     const month = monthInput.trim() === "" ? null : Number(monthInput);
     if (month !== null) {
       if (!Number.isInteger(month) || month < 1 || month > 12) {
-        setJumpError("Month must be 1-12.");
+        setJumpError(t("monthMustBeRange"));
         return;
       }
     }
 
     const day = dayInput.trim() === "" ? null : Number(dayInput);
     if (day !== null && month === null) {
-      setJumpError("Pick a month before entering a day.");
+      setJumpError(t("chooseMonthBeforeDay"));
       return;
     }
 
     if (day !== null && month !== null) {
       const maxDay = getMaxDay(year, month);
       if (!Number.isInteger(day) || day < 1 || day > maxDay) {
-        setJumpError(`Day must be 1-${maxDay}.`);
+        setJumpError(t("dayRange", { max: maxDay }));
         return;
       }
     }
@@ -104,14 +106,14 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     const trimmedEnd = endYearInput.trim();
 
     if (!trimmedStart || !trimmedEnd) {
-      setFitError("Start year and end year are required.");
+      setFitError(t("startEndRequired"));
       return;
     }
 
     const startYear = Number(trimmedStart);
     const endYear = Number(trimmedEnd);
     if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) {
-      setFitError("Years must be valid numbers.");
+      setFitError(t("yearsMustBeValid"));
       return;
     }
 
@@ -131,7 +133,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     >
       <div className="ui-panel mt-0.5 max-h-[min(66vh,32rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[1.45rem] p-3.5 sm:w-[20.75rem]">
         <div className="ui-display-title text-[1.5rem] leading-none text-white mb-2">
-          Navigate
+          {t("navigate")}
         </div>
         <div className="ui-tablist mb-3">
           <button
@@ -140,7 +142,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             data-active={activeTab === "zoom"}
             onClick={() => setActiveTab("zoom")}
           >
-            Zoom
+            {t("zoom")}
           </button>
           <button
             type="button"
@@ -148,7 +150,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             data-active={activeTab === "jump"}
             onClick={() => setActiveTab("jump")}
           >
-            Jump
+            {t("jump")}
           </button>
           <button
             type="button"
@@ -156,7 +158,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             data-active={activeTab === "fit"}
             onClick={() => setActiveTab("fit")}
           >
-            Fit
+            {t("fit")}
           </button>
         </div>
         {activeTab === "zoom" ? (
@@ -165,10 +167,10 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
               <div className="flex-1">
                 <div className="mb-2.5">
                   <div className="text-sm font-semibold text-zinc-100">
-                    Zoom
+                    {t("zoom")}
                   </div>
                   <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
-                    Pick a scale, then nudge with the slider.
+                    {t("pickScaleThenSlider")}
                   </p>
                 </div>
                 <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-3">
@@ -179,7 +181,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                       className="ui-field w-full cursor-pointer appearance-none py-2.5 pl-3.5 pr-10 text-center text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-zinc-300"
                     >
                       <option value="current">
-                        {zoomRangeLabel || "Zoom"}
+                        {zoomRangeLabel || t("currentZoom")}
                       </option>
                       <option disabled>──────────</option>
                       <option value="1000000000">1B Years</option>
@@ -228,9 +230,11 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             onSubmit={handleJumpSubmit}
           >
             <div className="mb-2.5">
-              <div className="text-sm font-semibold text-zinc-100">Jump To</div>
+              <div className="text-sm font-semibold text-zinc-100">
+                {t("jumpTo")}
+              </div>
               <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
-                Snap to a year, month, or exact day.
+                {t("jumpToHelp")}
               </p>
             </div>
             <div className="space-y-2">
@@ -239,7 +243,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                 inputMode="numeric"
                 value={yearInput}
                 onChange={(e) => setYearInput(e.target.value)}
-                placeholder="Year"
+                placeholder={t("year")}
                 className="ui-field"
               />
               <div className="grid grid-cols-2 gap-2">
@@ -250,7 +254,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   max={12}
                   value={monthInput}
                   onChange={(e) => setMonthInput(e.target.value)}
-                  placeholder="Month"
+                  placeholder={t("month")}
                   className="ui-field"
                 />
                 <input
@@ -260,7 +264,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   max={31}
                   value={dayInput}
                   onChange={(e) => setDayInput(e.target.value)}
-                  placeholder="Day"
+                  placeholder={t("day")}
                   className="ui-field"
                 />
               </div>
@@ -273,7 +277,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                 type="submit"
                 className="ui-button ui-button-primary w-full"
               >
-                Go To Date
+                {t("goToDate")}
               </button>
             </div>
           </form>
@@ -286,10 +290,10 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
           >
             <div className="mb-2.5">
               <div className="text-sm font-semibold text-zinc-100">
-                Auto Fit
+                {t("fit")}
               </div>
               <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
-                Frame a range fast, or fit everything.
+                {t("fitRangeHelp")}
               </p>
             </div>
             <div className="space-y-2">
@@ -299,7 +303,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   inputMode="numeric"
                   value={startYearInput}
                   onChange={(e) => setStartYearInput(e.target.value)}
-                  placeholder="Start year"
+                  placeholder={`${t("year")} ${t("fromDate").toLowerCase()}`}
                   className="ui-field"
                 />
                 <input
@@ -307,7 +311,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   inputMode="numeric"
                   value={endYearInput}
                   onChange={(e) => setEndYearInput(e.target.value)}
-                  placeholder="End year"
+                  placeholder={`${t("year")} ${t("toDate").toLowerCase()}`}
                   className="ui-field"
                 />
               </div>
@@ -321,7 +325,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   type="submit"
                   className="ui-button ui-button-primary w-full"
                 >
-                  Fit Range
+                  {t("fitRange")}
                 </button>
                 <button
                   type="button"
@@ -331,7 +335,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   }}
                   className="ui-button ui-button-secondary w-full"
                 >
-                  Fit All
+                  {t("fitAllVisible")}
                 </button>
               </div>
             </div>

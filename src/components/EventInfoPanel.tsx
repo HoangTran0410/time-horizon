@@ -21,6 +21,11 @@ import {
   normalizeExternalLinkUrl,
   normalizeImageUrl,
 } from "../helpers";
+import {
+  getLocalizedEventDescription,
+  getLocalizedEventTitle,
+} from "../helpers/localization";
+import { useI18n } from "../i18n";
 import { EventVideoModal } from "./EventVideoModal";
 
 interface EventInfoPanelProps {
@@ -201,9 +206,16 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   onToggleCollapsed,
   onClose,
 }) => {
+  const { language, t } = useI18n();
   const embeddedVideoUrl = normalizeEmbedVideoUrl(event.video);
   const externalLinkUrl = normalizeExternalLinkUrl(event.link);
   const imageUrl = normalizeImageUrl(event.image);
+  const title = getLocalizedEventTitle(event, language);
+  const description = getLocalizedEventDescription(
+    event,
+    language,
+    t("noDescriptionYet"),
+  );
   const [mediaModal, setMediaModal] = React.useState<"image" | "video" | null>(
     null,
   );
@@ -442,13 +454,13 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
               onClick={onToggleCollapsed}
               className="ui-panel flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-zinc-100"
               aria-expanded={false}
-              aria-label="Expand event info"
-              title="Expand panel"
+              aria-label={t("openSelectedEventInfo")}
+              title={t("openSelectedEventInfo")}
               whileTap={{ scale: 0.97 }}
             >
               <ChevronUp width={16} height={16} />
               <span className="flex items-center gap-2">
-                <span className="text-lg">{event.emoji}</span> {event.title}
+                <span className="text-lg">{event.emoji}</span> {title}
               </span>
             </motion.button>
           </motion.div>
@@ -468,8 +480,8 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
               className="ui-button ui-button-secondary absolute -top-5 left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-zinc-300 z-10"
               style={{ padding: 0 }}
               aria-expanded
-              aria-label="Collapse event info"
-              title="Collapse panel"
+              aria-label={t("closeSelectedEventInfo")}
+              title={t("closeSelectedEventInfo")}
               whileTap={{ scale: 0.95 }}
             >
               <ChevronDown width={16} height={16} />
@@ -491,9 +503,9 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                     <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
                       <div className="min-w-0 flex-1 basis-48">
                         <h3 className="text-[1rem] font-semibold text-white">
-                          {event.title}
+                          {title}
                         </h3>
-                        <p className="mt-1 truncate font-mono text-[0.76rem] uppercase tracking-[0.12em] text-emerald-500">
+                        <p className="mt-1 font-mono text-[0.76rem] uppercase tracking-[0.12em] text-emerald-500">
                           {getEventDisplayLabel(event)}
                         </p>
                       </div>
@@ -502,7 +514,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                         <button
                           onClick={onFocus}
                           className="ui-icon-button rounded-full p-2"
-                          title="Center camera on this event"
+                          title={t("focusEvent")}
                         >
                           <Locate width={14} height={14} />
                         </button>
@@ -519,40 +531,40 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                               ? "border-amber-400/60 bg-amber-500/15 text-amber-100 hover:bg-amber-500/20"
                               : "ui-button-secondary"
                           }`}
-                          title="Measure time from this event to the cursor"
+                          title={t("toggleRuler")}
                         >
                           <Ruler width={14} height={14} />
                         </button>
                         <button
                           onClick={onDelete}
                           className="ui-icon-button rounded-full p-2"
-                          title={`Delete ${event.title}`}
+                          title={t("deleteEvent")}
                         >
                           <Trash2 width={14} height={14} />
                         </button>
                         <button
                           onClick={onClose}
                           className="ui-icon-button h-9 w-9 rounded-full"
-                          aria-label="Close"
+                          aria-label={t("close")}
                         >
                           <X width={16} height={16} />
                         </button>
                       </div>
                     </div>
 
-                    <p className="mt-2 line-clamp-2 text-[0.84rem] leading-6 text-zinc-300">
-                      {event.description}
+                    <p className="mt-2 text-[0.84rem] leading-6 text-zinc-300">
+                      {description}
                     </p>
                     {(imageUrl || embeddedVideoUrl || externalLinkUrl) && (
                       <div className="mt-3 flex items-center gap-2">
                         {imageUrl && (
                           <EventImagePreview
                             src={imageUrl}
-                            alt={event.title}
+                            alt={title}
                             onClick={() => setMediaModal("image")}
                             wrapperClassName="h-[120px] w-[120px] rounded-xl border border-zinc-800"
                             className="h-[120px] w-[120px] object-cover"
-                            loadingLabel="Loading"
+                            loadingLabel={t("loadingImage")}
                           />
                         )}
 
@@ -564,7 +576,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                               className="ui-button ui-button-secondary rounded-[1rem] px-3 py-2 text-[0.76rem]"
                             >
                               <Play width={13} height={13} />
-                              <span>Video</span>
+                              <span>{t("video")}</span>
                             </button>
                           )}
 
@@ -576,7 +588,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                               className="ui-button ui-button-secondary rounded-[1rem] px-3 py-2 text-[0.76rem]"
                             >
                               <ExternalLink width={13} height={13} />
-                              <span className="truncate">Link</span>
+                              <span className="">{t("link")}</span>
                             </a>
                           )}
                         </div>
@@ -620,14 +632,14 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                   className="inline-flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-800 px-2 py-1 text-[11px] text-zinc-200 transition-colors hover:bg-zinc-700"
                 >
                   <RotateCcw width={11} height={11} />
-                  <span>Reset</span>
+                  <span>{t("reset")}</span>
                 </button>
               </div>
               <button
                 type="button"
                 onClick={() => setMediaModal(null)}
                 className="ui-icon-button absolute right-3 top-3 z-10 h-10 w-10"
-                aria-label="Close image"
+                aria-label={t("close")}
               >
                 <X width={16} height={16} />
               </button>
@@ -637,7 +649,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
               >
                 <EventImagePreview
                   src={imageUrl}
-                  alt={event.title}
+                  alt={title}
                   wrapperClassName={`flex h-full w-full touch-none select-none items-center justify-center ${
                     imageScale > 1
                       ? isImagePanning
@@ -665,7 +677,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
           key="event-video-modal"
           isOpen={mediaModal === "video"}
           videoUrl={embeddedVideoUrl}
-          title={event.title}
+          title={title}
           onClose={() => setMediaModal(null)}
         />
       </AnimatePresence>

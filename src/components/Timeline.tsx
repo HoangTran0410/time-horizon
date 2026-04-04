@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { FileText } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
-import { Event, EventCollectionMeta } from "../constants/types";
+import { Event, EventCollectionMeta, StoredEvent } from "../constants/types";
 import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
@@ -20,7 +20,14 @@ import { Toolbar } from "./Toolbar";
 import { TimelineGuidanceOverlay } from "./TimelineGuidanceOverlay";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
 import { WarpOverlay } from "./TimelineMarkers";
-import { createLocalDateStamp, createNewTimelineEvent } from "../helpers";
+import {
+  createLocalDateStamp,
+  createNewTimelineEvent,
+  stripRuntimeEventIds,
+} from "../helpers";
+import { getLocalizedEventTitle } from "../helpers/localization";
+import { exportCollectionToCsv, parseCsvEvents } from "../helpers/csv";
+import { useI18n } from "../i18n";
 import { useTimelineCollections } from "../hooks/useTimelineCollections";
 import { useTimelineShareUrl } from "../hooks/useTimelineShareUrl";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
@@ -29,6 +36,7 @@ import {
   findEventByIdInCollections,
   sanitizeImportedEvents,
   useStore,
+  type ImportedCollectionInput,
 } from "../stores";
 
 interface TimelineProps {
@@ -43,7 +51,7 @@ type CollectionTransferPayload = {
   exportedAt: string;
   collections: Array<{
     meta: EventCollectionMeta;
-    events: Event[];
+    events: StoredEvent[];
     color?: string | null;
     visible?: boolean;
   }>;
@@ -54,6 +62,7 @@ export const Timeline = ({
   onToggleTheme,
   onBackToLanding,
 }: TimelineProps) => {
+  const { language, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [confirmDialog, setConfirmDialog] =
     useState<ConfirmDialogOptions | null>(null);
@@ -126,6 +135,7 @@ export const Timeline = ({
   const saveEvent = useStore((s) => s.saveEvent);
   const addEvent = useStore((s) => s.addEvent);
   const addEvents = useStore((s) => s.addEvents);
+  const replaceCollectionEvents = useStore((s) => s.replaceCollectionEvents);
   const deleteEvent = useStore((s) => s.deleteEvent);
   const createCollection = useStore((s) => s.createCollection);
   const updateCollection = useStore((s) => s.updateCollection);
@@ -169,6 +179,7 @@ export const Timeline = ({
             deferredTimelineSearchQuery,
             activeMediaFilters,
             {
+              language,
               startTimeInput: timeRangeStartInput,
               endTimeInput: timeRangeEndInput,
             },
@@ -177,6 +188,7 @@ export const Timeline = ({
     [
       activeMediaFilters,
       deferredTimelineSearchQuery,
+      language,
       showOnlyResultsOnTimeline,
       timeRangeEndInput,
       timeRangeStartInput,
@@ -266,54 +278,119 @@ export const Timeline = ({
   const shouldShowEmptyTimelineGuidance =
     !isViewportBeforeBigBang && timelineEvents.length === 0;
 
-  const handleExportCollection = (collectionId: string) => {
-    const collectionMeta = collections.find(
-      (collection) => collection.id === collectionId,
-    );
+  const handleExportCollection = (
+    collectionId: string,
+    format: "csv" | "json" = "csv",
+  ) => {
+    const collectionMeta = collections.find((c) => c.id === collectionId);
     if (!collectionMeta) {
       throw new Error("That collection could not be found for export.");
     }
-
     if (
       !Object.prototype.hasOwnProperty.call(collectionEventsById, collectionId)
     ) {
       throw new Error("Only downloaded collections can be exported.");
     }
 
-    const payload: CollectionTransferPayload = {
-      version: 1,
-      source: "time-horizon",
-      exportedAt: new Date().toISOString(),
-      collections: [
-        {
-          meta: collectionMeta,
-          events: collectionEventsById[collectionId] ?? [],
-          color: collectionColors[collectionId] ?? null,
-          visible: visibleCollectionIds.includes(collectionId),
-        },
-      ],
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
+    const events = collectionEventsById[collectionId] ?? [];
+    const serializedEvents = stripRuntimeEventIds(events);
+    const timestamp = createLocalDateStamp();
+    const filename = `${collectionMeta.id}-${timestamp}`;
+
+    let blob: Blob;
+    let extension: string;
+
+    if (format === "csv") {
+      blob = exportCollectionToCsv(collectionMeta, serializedEvents);
+      extension = "csv";
+    } else {
+      const payload: CollectionTransferPayload = {
+        version: 1,
+        source: "time-horizon",
+        exportedAt: new Date().toISOString(),
+        collections: [
+          {
+            meta: collectionMeta,
+            events: serializedEvents,
+            color: collectionColors[collectionId] ?? null,
+            visible: visibleCollectionIds.includes(collectionId),
+          },
+        ],
+      };
+      blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      extension = "json";
+    }
+
     const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;
-    link.download = `${collectionMeta.id}-${createLocalDateStamp()}.json`;
+    link.download = `${filename}.${extension}`;
     link.click();
     URL.revokeObjectURL(blobUrl);
 
-    return `Exported "${collectionMeta.name}".`;
+    return t("exportedCollection", {
+      name: collectionMeta.name,
+      format: extension.toUpperCase(),
+    });
   };
 
   const handleImportCollectionFile = async (file: File) => {
     const rawText = await file.text();
-    let parsed: unknown;
 
+    // ── CSV ──────────────────────────────────────────────────────────────────
+    if (
+      file.name.endsWith(".csv") ||
+      rawText.trimStart().startsWith("#meta;") ||
+      rawText.trimStart().startsWith("id,") ||
+      rawText.trimStart().startsWith("title,")
+    ) {
+      try {
+        const { events: parsedEvents, meta } = parseCsvEvents(rawText);
+        if (parsedEvents.length === 0) {
+          throw new Error(
+            "No events found in that CSV. Make sure it includes a header row with: title, description, time, ...",
+          );
+        }
+
+        // Self-contained CSV with #meta header — import directly, no dialog
+        if (meta?.name && meta?.emoji) {
+          const inputs: ImportedCollectionInput[] = [
+            { meta, events: parsedEvents },
+          ];
+          importCollections(inputs);
+          openSidebar();
+          return t("importedCollection", { name: meta.name });
+        }
+
+        // Plain CSV (no embedded metadata) — prompt via ImportEventsDialog
+        const events = sanitizeImportedEvents(parsedEvents);
+        if (events.length === 0) {
+          throw new Error(
+            "The file loaded, but none of its rows matched the expected event format.",
+          );
+        }
+        setPendingImportEvents(events);
+        setPendingImportDialog(true);
+        return;
+      } catch (err) {
+        if (err instanceof Error && !file.name.endsWith(".csv")) {
+          // Not actually CSV — fall through to JSON parsing
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    // ── JSON ─────────────────────────────────────────────────────────────────
+    let parsed: unknown;
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      throw new Error("That file is not valid JSON.");
+      throw new Error(
+        "That file is not valid JSON or CSV. Make sure it has a .json or .csv extension.",
+      );
     }
 
     // Detect flat array of events (no "meta" field on items)
@@ -364,7 +441,7 @@ export const Timeline = ({
     }
 
     openSidebar();
-    return `Imported ${importedCollectionIds.length} collection${importedCollectionIds.length === 1 ? "" : "s"}.`;
+    return t("importedCollections", { count: importedCollectionIds.length });
   };
 
   // ── Full-page drag-and-drop ───────────────────────────────────────────────
@@ -433,9 +510,10 @@ export const Timeline = ({
     const ownerCollection = collections.find(
       (collection) => collection.id === ownerCollectionId,
     );
+    const eventTitle = getLocalizedEventTitle(event, language);
     const confirmationMessage = ownerCollection
-      ? `This will remove "${event.title}" from "${ownerCollection.name}".`
-      : `This will remove "${event.title}".`;
+      ? `This will remove "${eventTitle}" from "${ownerCollection.name}".`
+      : `This will remove "${eventTitle}".`;
 
     setConfirmDialog({
       title: "Delete event?",
@@ -769,27 +847,20 @@ export const Timeline = ({
           onExportCollection={handleExportCollection}
           onEditCollection={handleEditCollection}
           onUpdateCollectionEvents={(collectionId, events) => {
-            const state = useStore.getState();
-            const existingIds = (
-              state.collectionLibrary[collectionId]?.events ?? []
-            ).map((e) => e.id);
-            existingIds.forEach((id) => useStore.getState().deleteEvent(id));
-            if (events.length > 0) {
-              useStore.getState().addEvents(events, collectionId);
-            }
+            replaceCollectionEvents(collectionId, events);
           }}
           onBackToLanding={onBackToLanding}
         />
 
         {shouldShowEmptyTimelineGuidance ? (
           <TimelineGuidanceOverlay
-            eyebrow="Timeline Empty"
+            eyebrow={t("timelineEmpty")}
             title={
               hiddenDownloadedCollectionIds.length > 0
-                ? "Nothing is visible right now."
+                ? t("nothingVisible")
                 : downloadedCollectionIds.length > 0
-                  ? "Your visible timeline is empty."
-                  : "Welcome to Time Horizon."
+                  ? t("visibleTimelineEmpty")
+                  : t("welcomeTimeline")
             }
             description={
               hiddenDownloadedCollectionIds.length > 0
@@ -818,13 +889,13 @@ export const Timeline = ({
 
         {isViewportBeforeBigBang ? (
           <TimelineGuidanceOverlay
-            eyebrow="Beyond Big Bang"
+            eyebrow={t("beyondBigBang")}
             position="top"
-            title="There is nothing earlier than this horizon."
-            description="You have moved the camera before the beginning of this timeline, so ticks and events stop rendering here. Jump back to the Big Bang to continue exploring."
+            title={t("beyondBigBangTitle")}
+            description={t("beyondBigBangDescription")}
             actions={[
               {
-                label: "Return To Big Bang",
+                label: t("returnToBigBang"),
                 onClick: handleFocusBigBang,
               },
             ]}
@@ -833,6 +904,7 @@ export const Timeline = ({
 
         <TimelineCanvasViewport
           theme={theme}
+          language={language}
           containerRef={containerRef}
           focusPixel={focusPixel}
           focusYear={focusYear}

@@ -7,17 +7,28 @@ import { ThemeMode, getInitialTheme } from "../constants/theme";
 import type {
   Event,
   EventCollectionMeta,
+  ImportedEvent,
   MediaFilter,
+  StoredEvent,
   StoredTimelineCollection,
   CollectionCreationInput,
+  SupportedLanguage,
 } from "../constants/types";
 import { MEDIA_FILTERS } from "../constants/types";
 import {
+  assignRuntimeEventIds,
   buildCustomCollectionMeta,
   createLocalDateStamp,
   normalizeEventTimeParts,
   slugifyCollectionId,
+  stripRuntimeEventIds,
 } from "../helpers";
+import {
+  DEFAULT_LANGUAGE,
+  getLocalizedText,
+  getSearchableLocalizedText,
+  normalizeLocalizedText,
+} from "../helpers/localization";
 
 export const createLocalCollectionId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -48,6 +59,7 @@ export type TimelineAppView = "landing" | "timeline";
 
 type TimelineStoreState = {
   theme: ThemeMode;
+  currentLanguage: SupportedLanguage;
   searchQuery: string;
   activeMediaFilters: MediaFilter[];
   searchSortMode: SearchSortMode;
@@ -78,6 +90,7 @@ type TimelineStoreState = {
   isSidebarOpen: boolean;
   isSidebarExploreOpen: boolean;
   setTheme: (theme: ThemeMode) => void;
+  setCurrentLanguage: (language: SupportedLanguage) => void;
   toggleTheme: () => void;
   setSearchQuery: (value: string) => void;
   toggleMediaFilter: (filter: MediaFilter) => void;
@@ -104,6 +117,7 @@ type TimelineStoreState = {
   saveEvent: (updatedEvent: Event) => void;
   addEvent: (newEvent: Event, targetCollectionId: string) => void;
   addEvents: (newEvents: Event[], targetCollectionId: string) => void;
+  replaceCollectionEvents: (targetCollectionId: string, events: Event[]) => void;
   deleteEvent: (eventId: string) => void;
   createCollection: (
     collection: CollectionCreationInput,
@@ -135,7 +149,7 @@ type TimelineStoreState = {
   closeSidebarExplore: () => void;
 };
 
-type ImportedCollectionInput = {
+export type ImportedCollectionInput = {
   meta?: Partial<EventCollectionMeta> | null;
   events?: unknown;
   color?: string | null;
@@ -176,9 +190,20 @@ const createUniqueCollectionId = (
   return nextId;
 };
 
+const rematerializeCollectionEvents = (
+  collectionId: string,
+  events: Array<StoredEvent | Event>,
+  previousEvents?: Event[],
+) =>
+  assignRuntimeEventIds(events, {
+    collectionId,
+    previousEvents,
+  });
+
 type TimelinePersistedState = Pick<
   TimelineStoreState,
   | "theme"
+  | "currentLanguage"
   | "searchQuery"
   | "activeMediaFilters"
   | "searchSortMode"
@@ -208,6 +233,9 @@ const SEARCH_SORT_MODES: SearchSortMode[] = [
 
 const isThemeMode = (value: unknown): value is ThemeMode =>
   value === "dark" || value === "light";
+
+const isSupportedLanguage = (value: unknown): value is SupportedLanguage =>
+  value === "vi" || value === "en";
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
@@ -250,7 +278,9 @@ const buildCollectionLibrary = (
     Object.fromEntries(
       Object.entries(collectionEventsById).map(([collectionId, events]) => [
         collectionId,
-        { events },
+        {
+          events: sanitizeImportedEvents(events, { collectionId }),
+        },
       ]),
     );
 
@@ -312,7 +342,7 @@ const sanitizeCollectionLibrary = (value: unknown) => {
       }
 
       const candidate = collectionValue as Partial<StoredTimelineCollection>;
-      const events = sanitizeImportedEvents(candidate.events);
+      const events = sanitizeImportedEvents(candidate.events, { collectionId });
       const meta =
         sanitizeCustomCollections(candidate.meta ? [candidate.meta] : [], {
           allowBuiltInIds: true,
@@ -406,33 +436,34 @@ const sanitizeImportedEventTime = (value: unknown): Event["time"] | null => {
   ]);
 };
 
-export const sanitizeImportedEvents = (value: unknown): Event[] => {
+export const sanitizeImportedEvents = (
+  value: unknown,
+  options?: {
+    collectionId?: string;
+    previousEvents?: Event[];
+  },
+): Event[] => {
   if (!Array.isArray(value)) return [];
 
-  return value.flatMap((event) => {
+  const normalizedEvents = value.flatMap((event) => {
     if (!event || typeof event !== "object") return [];
 
-    const candidate = event as Partial<Event>;
+    const candidate = event as Partial<ImportedEvent>;
     const time = sanitizeImportedEventTime(candidate.time);
+    const title = normalizeLocalizedText(candidate.title);
+    const description = normalizeLocalizedText(candidate.description) ?? "";
     if (
-      !isNonEmptyString(candidate.title) ||
-      !isNonEmptyString(candidate.description) ||
+      !title ||
       !isNonEmptyString(candidate.emoji) ||
       !time
     ) {
       return [];
     }
 
-    const eventId =
-      isNonEmptyString(candidate.id) && candidate.id.trim().length > 0
-        ? candidate.id.trim()
-        : createLocalCollectionId();
-
     return [
       {
-        id: eventId,
-        title: candidate.title.trim(),
-        description: candidate.description.trim(),
+        title,
+        description,
         emoji: candidate.emoji.trim(),
         time,
         priority:
@@ -453,6 +484,11 @@ export const sanitizeImportedEvents = (value: unknown): Event[] => {
         link: typeof candidate.link === "string" ? candidate.link : undefined,
       },
     ];
+  });
+
+  return assignRuntimeEventIds(normalizedEvents, {
+    collectionId: options?.collectionId,
+    previousEvents: options?.previousEvents,
   });
 };
 
@@ -553,6 +589,11 @@ const sanitizePersistedTimelineState = (
 
   return {
     theme: isThemeMode(candidate.theme) ? candidate.theme : undefined,
+    currentLanguage: isSupportedLanguage(
+      (candidate as { currentLanguage?: unknown }).currentLanguage,
+    )
+      ? (candidate as { currentLanguage: SupportedLanguage }).currentLanguage
+      : undefined,
     searchQuery:
       typeof candidate.searchQuery === "string"
         ? candidate.searchQuery
@@ -754,8 +795,16 @@ export const findEventByIdInCollections = (
 };
 
 const normalizeSearchText = (value: string) => value.trim().toLocaleLowerCase();
-const compareTitles = (left: Event, right: Event) =>
-  left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+const compareTitles = (
+  left: Event,
+  right: Event,
+  language: SupportedLanguage = DEFAULT_LANGUAGE,
+) =>
+  getLocalizedText(left.title, language).localeCompare(
+    getLocalizedText(right.title, language),
+    undefined,
+    { sensitivity: "base" },
+  );
 
 const isLeapYear = (year: number) =>
   year % 4 === 0 && (year % 100 !== 0 || year % 400 !== 0);
@@ -1008,9 +1057,15 @@ export const hasActiveTimelineSearch = ({
     timeRangeEndInput,
   });
 
-const getSearchRank = (event: Event, terms: string[]) => {
-  const title = normalizeSearchText(event.title);
-  const description = normalizeSearchText(event.description);
+const getSearchRank = (
+  event: Event,
+  terms: string[],
+  language: SupportedLanguage = DEFAULT_LANGUAGE,
+) => {
+  const title = normalizeSearchText(getLocalizedText(event.title, language));
+  const description = normalizeSearchText(
+    getSearchableLocalizedText(event.description),
+  );
 
   return terms.reduce((score, term) => {
     if (title.startsWith(term)) return score;
@@ -1025,6 +1080,7 @@ export const filterTimelineSearchEvents = (
   searchQuery: string,
   activeMediaFilters: MediaFilter[],
   options?: {
+    language?: SupportedLanguage;
     sortByRelevance?: boolean;
     sortMode?: SearchSortMode;
     startTimeInput?: string;
@@ -1035,6 +1091,7 @@ export const filterTimelineSearchEvents = (
     normalizeOptionalTextInput(searchQuery),
   );
   const searchTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const language = options?.language ?? DEFAULT_LANGUAGE;
   const normalizedMediaFilters =
     normalizeOptionalMediaFilters(activeMediaFilters);
   const effectiveTimeRange = getEffectiveTimeRange(
@@ -1043,8 +1100,10 @@ export const filterTimelineSearchEvents = (
   );
 
   const matches = events.filter((event) => {
-    const title = normalizeSearchText(event.title);
-    const description = normalizeSearchText(event.description);
+    const title = normalizeSearchText(getSearchableLocalizedText(event.title));
+    const description = normalizeSearchText(
+      getSearchableLocalizedText(event.description),
+    );
     const matchesQuery =
       searchTerms.length === 0 ||
       searchTerms.every(
@@ -1080,17 +1139,18 @@ export const filterTimelineSearchEvents = (
       (options?.sortByRelevance && searchTerms.length > 0)
     ) {
       const rankDiff =
-        getSearchRank(left, searchTerms) - getSearchRank(right, searchTerms);
+        getSearchRank(left, searchTerms, language) -
+        getSearchRank(right, searchTerms, language);
       if (rankDiff !== 0) return rankDiff;
-      return compareTitles(left, right);
+      return compareTitles(left, right, language);
     }
 
     if (sortMode === "name-asc") {
-      return compareTitles(left, right);
+      return compareTitles(left, right, language);
     }
 
     if (sortMode === "name-desc") {
-      return compareTitles(right, left);
+      return compareTitles(right, left, language);
     }
 
     const timeDiff =
@@ -1100,7 +1160,7 @@ export const filterTimelineSearchEvents = (
       return sortMode === "time-asc" ? timeDiff : -timeDiff;
     }
 
-    return compareTitles(left, right);
+    return compareTitles(left, right, language);
   });
 };
 
@@ -1114,8 +1174,13 @@ const findEventCollectionIdInState = (
   );
 
 /** Load events for a catalog collection by dataUrl */
-const loadCatalogCollectionData = async (dataUrl: string): Promise<Event[]> => {
-  return (await loadCatalogByUrl(dataUrl)) as Event[];
+const loadCatalogCollectionData = async (
+  collectionId: string,
+  dataUrl: string,
+): Promise<Event[]> => {
+  return sanitizeImportedEvents(await loadCatalogByUrl(dataUrl), {
+    collectionId,
+  });
 };
 
 export const useStore = create<TimelineStoreState>()(
@@ -1124,6 +1189,7 @@ export const useStore = create<TimelineStoreState>()(
       (set, get) => {
       return {
         theme: getInitialTheme(),
+        currentLanguage: DEFAULT_LANGUAGE,
         ...createInitialTimelineSearchState(),
         syncableIds: [],
         catalogMeta: {},
@@ -1145,6 +1211,7 @@ export const useStore = create<TimelineStoreState>()(
         isSidebarOpen: false,
         isSidebarExploreOpen: false,
         setTheme: (theme) => set({ theme }),
+        setCurrentLanguage: (currentLanguage) => set({ currentLanguage }),
         toggleTheme: () =>
           set((state) => ({
             theme: state.theme === "dark" ? "light" : "dark",
@@ -1223,6 +1290,7 @@ export const useStore = create<TimelineStoreState>()(
 
           try {
             const loadedEvents = await loadCatalogCollectionData(
+              collectionId,
               catalogEntry.dataUrl,
             );
             set(
@@ -1268,6 +1336,7 @@ export const useStore = create<TimelineStoreState>()(
 
           try {
             const loadedEvents = await loadCatalogCollectionData(
+              collectionId,
               catalogEntry.dataUrl,
             );
             set(
@@ -1342,13 +1411,15 @@ export const useStore = create<TimelineStoreState>()(
 
             if (!name || !emoji) return;
 
-            const importedEvents = sanitizeImportedEvents(collection.events);
             const preferredId =
               isNonEmptyString(candidateMeta.id) &&
               candidateMeta.id.trim().length > 0
                 ? candidateMeta.id.trim()
                 : name;
             const nextId = createUniqueCollectionId(preferredId, existingIds);
+            const importedEvents = sanitizeImportedEvents(collection.events, {
+              collectionId: nextId,
+            });
             const nextCollection: EventCollectionMeta = {
               id: nextId,
               name,
@@ -1448,7 +1519,23 @@ export const useStore = create<TimelineStoreState>()(
               const idx = ownerCollection.events.findIndex(
                 (event) => event.id === updatedEvent.id,
               );
-              if (idx >= 0) ownerCollection.events[idx] = updatedEvent;
+              if (idx < 0) return;
+
+              const nextEvents = [...ownerCollection.events];
+              nextEvents[idx] = updatedEvent;
+              ownerCollection.events = rematerializeCollectionEvents(
+                ownerCollectionId,
+                nextEvents,
+                ownerCollection.events,
+              );
+
+              const nextEventId = ownerCollection.events[idx]?.id ?? null;
+              if (state.selectedEventId === updatedEvent.id) {
+                state.selectedEventId = nextEventId;
+              }
+              if (state.editingEventId === updatedEvent.id) {
+                state.editingEventId = nextEventId;
+              }
             }),
           ),
         addEvent: (newEvent, targetCollectionId) =>
@@ -1459,7 +1546,12 @@ export const useStore = create<TimelineStoreState>()(
                   events: [],
                 };
               }
-              state.collectionLibrary[targetCollectionId].events.push(newEvent);
+              const ownerCollection = state.collectionLibrary[targetCollectionId];
+              ownerCollection.events = rematerializeCollectionEvents(
+                targetCollectionId,
+                [...ownerCollection.events, newEvent],
+                ownerCollection.events,
+              );
               if (!state.visibleCollectionIds.includes(targetCollectionId)) {
                 state.visibleCollectionIds.push(targetCollectionId);
               }
@@ -1471,11 +1563,56 @@ export const useStore = create<TimelineStoreState>()(
               if (!state.collectionLibrary[targetCollectionId]) {
                 state.collectionLibrary[targetCollectionId] = { events: [] };
               }
-              state.collectionLibrary[targetCollectionId].events.push(
-                ...newEvents,
+              const ownerCollection = state.collectionLibrary[targetCollectionId];
+              ownerCollection.events = rematerializeCollectionEvents(
+                targetCollectionId,
+                [...ownerCollection.events, ...newEvents],
+                ownerCollection.events,
               );
               if (!state.visibleCollectionIds.includes(targetCollectionId)) {
                 state.visibleCollectionIds.push(targetCollectionId);
+              }
+            }),
+          ),
+        replaceCollectionEvents: (targetCollectionId, events) =>
+          set(
+            produce((state) => {
+              if (!state.collectionLibrary[targetCollectionId]) {
+                state.collectionLibrary[targetCollectionId] = { events: [] };
+              }
+
+              const ownerCollection = state.collectionLibrary[targetCollectionId];
+              ownerCollection.events = rematerializeCollectionEvents(
+                targetCollectionId,
+                events,
+                ownerCollection.events,
+              );
+
+              if (!state.visibleCollectionIds.includes(targetCollectionId)) {
+                state.visibleCollectionIds.push(targetCollectionId);
+              }
+
+              if (
+                state.selectedEventId &&
+                !ownerCollection.events.some(
+                  (event) => event.id === state.selectedEventId,
+                ) &&
+                findEventCollectionIdInState(state, state.selectedEventId) ===
+                  null
+              ) {
+                state.selectedEventId = null;
+                state.isRulerActive = false;
+              }
+
+              if (
+                state.editingEventId &&
+                !ownerCollection.events.some(
+                  (event) => event.id === state.editingEventId,
+                ) &&
+                findEventCollectionIdInState(state, state.editingEventId) ===
+                  null
+              ) {
+                state.editingEventId = null;
               }
             }),
           ),
@@ -1489,8 +1626,13 @@ export const useStore = create<TimelineStoreState>()(
               if (!ownerCollectionId) return;
               const ownerCollection = state.collectionLibrary[ownerCollectionId];
               if (!ownerCollection) return;
-              ownerCollection.events = ownerCollection.events.filter(
+              const nextEvents = ownerCollection.events.filter(
                 (event) => event.id !== eventId,
+              );
+              ownerCollection.events = rematerializeCollectionEvents(
+                ownerCollectionId,
+                nextEvents,
+                ownerCollection.events,
               );
               if (state.selectedEventId === eventId) {
                 state.selectedEventId = null;
@@ -1649,13 +1791,22 @@ export const useStore = create<TimelineStoreState>()(
       },
       partialize: (state) => ({
         theme: state.theme,
+        currentLanguage: state.currentLanguage,
         searchQuery: state.searchQuery,
         activeMediaFilters: state.activeMediaFilters,
         searchSortMode: state.searchSortMode,
         timeRangeStartInput: state.timeRangeStartInput,
         timeRangeEndInput: state.timeRangeEndInput,
         showOnlyResultsOnTimeline: state.showOnlyResultsOnTimeline,
-        collectionLibrary: state.collectionLibrary,
+        collectionLibrary: Object.fromEntries(
+          Object.entries(state.collectionLibrary).map(([collectionId, collection]) => [
+            collectionId,
+            {
+              ...collection,
+              events: stripRuntimeEventIds(collection.events),
+            },
+          ]),
+        ),
         visibleCollectionIds: state.visibleCollectionIds,
         collectionColorPreferences: state.collectionColorPreferences,
         selectedEventId: state.selectedEventId,

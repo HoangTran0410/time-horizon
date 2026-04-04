@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type { EventCollectionMeta } from "../constants/types";
+import { useI18n } from "../i18n";
 
 interface ImportEventsDialogProps {
   eventCount: number;
@@ -17,6 +18,7 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
   onCreateNewCollection,
   onCancel,
 }) => {
+  const { t } = useI18n();
   const [selectedId, setSelectedId] = useState<string>(
     collections.length > 0 ? collections[0].id : "",
   );
@@ -53,15 +55,15 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
       >
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <div className="ui-kicker mb-2">Import</div>
+            <div className="ui-kicker mb-2">{t("import")}</div>
             <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
-              Import {eventCount} event{eventCount !== 1 ? "s" : ""}
+              {t("importDialogTitle", { count: eventCount })}
             </h2>
           </div>
           <button
             onClick={requestClose}
             className="ui-icon-button h-10 w-10"
-            aria-label="Close"
+            aria-label={t("close")}
           >
             <svg
               width={20}
@@ -77,12 +79,12 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
         </div>
 
         <p className="mb-6 text-sm text-zinc-400">
-          Choose a collection to import these events into.
+          {t("importDialogDescription")}
         </p>
 
         {collections.length > 0 && (
           <div className="mb-4">
-            <label className="ui-label mb-2 block">Import into</label>
+            <label className="ui-label mb-2 block">{t("importInto")}</label>
             <div className="relative">
               <select
                 value={selectedId}
@@ -110,7 +112,7 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
               onClick={() => onImportToCollection(selectedId)}
               className="ui-button w-full"
             >
-              Import into Selected
+              {t("importIntoSelected")}
             </button>
           )}
 
@@ -119,14 +121,14 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-600 px-4 py-3 text-sm text-zinc-400 transition-colors hover:border-zinc-400 hover:text-white"
           >
             <Plus width={16} height={16} />
-            Create New Collection
+            {t("createNewCollection")}
           </button>
 
           <button
             onClick={requestClose}
             className="w-full text-center text-sm text-zinc-500 transition-colors hover:text-zinc-300"
           >
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       </div>

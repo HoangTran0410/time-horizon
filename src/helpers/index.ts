@@ -9,8 +9,11 @@ import {
   DateJumpTarget,
   Event,
   EventCollectionMeta,
+  ImportedEvent,
+  StoredEvent,
   EventTime,
 } from "../constants/types";
+import { normalizeLocalizedText } from "./localization";
 
 export const normalizeEventTimeParts = (time: EventTime): Required<EventTime> =>
   [
@@ -626,13 +629,131 @@ export const createLocalDateStamp = () => {
   return `${year}-${month}-${day}`;
 };
 
+const hashString = (value: string): string => {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0).toString(36);
+};
+
+const normalizeStoredEventPayload = (
+  event: StoredEvent | Event | ImportedEvent,
+): StoredEvent => ({
+  title: normalizeLocalizedText(event.title) ?? "",
+  description: normalizeLocalizedText(event.description) ?? "",
+  time: normalizeEventTimeParts(event.time),
+  emoji: event.emoji,
+  priority: event.priority,
+  duration: event.duration,
+  color: event.color ?? null,
+  image: event.image,
+  video: event.video,
+  link: event.link,
+});
+
+const getStoredEventSignature = (
+  event: StoredEvent | Event | ImportedEvent,
+): string => {
+  const normalized = normalizeStoredEventPayload(event);
+
+  return JSON.stringify([
+    normalizeLocalizedText(normalized.title) ?? "",
+    normalizeLocalizedText(normalized.description) ?? "",
+    normalized.emoji.trim(),
+    normalizeEventTimeParts(normalized.time),
+    normalized.priority,
+    normalized.duration ?? null,
+    normalized.color ?? null,
+    normalized.image ?? null,
+    normalized.video ?? null,
+    normalized.link ?? null,
+  ]);
+};
+
+const createDeterministicEventId = (
+  signature: string,
+  occurrence: number,
+  collectionId?: string,
+): string => {
+  const namespace = collectionId ? slugifyCollectionId(collectionId) : "event";
+  const suffix = hashString(`${namespace}:${signature}`);
+  return occurrence > 1
+    ? `${namespace}-${suffix}-${occurrence}`
+    : `${namespace}-${suffix}`;
+};
+
+export const assignRuntimeEventIds = (
+  events: Array<StoredEvent | Event>,
+  options?: {
+    collectionId?: string;
+    previousEvents?: Event[];
+  },
+): Event[] => {
+  const previousIdsBySignature = new Map<string, string[]>();
+
+  options?.previousEvents?.forEach((event) => {
+    const signature = getStoredEventSignature(event);
+    const queue = previousIdsBySignature.get(signature) ?? [];
+    queue.push(event.id);
+    previousIdsBySignature.set(signature, queue);
+  });
+
+  const occurrenceCounts = new Map<string, number>();
+
+  return events.map((event) => {
+    const normalized = normalizeStoredEventPayload(event);
+    const signature = getStoredEventSignature(normalized);
+    const nextOccurrence = (occurrenceCounts.get(signature) ?? 0) + 1;
+    occurrenceCounts.set(signature, nextOccurrence);
+
+    const preservedId = previousIdsBySignature.get(signature)?.shift();
+
+    return {
+      id:
+        preservedId ??
+        createDeterministicEventId(
+          signature,
+          nextOccurrence,
+          options?.collectionId,
+        ),
+      ...normalized,
+    };
+  });
+};
+
+export const stripRuntimeEventId = (event: Event): StoredEvent => ({
+  title: event.title,
+  description: event.description,
+  time: [...normalizeEventTimeParts(event.time)] as Event["time"],
+  emoji: event.emoji,
+  priority: event.priority,
+  duration: event.duration,
+  color: event.color ?? null,
+  image: event.image,
+  video: event.video,
+  link: event.link,
+});
+
+export const stripRuntimeEventIds = (events: Event[]): StoredEvent[] =>
+  events.map(stripRuntimeEventId);
+
 export const createNewTimelineEvent = (): Event => ({
   id:
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  title: "",
-  description: "",
+  title: {
+    vi: "",
+    en: "",
+  },
+  description: {
+    vi: "",
+    en: "",
+  },
   emoji: "📅",
   time: [new Date().getFullYear(), null, null, null, null, null],
   priority: 50,

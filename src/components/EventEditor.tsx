@@ -1,5 +1,9 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Event, EventCollectionMeta } from "../constants/types";
+import {
+  Event,
+  EventCollectionMeta,
+  SupportedLanguage,
+} from "../constants/types";
 import { ChevronDown, X } from "lucide-react";
 
 // Lazy-load the heavy emoji picker — only loaded when user opens the picker UI
@@ -13,6 +17,12 @@ import {
   normalizeExternalLinkUrl,
   normalizeImageUrl,
 } from "../helpers";
+import {
+  createLocalizedTextDraft,
+  LANGUAGE_OPTIONS,
+  normalizeLocalizedText,
+} from "../helpers/localization";
+import { useI18n } from "../i18n";
 
 interface EventEditorProps {
   event: Event;
@@ -115,8 +125,8 @@ const COLOR_SWATCHES = [
 
 const normalizeEventForSave = (event: Event): Event => ({
   ...event,
-  title: event.title.trim(),
-  description: event.description.trim(),
+  title: normalizeLocalizedText(event.title) ?? "",
+  description: normalizeLocalizedText(event.description) ?? "",
   image: normalizeImageUrl(event.image) ?? undefined,
   video: normalizeEmbedVideoUrl(event.video) ?? undefined,
   link: normalizeExternalLinkUrl(event.link) ?? undefined,
@@ -131,10 +141,13 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   initialCollectionId = null,
   onAddCollection,
 }) => {
+  const { language, t } = useI18n();
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
   const [editedEvent, setEditedEvent] = useState<Event>({
     ...event,
+    title: createLocalizedTextDraft(event.title, language),
+    description: createLocalizedTextDraft(event.description, language),
     time: [...event.time] as Event["time"],
   });
   const [selectedCollectionId, setSelectedCollectionId] = useState(
@@ -145,6 +158,15 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    setEditedEvent({
+      ...event,
+      title: createLocalizedTextDraft(event.title, language),
+      description: createLocalizedTextDraft(event.description, language),
+      time: [...event.time] as Event["time"],
+    });
+  }, [event]);
 
   useEffect(() => {
     if (mode !== "create") return;
@@ -167,9 +189,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     if (month == null || day == null) return true;
     const maxDay = getMaxDay(year, month);
     if (day > maxDay) {
-      setDateError(
-        `Invalid date: ${month}/${day} exceeds ${maxDay} days in month ${month} of ${year}.`,
-      );
+      setDateError(t("invalidDate", { month, day, maxDay, year }));
       return false;
     }
     return true;
@@ -184,6 +204,25 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       [name]: type === "number" ? Number(value) : value,
     }));
   };
+
+  const handleLocalizedFieldChange =
+    (field: "title" | "description", localizedLanguage: SupportedLanguage) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { value } = e.target;
+      setEditedEvent((prev) => ({
+        ...prev,
+        [field]: {
+          ...createLocalizedTextDraft(prev[field], language),
+          [localizedLanguage]: value,
+        },
+      }));
+    };
+
+  const titleDraft = createLocalizedTextDraft(editedEvent.title, language);
+  const descriptionDraft = createLocalizedTextDraft(
+    editedEvent.description,
+    language,
+  );
 
   const handleTimeChange = (index: 1 | 2 | 3 | 4 | 5, raw: string) => {
     if (raw !== "" && isNaN(Number(raw))) return;
@@ -274,10 +313,14 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     if (!validateDate()) return;
 
     const normalizedEvent = normalizeEventForSave(editedEvent);
+    if (!normalizeLocalizedText(normalizedEvent.title)) {
+      setCollectionError(t("titleRequiredAtLeastOneLanguage"));
+      return;
+    }
 
     if (mode === "create" && availableCollections.length > 0) {
       if (!selectedCollectionId) {
-        setCollectionError("Choose a destination collection.");
+        setCollectionError(t("collectionRequired"));
         return;
       }
       onSave(normalizedEvent, selectedCollectionId);
@@ -311,7 +354,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="ui-modal-surface ui-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[1.9rem] p-4 md:p-8"
+        className="ui-modal-surface ui-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] p-4 md:p-8"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
@@ -323,13 +366,13 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               {mode === "create" ? "Collection Entry" : "Event Details"}
             </div> */}
             <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
-              {mode === "create" ? "New Event" : "Edit Event"}
+              {mode === "create" ? t("newEvent") : t("editEvent")}
             </h2>
           </div>
           <button
             onClick={requestClose}
             className="ui-icon-button h-10 w-10"
-            aria-label="Close"
+            aria-label={t("close")}
           >
             <X width={20} height={20} />
           </button>
@@ -338,21 +381,21 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         {mode === "create" && (
           <div className="mb-6">
             <div className="mb-1 flex items-center justify-between">
-              <label className="ui-label mb-0">Save To Collection</label>
+              <label className="ui-label mb-0">{t("saveToCollection")}</label>
               {onAddCollection && (
                 <button
                   type="button"
                   onClick={onAddCollection}
                   className="ui-button ui-button-secondary px-3 py-2 text-[0.72rem]"
                 >
-                  + New Collection
+                  {t("createNewCollection")}
                 </button>
               )}
             </div>
             {availableCollections.length === 0 ? (
               <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2">
                 <p className="text-xs text-rose-300">
-                  No collections available. Create one first using the button above.
+                  {t("noCollectionsAvailable")}
                 </p>
               </div>
             ) : (
@@ -379,24 +422,79 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </div>
         )}
 
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Title
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={editedEvent.title}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-            />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="space-y-5">
+            <section className="space-y-3 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/45 p-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-300">
+                  {t("title")}
+                </label>
+                <p className="text-xs leading-6 text-zinc-500">
+                  {t("localizedFieldHint")}
+                </p>
+              </div>
+              <div className="grid gap-4">
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <div
+                    key={`title-${option.value}`}
+                    className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
+                  >
+                    <div className="absolute left-3 top-0 inline-flex -translate-y-1/2 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
+                      <span aria-hidden="true">{option.flag}</span>
+                      <span>{option.label}</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={titleDraft[option.value]}
+                      onChange={handleLocalizedFieldChange("title", option.value)}
+                      placeholder={`${t("title")} • ${option.label}`}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/45 p-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-300">
+                  {t("description")}
+                </label>
+                <p className="text-xs leading-6 text-zinc-500">
+                  {t("localizedFieldHint")}
+                </p>
+              </div>
+              <div className="grid gap-4">
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <div
+                    key={`description-${option.value}`}
+                    className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
+                  >
+                    <div className="absolute left-3 top-0 inline-flex -translate-y-1/2 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
+                      <span aria-hidden="true">{option.flag}</span>
+                      <span>{option.label}</span>
+                    </div>
+                    <textarea
+                      value={descriptionDraft[option.value]}
+                      onChange={handleLocalizedFieldChange(
+                        "description",
+                        option.value,
+                      )}
+                      rows={4}
+                      placeholder={`${t("description")} • ${option.label}`}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
 
+          <div className="space-y-4">
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="mb-1 block text-sm font-medium text-zinc-400">
-                Emoji
+                {t("icon")}
               </label>
               <div className="relative">
                 <button
@@ -440,7 +538,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
             <div className="flex-1">
               <label className="mb-1 block text-sm font-medium text-zinc-400">
-                Color
+                {t("color")}
               </label>
               <div className="relative">
                 <button
@@ -457,7 +555,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   <span className="text-sm text-zinc-300">
                     {COLOR_SWATCHES.find(
                       (swatch) => swatch.value === (editedEvent.color ?? null),
-                    )?.label ?? "None"}
+                    )?.label ?? t("none")}
                   </span>
                   <ChevronDown
                     width={14}
@@ -500,22 +598,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={editedEvent.description}
-              onChange={handleChange}
-              rows={3}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-
           <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
             <div className="mb-1 flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-400">Time</label>
+              <label className="text-sm font-medium text-zinc-400">{t("time")}</label>
               {canUseDateInput && (
                 <input
                   type="date"
@@ -527,7 +612,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">Year *</label>
+              <label className="mb-1 block text-xs text-zinc-500">{t("year")} *</label>
               <input
                 type="number"
                 value={year}
@@ -554,7 +639,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <label className="mb-1 block text-xs text-zinc-500">
-                    Month
+                    {t("month")}
                   </label>
                   <input
                     type="number"
@@ -569,7 +654,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleClearTimeField(1)}
-                  title="Clear month and below"
+                  title={t("clearMonthAndBelow")}
                   className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
@@ -581,7 +666,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <label className="mb-1 block text-xs text-zinc-500">
-                    Day
+                    {t("day")}
                   </label>
                   <input
                     type="number"
@@ -596,7 +681,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleClearTimeField(2)}
-                  title="Clear day and below"
+                  title={t("clearDayAndBelow")}
                   className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
@@ -608,7 +693,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <label className="mb-1 block text-xs text-zinc-500">
-                    Hour
+                    {t("hour")}
                   </label>
                   <input
                     type="number"
@@ -623,7 +708,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleClearTimeField(3)}
-                  title="Clear hour and below"
+                  title={t("clearHourAndBelow")}
                   className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
@@ -635,7 +720,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <label className="mb-1 block text-xs text-zinc-500">
-                    Minute
+                    {t("minute")}
                   </label>
                   <input
                     type="number"
@@ -650,7 +735,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleClearTimeField(4)}
-                  title="Clear minute and below"
+                  title={t("clearMinuteAndBelow")}
                   className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
@@ -662,7 +747,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <label className="mb-1 block text-xs text-zinc-500">
-                    Seconds
+                    {t("seconds")}
                   </label>
                   <input
                     type="number"
@@ -677,7 +762,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleClearTimeField(5)}
-                  title="Clear seconds"
+                  title={t("clearSeconds")}
                   className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
                 >
                   <X width={14} height={14} />
@@ -695,14 +780,14 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
             <div className="mb-1 flex items-center justify-between">
               <label className="text-sm font-medium text-zinc-400">
-                Media & Links
+                {t("mediaLinks")}
               </label>
-              <span className="text-xs text-zinc-500">Optional</span>
+              <span className="text-xs text-zinc-500">{t("optional")}</span>
             </div>
 
             <div>
               <label className="mb-1 block text-xs text-zinc-500">
-                Image URL
+                {t("imageUrl")}
               </label>
               <input
                 type="text"
@@ -717,7 +802,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">Video</label>
+              <label className="mb-1 block text-xs text-zinc-500">{t("video")}</label>
               <input
                 type="text"
                 value={editedEvent.video ?? ""}
@@ -733,7 +818,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
             <div>
               <label className="mb-1 block text-xs text-zinc-500">
-                External Link
+                {t("externalLink")}
               </label>
               <input
                 type="text"
@@ -774,7 +859,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Priority (Higher = more visible)
+              {t("priority")}
             </label>
             <input
               type="number"
@@ -784,6 +869,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
             />
           </div>
+          </div>
         </div>
 
         <div className="mt-8 flex justify-end gap-3">
@@ -791,7 +877,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             onClick={requestClose}
             className="ui-button ui-button-secondary px-6 py-3"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -800,7 +886,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             }
             className="ui-button ui-button-primary px-6 py-3 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {mode === "create" ? "Add Event" : "Save"}
+            {mode === "create" ? t("addEvent") : t("save")}
           </button>
         </div>
       </div>

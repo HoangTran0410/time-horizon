@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { EventCollectionMeta } from "../constants/types";
 
-const DATA_BASE_URL = "https://hoangtran99.is-a.dev/time-horizon-data";
+// const DATA_BASE_URL = "https://hoangtran99.is-a.dev/time-horizon-data";
+const DATA_BASE_URL = "http://localhost:5500/data"; // live server dev mode
 
 /** Load catalog collection metadata (works in both dev and production). */
 export const useCatalogCollections = () => {

@@ -62,6 +62,7 @@ import {
   getStableTickLabelWidthEstimate,
   getTimelineLayoutLevels,
 } from "../helpers";
+import { getSearchableLocalizedText } from "../helpers/localization";
 
 type UseTimelineViewportParams = {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -791,7 +792,9 @@ export const useTimelineViewport = ({
 
   const handleFocusBigBang = () => {
     const bigBangEvent = renderedTimelineEvents.find(
-      (event) => event.id === "big-bang",
+      (event) =>
+        getSearchableLocalizedText(event.title).toLowerCase().includes("big bang") &&
+        event.time[0] === BIG_BANG_YEAR,
     );
     if (bigBangEvent) {
       handleFocusEvent(bigBangEvent);

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { MotionValue } from "motion/react";
-import { Event } from "../constants/types";
+import { Event, SupportedLanguage } from "../constants/types";
 import { BIG_BANG_YEAR } from "../constants";
 import { resolveThemeMode, ThemeMode } from "../constants/theme";
 import { CANVAS_FONT_PRESETS } from "../constants/typography";
@@ -12,6 +12,7 @@ import {
   getCollapsedGroupOffset,
   getEventTimelineYear,
 } from "../helpers";
+import { getLocalizedEventTitle } from "../helpers/localization";
 import {
   CollapsedEventGroup,
   ExpandedCollapsedGroup,
@@ -21,6 +22,7 @@ import {
 
 interface TimelineCanvasViewportProps {
   theme: ThemeMode;
+  language: SupportedLanguage;
   containerRef: React.RefObject<HTMLDivElement | null>;
   focusPixel: MotionValue<number>;
   focusYear: MotionValue<number>;
@@ -267,6 +269,7 @@ const wrapCanvasText = (
 
 export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   theme,
+  language,
   containerRef,
   focusPixel,
   focusYear,
@@ -664,9 +667,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         }
       };
       const getWrappedEventTitle = (event: Event) => {
+        const localizedTitle = getLocalizedEventTitle(event, language);
         const cacheKey = [
           event.id,
-          event.title,
+          localizedTitle,
           CANVAS_FONT_PRESETS.eventTitle,
           EVENT_LABEL_MAX_WIDTH,
           EVENT_TITLE_MAX_LINES,
@@ -677,7 +681,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         setTextStyle({ font: CANVAS_FONT_PRESETS.eventTitle });
         const wrapped = wrapCanvasText(
           ctx,
-          event.title,
+          localizedTitle,
           EVENT_LABEL_MAX_WIDTH,
           EVENT_TITLE_MAX_LINES,
         );

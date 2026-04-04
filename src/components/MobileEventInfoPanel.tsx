@@ -18,6 +18,11 @@ import {
   normalizeExternalLinkUrl,
   normalizeImageUrl,
 } from "../helpers";
+import {
+  getLocalizedEventDescription,
+  getLocalizedEventTitle,
+} from "../helpers/localization";
+import { useI18n } from "../i18n";
 import { EventVideoModal } from "./EventVideoModal";
 
 interface MobileEventInfoPanelProps {
@@ -43,10 +48,15 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
   onToggleRuler,
   onCloseSelection,
 }) => {
+  const { language, t } = useI18n();
   const panelMaxHeight = "min(58vh, 30rem)";
   const imageUrl = event ? normalizeImageUrl(event.image) : null;
   const videoUrl = event ? normalizeEmbedVideoUrl(event.video) : null;
   const linkUrl = event ? normalizeExternalLinkUrl(event.link) : null;
+  const eventTitle = event ? getLocalizedEventTitle(event, language) : "";
+  const eventDescription = event
+    ? getLocalizedEventDescription(event, language, t("noDescriptionYet"))
+    : "";
   const [isImagePreviewOpen, setIsImagePreviewOpen] = React.useState(false);
   const [isVideoPreviewOpen, setIsVideoPreviewOpen] = React.useState(false);
 
@@ -81,14 +91,14 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                   type="button"
                   onClick={() => setIsImagePreviewOpen(false)}
                   className="ui-icon-button absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10 h-10 w-10"
-                  aria-label="Close image preview"
+                  aria-label={t("close")}
                 >
                   <X width={16} height={16} />
                 </button>
                 <div className="flex h-full w-full items-center justify-center overflow-hidden px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[calc(max(0.75rem,env(safe-area-inset-top))+3rem)]">
                   <img
                     src={imageUrl}
-                    alt={event?.title ?? "Event image"}
+                    alt={eventTitle || "Event image"}
                     className="h-full w-full object-contain"
                   />
                 </div>
@@ -118,7 +128,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-[1rem] font-semibold text-zinc-100">
-                    {event.title}
+                    {eventTitle}
                   </h3>
                   <p className="mt-1 text-[0.72rem] font-mono uppercase tracking-[0.14em] text-emerald-400">
                     {getEventDisplayLabel(event)}
@@ -128,8 +138,8 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                   type="button"
                   onClick={onClose}
                   className="ui-icon-button h-9 w-9 shrink-0"
-                  aria-label="Close selection"
-                  title="Close selection"
+                  aria-label={t("closeSelection")}
+                  title={t("closeSelection")}
                 >
                   <X width={16} height={16} />
                 </button>
@@ -143,7 +153,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                 >
                   <img
                     src={imageUrl}
-                    alt={event.title}
+                    alt={eventTitle}
                     className="max-h-full max-w-full rounded-[1rem] object-contain object-center"
                     loading="lazy"
                   />
@@ -151,7 +161,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
               ) : null}
 
               <p className="text-[0.84rem] leading-6 text-zinc-300 text-center">
-                {event.description || "This event has no description yet."}
+                {eventDescription}
               </p>
 
               {(videoUrl || linkUrl) && (
@@ -173,7 +183,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                       className="ui-button ui-button-secondary px-3 py-2 text-[0.74rem]"
                     >
                       <Play width={14} height={14} />
-                      <span>Video</span>
+                      <span>{t("video")}</span>
                     </button>
                   ) : null}
                   {linkUrl ? (
@@ -184,7 +194,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                       className="ui-button ui-button-secondary px-3 py-2 text-[0.74rem]"
                     >
                       <ExternalLink width={14} height={14} />
-                      <span>Link</span>
+                      <span>{t("link")}</span>
                     </a>
                   ) : null}
                 </div>
@@ -197,7 +207,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                   className="ui-button ui-button-secondary w-full px-3 py-2.5 text-[0.76rem]"
                 >
                   <Locate width={14} height={14} />
-                  <span>Focus</span>
+                  <span>{t("focusEvent")}</span>
                 </button>
                 <button
                   type="button"
@@ -205,7 +215,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                   className="ui-button ui-button-secondary w-full px-3 py-2.5 text-[0.76rem]"
                 >
                   <Pencil width={14} height={14} />
-                  <span>Edit</span>
+                  <span>{t("editEvent")}</span>
                 </button>
                 <button
                   type="button"
@@ -217,7 +227,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                   }`}
                 >
                   <Ruler width={14} height={14} />
-                  <span>Measure</span>
+                  <span>{t("toggleRuler")}</span>
                 </button>
                 <button
                   type="button"
@@ -225,13 +235,13 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
                   className="ui-button ui-button-danger w-full px-3 py-2.5 text-[0.76rem]"
                 >
                   <Trash2 width={14} height={14} />
-                  <span>Delete</span>
+                  <span>{t("deleteEvent")}</span>
                 </button>
               </div>
             </div>
           ) : (
             <div className="rounded-[1.15rem] border border-dashed border-zinc-800 px-3 py-5 text-center text-[0.82rem] leading-5 text-zinc-500">
-              Select an event on the timeline to open its details here.
+              {t("openSelectedEventInfo")}
             </div>
           )}
         </div>
@@ -241,7 +251,7 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
       <EventVideoModal
         isOpen={isVideoPreviewOpen}
         videoUrl={videoUrl}
-        title={event?.title ?? "Event"}
+        title={eventTitle || t("event")}
         onClose={() => setIsVideoPreviewOpen(false)}
       />
     </>

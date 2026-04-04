@@ -22,8 +22,11 @@ import { ConfirmDialog, ConfirmDialogOptions } from "./ConfirmDialog";
 import { ExploreCollectionsModal } from "./ExploreCollectionsModal";
 import { SearchPanel, SearchPanelStateAdapter } from "./SearchPanel";
 import { CollectionJsonEditorModal } from "./CollectionJsonEditorModal";
+import { stripRuntimeEventIds } from "../helpers";
+import { useI18n } from "../i18n";
 import {
   DEFAULT_SEARCH_SORT_MODE,
+  sanitizeImportedEvents,
   type SearchSortMode,
   useStore,
 } from "../stores";
@@ -47,7 +50,10 @@ interface SidebarProps {
   /** Opens the event editor for a collection (owned by Timeline) */
   onEditCollection: (collection: EventCollectionMeta) => void;
   /** Exports a collection to file (owned by Timeline) */
-  onExportCollection: (collectionId: string) => Promise<string>;
+  onExportCollection: (
+    collectionId: string,
+    format?: "csv" | "json",
+  ) => Promise<string>;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -64,12 +70,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onEditCollection,
   onExportCollection,
 }) => {
+  const { t } = useI18n();
   // ── Store state (read directly) ──────────────────────────────────────────
   const collectionLibrary = useStore((s) => s.collectionLibrary);
   const catalogMeta = useStore((s) => s.catalogMeta);
   const visibleCollectionIds = useStore((s) => s.visibleCollectionIds);
   const downloadingCollectionIds = useStore((s) => s.downloadingCollectionIds);
-  const collectionColorPreferences = useStore((s) => s.collectionColorPreferences);
+  const collectionColorPreferences = useStore(
+    (s) => s.collectionColorPreferences,
+  );
 
   // Derive from store data (no prop needed)
   const collectionEventsById: Record<string, Event[]> = useMemo(
@@ -120,8 +129,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const importInputRef = useRef<HTMLInputElement>(null);
   const [collectionQuery, setCollectionQuery] = useState("");
   const [, setActiveCollectionId] = useState<string | null>(null);
-  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<string | null>(null);
-  const [sessionPinnedCollectionIds, setSessionPinnedCollectionIds] = useState<string[]>([]);
+  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<
+    string | null
+  >(null);
+  const [sessionPinnedCollectionIds, setSessionPinnedCollectionIds] = useState<
+    string[]
+  >([]);
 
   const [browsingCollectionId, setBrowsingCollectionId] = useState<
     string | null
@@ -173,30 +186,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
     [downloadedCollections],
   );
   // Build catalog collections: prefer downloaded meta, fall back to catalog metadata
-  const catalogCollectionMetaById = useMemo((): Record<string, EventCollectionMeta> => {
-      const syncableSet = new Set(syncableCollectionIds);
-      const allCollections = [...collections].filter((c) =>
-        syncableSet.has(c.id),
-      );
-      const result: Record<string, EventCollectionMeta> = {};
-      // Catalog metadata: loaded from data/collections-metadata.json
-      for (const [id, meta] of Object.entries(catalogMeta)) {
-        result[id] = meta as EventCollectionMeta;
-      }
-      // Downloaded/persisted meta overrides catalog meta
-      for (const c of allCollections) {
-        result[c.id] = c;
-      }
-      return result;
-    },
-    [catalogMeta, collections, syncableCollectionIds],
-  );
+  const catalogCollectionMetaById = useMemo((): Record<
+    string,
+    EventCollectionMeta
+  > => {
+    const syncableSet = new Set(syncableCollectionIds);
+    const allCollections = [...collections].filter((c) =>
+      syncableSet.has(c.id),
+    );
+    const result: Record<string, EventCollectionMeta> = {};
+    // Catalog metadata: loaded from data/collections-metadata.json
+    for (const [id, meta] of Object.entries(catalogMeta)) {
+      result[id] = meta as EventCollectionMeta;
+    }
+    // Downloaded/persisted meta overrides catalog meta
+    for (const c of allCollections) {
+      result[c.id] = c;
+    }
+    return result;
+  }, [catalogMeta, collections, syncableCollectionIds]);
 
   const publicCollections = useMemo(
     () =>
-      (Object.values(catalogCollectionMetaById) as EventCollectionMeta[]).filter(
-        (collection) => syncableCollectionIds.includes(collection.id),
-      ),
+      (
+        Object.values(catalogCollectionMetaById) as EventCollectionMeta[]
+      ).filter((collection) => syncableCollectionIds.includes(collection.id)),
     [catalogCollectionMetaById, syncableCollectionIds],
   );
   const filteredCollections = useMemo(
@@ -270,16 +284,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  const [confirmDialogOptions, setConfirmDialogOptions] = useState<ConfirmDialogOptions | null>(null);
+  const [confirmDialogOptions, setConfirmDialogOptions] =
+    useState<ConfirmDialogOptions | null>(null);
 
   const handleDeleteCollection = (collection: EventCollectionMeta) => {
     setConfirmDialogOptions({
-      title: "Delete collection?",
+      title: t("deleteCollectionTitle"),
       description:
         collection.author === "You"
-          ? `This will permanently remove "${collection.name}" and all of its local events.`
-          : `This will remove "${collection.name}" from your library and delete its downloaded local copy.`,
-      confirmLabel: "Delete Collection",
+          ? t("deleteCollectionDescriptionLocal", { name: collection.name })
+          : t("deleteCollectionDescriptionRemote", { name: collection.name }),
+      confirmLabel: t("deleteCollectionConfirm"),
       tone: "danger",
       onConfirm: () => {
         setSessionPinnedCollectionIds((prev) =>
@@ -349,16 +364,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     closeSidebarExplore();
   };
 
-  const handleExportCollection = async (collectionId: string) => {
+  const handleExportCollection = async (
+    collectionId: string,
+    format: "csv" | "json" = "csv",
+  ) => {
     try {
-      const message = await onExportCollection(collectionId);
+      const message = await onExportCollection(collectionId, format);
       setLibraryTransferStatus({
         tone: "success",
-        message: message || "Collection export is ready.",
+        message: message || t("collectionExportReady"),
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to export collection.";
+        error instanceof Error ? error.message : t("collectionExportFailed");
       setLibraryTransferStatus({ tone: "error", message });
     }
   };
@@ -374,14 +392,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const message = await onImportCollections(file);
       setLibraryTransferStatus({
         tone: "success",
-        message: message || `Imported ${file.name}.`,
+        message: message || t("importedFile", { name: file.name }),
       });
       openSidebar();
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to import collections.";
+        error instanceof Error ? error.message : t("importCollectionsFailed");
       setLibraryTransferStatus({ tone: "error", message });
     }
   };
@@ -410,19 +426,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Time Horizon
                 </h2>
                 <p className="mt-2 max-w-sm text-[0.9rem] leading-6 text-zinc-400">
-                  Curate collections, search events, and compose a cleaner view
-                  of history across every scale.
+                  {t("sidebarSubtitle")}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onBackToLanding}
                 className="ui-button ui-button-compact ui-button-secondary shrink-0 rounded-full px-3 py-2"
-                aria-label="Back to landing page"
-                title="Back to landing"
+                aria-label={t("backToLandingPage")}
+                title={t("backToLandingPage")}
               >
                 <ArrowLeft size={14} />
-                <span>Home</span>
+                <span>{t("backHome")}</span>
               </button>
             </div>
           </div>
@@ -443,14 +458,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="ui-button ui-button-primary rounded-[1.1rem] px-4 py-3"
               >
                 <Plus size={16} />
-                <span>Event</span>
+                <span>{t("event")}</span>
               </button>
               <button
                 onClick={onAddCollection}
                 className="ui-button ui-button-secondary rounded-[1.1rem] px-4 py-3"
               >
                 <FolderPlus size={16} />
-                <span>Collection</span>
+                <span>{t("collection")}</span>
               </button>
             </div>
             <button
@@ -458,12 +473,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="ui-button ui-button-secondary mt-2 w-full rounded-[1.1rem] px-4 py-3"
             >
               <Compass size={16} />
-              <span>Public Collections</span>
+              <span>{t("publicCollections")}</span>
             </button>
             <input
               ref={importInputRef}
               type="file"
-              accept="application/json,.json"
+              accept="application/json,.json,text/csv,.csv"
               className="hidden"
               onChange={(event) => void handleImportCollections(event)}
             />
@@ -483,8 +498,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     type="button"
                     onClick={() => setLibraryTransferStatus(null)}
                     className="mt-0.5 shrink-0 rounded-full p-1 transition-colors hover:bg-black/20"
-                    aria-label="Dismiss library transfer status"
-                    title="Dismiss"
+                    aria-label={t("dismiss")}
+                    title={t("dismiss")}
                   >
                     <X size={14} />
                   </button>
@@ -496,20 +511,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="mb-8">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="ui-display-title">
-                My Collections ({downloadedCollections.length})
+                {t("myCollections", { count: downloadedCollections.length })}
               </h3>
               <button
                 onClick={() => importInputRef.current?.click()}
                 className="ui-button ui-button-compact ui-button-secondary shrink-0"
               >
                 <Upload />
-                <span>Import</span>
+                <span>{t("import")}</span>
               </button>
             </div>
             <div className="mb-3">
               <input
                 type="text"
-                placeholder="Search my collections…"
+                placeholder={t("searchMyCollections")}
                 value={collectionQuery}
                 onChange={(event) => setCollectionQuery(event.target.value)}
                 className="ui-field"
@@ -520,23 +535,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {downloadedCollections.length === 0 ? (
                 <div className="rounded-[1.5rem] border border-dashed border-zinc-800 bg-zinc-950/50 p-4.5">
                   <div className="mb-2 text-base font-semibold text-zinc-200">
-                    Your library is empty
+                    {t("yourLibraryIsEmpty")}
                   </div>
                   <p className="text-[0.9rem] leading-6 text-zinc-500">
-                    Add a collection from the catalog, or create your own local
-                    collection to start organizing events.
+                    {t("yourLibraryIsEmptyCopy")}
                   </p>
                   <button
                     onClick={openSidebarExplore}
                     className="ui-button ui-button-secondary mt-4 px-4 py-2.5 text-[0.84rem]"
                   >
                     <Compass size={14} />
-                    <span>Open Catalog</span>
+                    <span>{t("openCatalog")}</span>
                   </button>
                 </div>
               ) : filteredCollections.length === 0 ? (
                 <div className="rounded-[1.2rem] border border-dashed border-zinc-800 bg-zinc-950/40 p-3.5 text-[0.88rem] text-zinc-500">
-                  No collections in your library match that search.
+                  {t("noCollectionsMatch")}
                 </div>
               ) : (
                 <>
@@ -544,7 +558,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="mb-3 rounded-[1.35rem] border border-emerald-500/20 bg-emerald-500/5 p-3.5">
                       <div className="mb-2 flex items-center justify-between">
                         <div className="ui-kicker text-emerald-300">
-                          Visible on timeline
+                          {t("visibleOnTimeline")}
                         </div>
                         <div className="text-[0.76rem] font-semibold text-emerald-200">
                           {visibleCollections.length}
@@ -572,7 +586,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   void togglePinnedCollection(collection.id)
                                 }
                                 className="inline-flex items-center gap-2 rounded-full px-1 transition-colors hover:bg-black/20"
-                                title={`${isVisible ? "Hide" : "Show"} ${collection.name}`}
+                                title={
+                                  isVisible
+                                    ? t("hideCollection", {
+                                        name: collection.name,
+                                      })
+                                    : t("showCollection", {
+                                        name: collection.name,
+                                      })
+                                }
                               >
                                 <span>{collection.emoji}</span>
                                 <span className="max-w-24 truncate">
@@ -595,7 +617,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     )
                                   }
                                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                  aria-label={`Set color for ${collection.name}`}
+                                  aria-label={t("setCollectionColor", {
+                                    name: collection.name,
+                                  })}
                                 />
                                 <span
                                   className="h-2 w-2 rounded-full"
@@ -639,11 +663,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       "border-zinc-700/70 bg-zinc-900 text-zinc-400";
 
                     if (isLoading) {
-                      statusLabel = "Syncing";
+                      statusLabel = t("syncing");
                       statusClassName =
                         "border-amber-500/30 bg-amber-500/10 text-amber-200";
                     } else if (isVisibleOnTimeline) {
-                      statusLabel = "Visible";
+                      statusLabel = t("visible");
                       statusClassName =
                         "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
                     }
@@ -689,9 +713,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {isLocalCollection ? (
                                   <span
                                     className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.18em] text-sky-200"
-                                    title="This collection is local to this device because it was created, imported, or edited here. It cannot be shared through Share Timeline."
+                                    title={t("localCollectionHelp")}
                                   >
-                                    Local
+                                    {t("local")}
                                   </span>
                                 ) : null}
                                 {statusLabel ? (
@@ -703,8 +727,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ) : null}
                               </div>
                               <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.76rem] text-zinc-500">
-                                <span>{totalLoadedEvents} events</span>
-                                <span>by {collection.author}</span>
+                                <span>
+                                  {t("eventsCount", {
+                                    count: totalLoadedEvents,
+                                  })}
+                                </span>
+                                <span>
+                                  {t("byAuthor", { author: collection.author })}
+                                </span>
                                 {/* <span className="inline-flex items-center gap-1">
                                   <span
                                     className="h-2 w-2 rounded-full"
@@ -733,11 +763,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ? "ui-button-primary"
                                 : "ui-button-secondary"
                             } flex-1 rounded-[0.95rem] px-3 py-2.5 text-[0.8rem]`}
-                            aria-label={`Browse events in ${collection.name}`}
-                            title={`Browse events in ${collection.name}`}
+                            aria-label={t("browseCollection", {
+                              name: collection.name,
+                            })}
+                            title={t("browseCollection", {
+                              name: collection.name,
+                            })}
                           >
                             <Search size={14} />
-                            <span>Browse</span>
+                            <span>{t("browse")}</span>
                           </button>
                           <button
                             onClick={(event) => {
@@ -751,13 +785,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             } flex-1 rounded-[0.95rem] px-3 py-2.5 text-[0.8rem]`}
                             aria-label={
                               isVisibleOnTimeline
-                                ? `Hide ${collection.name} from timeline`
-                                : `Show ${collection.name} on timeline`
+                                ? t("hideFromTimeline", {
+                                    name: collection.name,
+                                  })
+                                : t("showOnTimeline", { name: collection.name })
                             }
                             title={
                               isVisibleOnTimeline
-                                ? `Hide ${collection.name} from timeline`
-                                : `Show ${collection.name} on timeline`
+                                ? t("hideFromTimeline", {
+                                    name: collection.name,
+                                  })
+                                : t("showOnTimeline", { name: collection.name })
                             }
                           >
                             {isVisibleOnTimeline ? (
@@ -765,7 +803,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             ) : (
                               <EyeOff size={14} />
                             )}
-                            <span>{isVisibleOnTimeline ? "Hide" : "Show"}</span>
+                            <span>
+                              {isVisibleOnTimeline ? t("hide") : t("show")}
+                            </span>
                           </button>
                           <button
                             type="button"
@@ -778,8 +818,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ? "border-zinc-600 bg-zinc-800"
                                 : ""
                             }`}
-                            aria-label={`More actions for ${collection.name}`}
-                            title={`More actions for ${collection.name}`}
+                            aria-label={t("moreActionsForCollection", {
+                              name: collection.name,
+                            })}
+                            title={t("moreActionsForCollection", {
+                              name: collection.name,
+                            })}
                           >
                             <MoreHorizontal size={15} />
                           </button>
@@ -788,12 +832,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {isCollectionMenuOpen ? (
                           <div className="ui-floating-menu absolute bottom-15 right-3 z-20 w-[13rem] rounded-[1rem] p-2">
                             <div className="mb-1.5 px-1.5 font-mono text-[0.56rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                              More Actions
+                              {t("moreActions")}
                             </div>
                             <div className="grid gap-1.5">
                               <label
                                 className="ui-button ui-button-compact ui-button-secondary relative w-full cursor-pointer justify-start rounded-[0.85rem]"
-                                title={`Set color for ${collection.name}`}
+                                title={t("setCollectionColor", {
+                                  name: collection.name,
+                                })}
                               >
                                 <input
                                   type="color"
@@ -805,13 +851,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     )
                                   }
                                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                  aria-label={`Set color for ${collection.name}`}
+                                  aria-label={t("setCollectionColor", {
+                                    name: collection.name,
+                                  })}
                                 />
                                 <span
                                   className="h-2.5 w-2.5 rounded-full"
                                   style={{ backgroundColor: collectionColor }}
                                 />
-                                <span>Color</span>
+                                <span>{t("color")}</span>
                               </label>
                               <button
                                 onClick={(event) => {
@@ -823,12 +871,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem] disabled:cursor-not-allowed disabled:opacity-50"
                                 title={
                                   isEditableCollection
-                                    ? `Edit ${collection.name}`
-                                    : "Only local or imported collections can be edited"
+                                    ? t("editCollection")
+                                    : t("editCollectionDisabled")
                                 }
                               >
                                 <Pencil />
-                                <span>Edit</span>
+                                <span>{t("editCollection")}</span>
                               </button>
                               <button
                                 onClick={(event) => {
@@ -839,7 +887,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
                               >
                                 <Plus />
-                                <span>Add Event</span>
+                                <span>{t("addEvent")}</span>
                               </button>
                               <button
                                 onClick={(event) => {
@@ -850,7 +898,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
                               >
                                 <Code />
-                                <span>Edit JSON</span>
+                                <span>{t("editJson")}</span>
                               </button>
                               {isSyncable ? (
                                 <button
@@ -865,19 +913,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <RefreshCw
                                     className={isLoading ? "animate-spin" : ""}
                                   />
-                                  <span>Sync</span>
+                                  <span>{t("sync")}</span>
                                 </button>
                               ) : null}
                               <button
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setOpenCollectionMenuId(null);
-                                  void handleExportCollection(collection.id);
+                                  void handleExportCollection(
+                                    collection.id,
+                                    "csv",
+                                  );
                                 }}
                                 className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
                               >
                                 <Download />
-                                <span>Export</span>
+                                <span>{t("exportCsv")}</span>
+                              </button>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenCollectionMenuId(null);
+                                  void handleExportCollection(
+                                    collection.id,
+                                    "json",
+                                  );
+                                }}
+                                className="ui-button ui-button-compact ui-button-secondary w-full justify-start rounded-[0.85rem]"
+                              >
+                                <Download />
+                                <span>{t("exportJson")}</span>
                               </button>
                               <button
                                 onClick={(event) => {
@@ -886,11 +951,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   handleDeleteCollection(collection);
                                 }}
                                 className="ui-button ui-button-compact ui-button-danger w-full justify-start rounded-[0.85rem]"
-                                aria-label={`Delete ${collection.name}`}
-                                title={`Delete ${collection.name}`}
+                                aria-label={t("deleteCollectionAction", {
+                                  name: collection.name,
+                                })}
+                                title={t("deleteCollectionAction", {
+                                  name: collection.name,
+                                })}
                               >
                                 <Trash2 />
-                                <span>Delete</span>
+                                <span>{t("deleteCollection")}</span>
                               </button>
                             </div>
                           </div>
@@ -924,11 +993,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onEditEvent={onEditEvent}
               onDeleteEvent={onDeleteEvent}
               state={sidebarSearchState}
-              title={`Browse '${browsedCollection.name}'`}
+              title={t("browseCollectionTitle", {
+                name: browsedCollection.name,
+              })}
               // subtitle={`Browse ${browsedCollectionEvents.length} loaded events.`}
               // searchPlaceholder={`Search ${browsedCollection.name}...`}
-              emptyMessage="No events in this collection matched your search."
-              resultLabel="collection events"
+              emptyMessage={t("noResultsForCollection")}
+              resultLabel={`${t("collection")} events`}
               showTimelineToggle={false}
               wrapperClassName="w-full"
               panelClassName="w-full max-w-none rounded-[1.6rem] border-zinc-800 bg-zinc-950/95 shadow-2xl"
@@ -955,10 +1026,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <CollectionJsonEditorModal
           collectionId={jsonEditorCollection.id}
           collectionName={jsonEditorCollection.name}
-          jsonData={JSON.stringify(collectionEventsById[jsonEditorCollection.id] ?? [], null, 2)}
+          jsonData={JSON.stringify(
+            stripRuntimeEventIds(
+              collectionEventsById[jsonEditorCollection.id] ?? [],
+            ),
+            null,
+            2,
+          )}
           onSave={(json) => {
             try {
-              const events: Event[] = JSON.parse(json);
+              const events = sanitizeImportedEvents(JSON.parse(json), {
+                collectionId: jsonEditorCollection.id,
+              });
               onUpdateCollectionEvents(jsonEditorCollection.id, events);
             } catch {
               // invalid — modal shows its own parse error

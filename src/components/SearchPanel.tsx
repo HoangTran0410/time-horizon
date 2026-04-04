@@ -17,6 +17,8 @@ import {
   hasActiveTimelineSearchFilters,
   useStore,
 } from "../stores";
+import { useI18n } from "../i18n";
+import { getLocalizedEventTitle } from "../helpers/localization";
 
 export interface CollectionOption {
   id: string;
@@ -24,15 +26,12 @@ export interface CollectionOption {
   emoji: string;
 }
 
-export const SEARCH_SORT_OPTIONS: Array<{
-  label: string;
-  value: SearchSortMode;
-}> = [
-  { label: "Best match", value: "best-match" },
-  { label: "Time: oldest first", value: "time-asc" },
-  { label: "Time: newest first", value: "time-desc" },
-  { label: "Name: A to Z", value: "name-asc" },
-  { label: "Name: Z to A", value: "name-desc" },
+export const SEARCH_SORT_OPTIONS: Array<{ value: SearchSortMode }> = [
+  { value: "best-match" },
+  { value: "time-asc" },
+  { value: "time-desc" },
+  { value: "name-asc" },
+  { value: "name-desc" },
 ];
 
 export interface SearchPanelStateAdapter {
@@ -93,13 +92,13 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   onEditEvent,
   onDeleteEvent,
   state,
-  title = "Search Events",
+  title,
   subtitle,
-  searchPlaceholder = "Name or description",
-  emptyMessage = "No visible events matched your search.",
-  resultLabel = "visible events",
+  searchPlaceholder,
+  emptyMessage,
+  resultLabel,
   showTimelineToggle = true,
-  timelineToggleLabel = "Only show matched events on timeline",
+  timelineToggleLabel,
   wrapperClassName,
   panelClassName,
   maxHeight = SEARCH_PANEL_MAX_HEIGHT,
@@ -107,6 +106,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   collections,
   eventsByCollectionId,
 }) => {
+  const { language, t } = useI18n();
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] =
     React.useState(false);
   const [advancedFiltersHeight, setAdvancedFiltersHeight] = React.useState(0);
@@ -231,14 +231,21 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         ? eventsByCollectionId[activeCollectionId] ?? []
         : searchableEvents;
 
-    return filterTimelineSearchEvents(pool, deferredSearchQuery, safeActiveMediaFilters, {
-      sortMode: searchSortMode,
-      startTimeInput: safeTimeRangeStartInput,
-      endTimeInput: safeTimeRangeEndInput,
-    });
+    return filterTimelineSearchEvents(
+      pool,
+      deferredSearchQuery,
+      safeActiveMediaFilters,
+      {
+        language,
+        sortMode: searchSortMode,
+        startTimeInput: safeTimeRangeStartInput,
+        endTimeInput: safeTimeRangeEndInput,
+      },
+    );
   }, [
     activeCollectionId,
     eventsByCollectionId,
+    language,
     safeActiveMediaFilters,
     deferredSearchQuery,
     searchSortMode,
@@ -514,6 +521,21 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     onDeleteEvent(event);
   };
 
+  const resolvedTitle = title ?? t("searchEvents");
+  const resolvedSearchPlaceholder =
+    searchPlaceholder ?? t("eventSearchPlaceholder");
+  const resolvedEmptyMessage = emptyMessage ?? t("noVisibleEventsMatched");
+  const resolvedResultLabel = resultLabel ?? t("visibleEvents");
+  const resolvedTimelineToggleLabel =
+    timelineToggleLabel ?? t("onlyShowMatchedOnTimeline");
+  const sortOptions = [
+    { value: "best-match" as const, label: t("bestMatch") },
+    { value: "time-asc" as const, label: t("timeOldestFirst") },
+    { value: "time-desc" as const, label: t("timeNewestFirst") },
+    { value: "name-asc" as const, label: t("nameAToZ") },
+    { value: "name-desc" as const, label: t("nameZToA") },
+  ];
+
   return (
     <div
       className={`ui-popover ${wrapperClassName ?? ""}`.trim()}
@@ -533,7 +555,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             type="button"
             onClick={onClose}
             className="ui-icon-button absolute right-4 top-4 z-10 h-9 w-9"
-            aria-label="Close search panel"
+            aria-label={t("close")}
           >
             <X size={14} />
           </button>
@@ -543,8 +565,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             type="button"
             onClick={handleScrollToTop}
             className="ui-icon-button absolute bottom-4 right-4 z-10 h-10 w-10 border-emerald-500/30 bg-emerald-500/10 text-emerald-100 shadow-[0_10px_35px_-18px_rgba(16,185,129,0.95)] backdrop-blur-sm"
-            aria-label="Scroll to top"
-            title="Scroll to top"
+            aria-label={t("scrollToTop")}
+            title={t("scrollToTop")}
           >
             <ChevronUp size={16} />
           </button>
@@ -558,10 +580,12 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               right: activeResultActionMenu.right,
             }}
             role="menu"
-            aria-label={`Actions for ${activeResultActionMenu.event.title}`}
+            aria-label={t("moreActionsForEvent", {
+              title: getLocalizedEventTitle(activeResultActionMenu.event, language),
+            })}
           >
             <div className="mb-1.5 px-1.5 font-mono text-[0.56rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-              Event Actions
+              {t("eventActions")}
             </div>
             <div className="grid gap-1.5">
               <button
@@ -571,18 +595,18 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 role="menuitem"
               >
                 <Pencil />
-                <span>Edit</span>
+                <span>{t("editEvent")}</span>
               </button>
               <button
                 type="button"
                 onClick={handleDeleteResultEvent}
                 className="ui-button ui-button-compact ui-button-danger w-full justify-start rounded-[0.85rem]"
                 role="menuitem"
-                aria-label={`Delete ${activeResultActionMenu.event.title}`}
-                title={`Delete ${activeResultActionMenu.event.title}`}
+                aria-label={t("deleteEvent")}
+                title={t("deleteEvent")}
               >
                 <Trash2 />
-                <span>Delete</span>
+                <span>{t("deleteEvent")}</span>
               </button>
             </div>
           </div>
@@ -594,7 +618,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           <div className="mb-3">
             <div className={`min-w-0 ${onClose ? "pr-12" : ""}`.trim()}>
               <div className="ui-display-title text-[1.5rem] leading-none text-white">
-                {title}
+                {resolvedTitle}
               </div>
               {subtitle ? (
                 <p className="mt-1.5 max-w-[32rem] text-[0.82rem] leading-6 text-zinc-400">
@@ -608,7 +632,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             type="search"
             value={safeSearchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={searchPlaceholder}
+            placeholder={resolvedSearchPlaceholder}
             className="ui-field mb-3"
           />
           <div className="ui-panel-soft mb-3 rounded-[1.35rem] p-3">
@@ -624,7 +648,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               />
               <div className="min-w-0 flex flex-1 items-center gap-2">
                 <span className="text-[0.7rem] font-mono uppercase tracking-[0.18em] text-zinc-300">
-                  Filters
+                  {t("filters")}
                 </span>
                 {hasActiveFilters ? (
                   <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[0.6rem] font-mono uppercase tracking-[0.14em] text-emerald-200">
@@ -659,10 +683,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     const isActive = safeActiveMediaFilters.includes(filter);
                     const label =
                       filter === "image"
-                        ? "Image"
+                        ? t("image")
                         : filter === "video"
-                          ? "Video"
-                          : "Link";
+                          ? t("video")
+                          : t("link");
 
                     return (
                       <button
@@ -688,7 +712,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                       className="ui-chip"
                       data-active={activeCollectionId === null}
                     >
-                      All collections
+                      {t("allCollections")}
                     </button>
                     {collections.map((col) => (
                       <button
@@ -715,7 +739,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   onChange={(e) => handleSortModeChange(e.target.value)}
                   className="ui-field"
                 >
-                  {SEARCH_SORT_OPTIONS.map((option) => (
+                  {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -727,7 +751,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     inputMode="numeric"
                     value={timeRangeStartInput}
                     onChange={(e) => handleTimeRangeStartChange(e.target.value)}
-                    placeholder="From: 2024-03"
+                    placeholder={`${t("fromDate")}: 2024-03`}
                     className="ui-field"
                   />
                   <input
@@ -735,7 +759,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     inputMode="numeric"
                     value={timeRangeEndInput}
                     onChange={(e) => handleTimeRangeEndChange(e.target.value)}
-                    placeholder="To: 2024-03-27"
+                    placeholder={`${t("toDate")}: 2024-03-27`}
                     className="ui-field"
                   />
                 </div>
@@ -766,7 +790,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   }
                   className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500 focus:ring-emerald-500/40"
                 />
-                <span>{timelineToggleLabel}</span>
+                <span>{resolvedTimelineToggleLabel}</span>
               </label>
             )}
           <div className="mb-3 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500">
@@ -774,16 +798,16 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             {shouldHydrateResults && filteredResults.length != poolLength
               ? `/${poolLength}`
               : ""}{" "}
-            {resultLabel}
+            {resolvedResultLabel}
           </div>
 
           {!shouldHydrateResults ? (
             <div className="rounded-[1.15rem] border border-dashed border-zinc-800 px-3 py-5 text-center text-[0.8rem] leading-5 text-zinc-500">
-              Loading events...
+              {t("loadingEvents")}
             </div>
           ) : filteredResults.length === 0 ? (
             <div className="rounded-[1.15rem] border border-dashed border-zinc-800 px-3 py-5 text-center text-[0.8rem] leading-5 text-zinc-500">
-              {emptyMessage}
+              {resolvedEmptyMessage}
             </div>
           ) : (
             <div className="space-y-1">
@@ -801,7 +825,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   ref={resultsSentinelRef}
                   className="flex items-center justify-center py-3 text-[0.68rem] font-mono uppercase tracking-[0.18em] text-zinc-500"
                 >
-                  Loading more...
+                  {t("loadingMore")}
                 </div>
               )}
             </div>

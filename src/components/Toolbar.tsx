@@ -7,6 +7,8 @@ import {
   Share2,
 } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
+import { LanguagePickerButton } from "./LanguagePickerButton";
+import { useI18n } from "../i18n";
 
 interface ToolbarProps {
   logicFps: number;
@@ -23,6 +25,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleTheme,
   onShare,
 }) => {
+  const { t } = useI18n();
   const [isFullscreen, setIsFullscreen] = useState(() => {
     if (typeof document === "undefined") return false;
     return document.fullscreenElement !== null;
@@ -59,13 +62,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <div
-      className="fixed right-4 top-4 z-40 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-2 sm:max-w-none"
+      className="fixed right-4 top-4 z-40 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-1 sm:max-w-none"
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <div className="ui-badge font-mono text-[0.72rem]">
+      {/* <div className="ui-badge font-mono text-[0.72rem]">
         {logicFps}|{renderFps}
-      </div>
+      </div> */}
       {supportsFullscreen ? (
         <button
           type="button"
@@ -73,12 +76,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             void handleToggleFullscreen();
           }}
           className="ui-icon-button h-10 w-10 shrink-0"
-          aria-label={
-            isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"
-          }
-          title={
-            isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"
-          }
+          aria-label={isFullscreen ? t("exitFullscreen") : t("enterFullscreen")}
+          title={isFullscreen ? t("exitFullscreen") : t("enterFullscreen")}
         >
           {isFullscreen ? (
             <Minimize2 width={15} height={15} />
@@ -91,20 +90,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         type="button"
         onClick={onShare}
         className="ui-icon-button h-10 w-10 shrink-0"
-        aria-label="Share timeline"
-        title="Share timeline"
+        aria-label={t("shareTimeline")}
+        title={t("shareTimeline")}
       >
         <Share2 width={15} height={15} />
       </button>
+      <LanguagePickerButton
+        buttonClassName="ui-icon-button h-10 w-10 shrink-0 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-200"
+        textClassName="leading-none"
+      />
       <button
         type="button"
         onClick={onToggleTheme}
         className="ui-icon-button h-10 w-10 shrink-0"
         aria-label={
-          theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+          theme === "dark" ? t("switchToLightTheme") : t("switchToDarkTheme")
         }
         title={
-          theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+          theme === "dark" ? t("switchToLightTheme") : t("switchToDarkTheme")
         }
       >
         {theme === "dark" ? (

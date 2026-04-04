@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Copy, Check, X, Layers, MapPin, Link, Locate } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useI18n } from "../i18n";
 
 /** ─── Props ─────────────────────────────────────────────────────────── */
 
@@ -79,6 +80,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onGenerateUrl,
   onClose,
 }) => {
+  const { t } = useI18n();
   const [options, setOptions] = useState<ShareOptionsState>(() => ({
     includeCollections: visibleCollectionIds.length > 0,
     // Default: prefer event focus if one is selected, otherwise camera view
@@ -112,8 +114,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const collectionLabel =
     visibleCollectionIds.length > 0
-      ? `${visibleCollectionIds.length} collection${visibleCollectionIds.length > 1 ? "s" : ""}`
-      : "None visible";
+      ? t("shareableCollectionsCount", {
+          count: visibleCollectionIds.length,
+        })
+      : t("noShareableCollections");
 
   const handleCopy = useCallback(async () => {
     if (!shareUrl) return;
@@ -163,13 +167,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <div className="mb-6 flex items-center justify-between">
             <div className="share-card-title-row">
               <Link width={16} height={16} className="share-card-icon" />
-              <h2 className="share-card-title">Share Timeline</h2>
+              <h2 className="share-card-title">{t("shareTimeline")}</h2>
             </div>
             <button
               type="button"
               onClick={onClose}
               className="ui-icon-button h-10 w-10"
-              aria-label="Close share modal"
+              aria-label={t("close")}
             >
               <X width={16} height={16} />
             </button>
@@ -186,7 +190,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       .slice(0, 3)
                       .map((id) => collectionNames[id] ?? id)
                       .join(", ")
-                  : "No shareable collections are visible right now"
+                  : t("noShareableCollections")
               }
               value={options.includeCollections}
               onChange={(v) => update("includeCollections", v)}
@@ -196,11 +200,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             {options.includeCollections && (
               <ToggleRow
                 icon={<MapPin width={14} height={14} />}
-                label="Focus selected event"
+                label={t("focusSelectedEvent")}
                 description={
                   selectedEventId
-                    ? "Auto-scroll to this event on load"
-                    : "No event selected — select one on the timeline first"
+                    ? t("autoScrollToEvent")
+                    : t("noEventSelected")
                 }
                 value={options.includeSelectedEvent}
                 onChange={(v) => update("includeSelectedEvent", v)}
@@ -211,8 +215,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             {selectedEventId ? (
               <ToggleRow
                 icon={<Locate width={14} height={14} />}
-                label="Camera view & zoom"
-                description={`Share current viewport (year ${yearLabel})`}
+                label={t("cameraViewZoom")}
+                description={t("shareCurrentViewport", { year: yearLabel })}
                 value={options.includeViewport}
                 onChange={(v) => update("includeViewport", v)}
                 disabled={!options.includeCollections}
@@ -221,8 +225,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               options.includeCollections && (
                 <ToggleRow
                   icon={<Locate width={14} height={14} />}
-                  label="Camera view & zoom"
-                  description={`Share current viewport (year ${yearLabel})`}
+                  label={t("cameraViewZoom")}
+                  description={t("shareCurrentViewport", { year: yearLabel })}
                   value={options.includeViewport}
                   onChange={(v) => update("includeViewport", v)}
                   disabled={!options.includeCollections}
@@ -267,7 +271,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     transition={{ duration: 0.12 }}
                   >
                     <Check width={13} height={13} />
-                    Copied
+                    {t("copied")}
                   </motion.span>
                 ) : (
                   <motion.span
@@ -279,7 +283,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     transition={{ duration: 0.12 }}
                   >
                     <Copy width={13} height={13} />
-                    Copy link
+                    {t("copyLink")}
                   </motion.span>
                 )}
               </AnimatePresence>
