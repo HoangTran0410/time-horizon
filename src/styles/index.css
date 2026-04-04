@@ -44,7 +44,7 @@ body,
 
 :root {
   --font-sans: "Be Vietnam Pro", "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-serif: "Lora", "Iowan Old Style", "Palatino Linotype", serif;
+  --font-serif: "Lora", "Source Serif 4", "Noto Serif", serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --app-bg: #0b0f14;
   --app-bg-image:

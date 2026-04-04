@@ -8,11 +8,7 @@
     "build": "rm -rf assets && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "generate:histography:data": "node scripts/convert-histography-to-collections.js",
-    "generate:histography:emojis": "node scripts/update-histography-emojis.js",
-    "generate:histography:ts": "node scripts/generate-histography-collections-ts.js",
-    "generate:histography": "npm run generate:histography:data && npm run generate:histography:emojis && npm run generate:histography:ts"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -29,6 +25,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.1.14",

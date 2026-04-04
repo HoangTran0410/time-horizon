@@ -87,6 +87,7 @@ export const Timeline = ({
   const focusEvent = useStore((s) => s.focusEvent);
   const previewEvent = useStore((s) => s.previewEvent);
   const clearFocusedEvent = useStore((s) => s.clearFocusedEvent);
+  const reopenMobileInfoPanel = useStore((s) => s.reopenMobileInfoPanel);
   const setSavedViewport = useStore((s) => s.setSavedViewport);
   const setIsRulerActive = useStore((s) => s.setIsRulerActive);
   const toggleEventInfoCollapsed = useStore((s) => s.toggleEventInfoCollapsed);
@@ -245,6 +246,10 @@ export const Timeline = ({
       : (savedLogZoom ?? undefined),
     onSelectEvent: (event) => {
       if (event) {
+        // If re-selecting the same event, trigger mobile panel to re-open
+        if (event.id === selectedEventId) {
+          reopenMobileInfoPanel();
+        }
         focusEvent(event.id);
         return;
       }

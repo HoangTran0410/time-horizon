@@ -185,6 +185,20 @@ export const useTimelineViewport = ({
 
   const getViewportCenter = () => getViewportWidth() / 2;
 
+  const clampLogZoom = (nextLogZoom: number) =>
+    Math.max(Math.log(MIN_ZOOM), Math.min(Math.log(MAX_ZOOM), nextLogZoom));
+
+  const normalizeWheelDelta = (delta: number, deltaMode: number) => {
+    switch (deltaMode) {
+      case 1:
+        return delta * 16;
+      case 2:
+        return delta * getViewportHeight();
+      default:
+        return delta;
+    }
+  };
+
   const flushViewportPersistence = () => {
     if (!onViewportChange) return;
 
@@ -739,7 +753,7 @@ export const useTimelineViewport = ({
     let targetZoom = currentZoom;
     if (hasDuration) {
       const targetRangeYears = Math.min(
-        Math.max(event.duration * 20, 1 / 365.25),
+        Math.max((event?.duration || 0) * 20, 1 / 365.25),
         1e9,
       );
       targetZoom = Math.max(
@@ -793,8 +807,9 @@ export const useTimelineViewport = ({
   const handleFocusBigBang = () => {
     const bigBangEvent = renderedTimelineEvents.find(
       (event) =>
-        getSearchableLocalizedText(event.title).toLowerCase().includes("big bang") &&
-        event.time[0] === BIG_BANG_YEAR,
+        getSearchableLocalizedText(event.title)
+          .toLowerCase()
+          .includes("big bang") && event.time[0] === BIG_BANG_YEAR,
     );
     if (bigBangEvent) {
       handleFocusEvent(bigBangEvent);
@@ -826,23 +841,46 @@ export const useTimelineViewport = ({
     const mouseX = event.clientX - rect.left;
 
     const currentZoom = zoom.get();
-    const hasZoomIntent = Math.abs(event.deltaY) > 0;
+    const normalizedDeltaX = normalizeWheelDelta(event.deltaX, event.deltaMode);
+    const normalizedDeltaY = normalizeWheelDelta(event.deltaY, event.deltaMode);
+    const isTrackpadPinch = event.ctrlKey;
+
+    if (isTrackpadPinch) {
+      const anchorYear = (mouseX - panX.get()) / currentZoom;
+      const nextLogZoom = clampLogZoom(
+        targetLogZoom.current - normalizedDeltaY * 0.015,
+      );
+
+      focusPixel.set(mouseX);
+      focusYear.set(anchorYear);
+      targetLogZoom.current = nextLogZoom;
+      logZoom.set(nextLogZoom);
+      return;
+    }
+
+    if (event.deltaMode === 0 && Math.abs(normalizedDeltaX) > 0) {
+      setCameraFromPanX(panX.get() - normalizedDeltaX, currentZoom, mouseX);
+      return;
+    }
+
+    const hasZoomIntent = Math.abs(normalizedDeltaY) > 0;
     const shouldApplyHorizontalPan =
-      Math.abs(event.deltaX) > 0 &&
-      (!hasZoomIntent || Math.abs(event.deltaX) > Math.abs(event.deltaY) * 0.6);
+      Math.abs(normalizedDeltaX) > 0 &&
+      (!hasZoomIntent ||
+        Math.abs(normalizedDeltaX) > Math.abs(normalizedDeltaY) * 0.6);
     const nextPanX = shouldApplyHorizontalPan
-      ? panX.get() - event.deltaX
+      ? panX.get() - normalizedDeltaX
       : panX.get();
 
     setCameraFromPanX(nextPanX, currentZoom, mouseX);
 
-    if (Math.abs(event.deltaY) > 0) {
+    if (Math.abs(normalizedDeltaY) > 0) {
       focusPixel.set(mouseX);
       focusYear.set((mouseX - nextPanX) / currentZoom);
 
       const targetZoom = Math.exp(targetLogZoom.current);
-      const zoomFactor = Math.pow(1.002, Math.abs(event.deltaY));
-      const direction = event.deltaY < 0 ? 1 : -1;
+      const zoomFactor = Math.pow(1.002, Math.abs(normalizedDeltaY));
+      const direction = normalizedDeltaY < 0 ? 1 : -1;
       let newZoom =
         direction > 0 ? targetZoom * zoomFactor : targetZoom / zoomFactor;
       newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));

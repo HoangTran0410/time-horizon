@@ -850,6 +850,26 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         );
       }
 
+      // Move hovered and selected events to the end so they render on top (selected on very top).
+      if (hoveredTarget.type === "event" && hoveredTarget.id !== currentFocusedEventId) {
+        const idx = currentVisibleEvents.findIndex(
+          (v) => v.event.id === hoveredTarget.id,
+        );
+        if (idx !== -1) {
+          const [hovered] = currentVisibleEvents.splice(idx, 1);
+          currentVisibleEvents.push(hovered);
+        }
+      }
+      if (currentFocusedEventId) {
+        const idx = currentVisibleEvents.findIndex(
+          (v) => v.event.id === currentFocusedEventId,
+        );
+        if (idx !== -1) {
+          const [focused] = currentVisibleEvents.splice(idx, 1);
+          currentVisibleEvents.push(focused);
+        }
+      }
+
       for (const visibleEvent of currentVisibleEvents) {
         const { event, year, label } = visibleEvent;
         const layout = currentEventLayouts[event.id];
@@ -1014,7 +1034,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           let targetX = rulerPointerRef.current.x;
           let targetY = rulerPointerRef.current.y;
           let targetYear = originYear + (targetX - originX) / zoom.get();
-          const hoveredEvent =
+          const rulerHoveredEvent =
             hoveredTarget.type === "event" &&
             hoveredTarget.id !== currentRulerEvent.id
               ? currentVisibleEvents.find(
@@ -1022,10 +1042,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
                 )
               : null;
 
-          if (hoveredEvent) {
-            const hoveredLayout = currentEventLayouts[hoveredEvent.event.id];
+          if (rulerHoveredEvent) {
+            const hoveredLayout = currentEventLayouts[rulerHoveredEvent.event.id];
             if (hoveredLayout && hoveredLayout.opacity.get() > 0.02) {
-              targetYear = hoveredEvent.year;
+              targetYear = rulerHoveredEvent.year;
               targetX = getScreenX(targetYear);
               targetY = centerY + hoveredLayout.y.get();
             }

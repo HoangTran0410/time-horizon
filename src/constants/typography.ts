@@ -1,6 +1,6 @@
 export const APP_FONT_FAMILIES = {
   sans: '"Be Vietnam Pro", "Segoe UI", "Helvetica Neue", sans-serif',
-  serif: '"Lora", "Iowan Old Style", "Palatino Linotype", serif',
+  serif: '"Lora", "Source Serif 4", "Noto Serif", serif',
   mono: '"JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace',
   emoji: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"',
 } as const;

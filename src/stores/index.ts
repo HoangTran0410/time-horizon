@@ -76,6 +76,8 @@ type TimelineStoreState = {
   downloadingCollectionIds: string[];
   collectionColorPreferences: Record<string, string>;
   selectedEventId: string | null;
+  /** Incremented by the viewport click handler when user re-clicks the selected event */
+  mobileInfoPanelReopenFlag: number;
   savedFocusYear: number | null;
   savedLogZoom: number | null;
   lastOpenedView: TimelineAppView;
@@ -131,6 +133,8 @@ type TimelineStoreState = {
   focusEvent: (eventId: string) => void;
   previewEvent: (eventId: string) => void;
   clearFocusedEvent: () => void;
+  /** Increment the flag to signal the mobile info panel should re-open */
+  reopenMobileInfoPanel: () => void;
   setSavedViewport: (focusYear: number, logZoom: number) => void;
   setLastOpenedView: (view: TimelineAppView) => void;
   setHasHydrated: (value: boolean) => void;
@@ -1198,6 +1202,7 @@ export const useStore = create<TimelineStoreState>()(
         downloadingCollectionIds: [],
         collectionColorPreferences: {},
         selectedEventId: null,
+        mobileInfoPanelReopenFlag: 0,
         savedFocusYear: null,
         savedLogZoom: null,
         lastOpenedView: "landing",
@@ -1714,6 +1719,10 @@ export const useStore = create<TimelineStoreState>()(
             selectedEventId: null,
             isRulerActive: false,
           }),
+        reopenMobileInfoPanel: () =>
+          set((state) => ({
+            mobileInfoPanelReopenFlag: state.mobileInfoPanelReopenFlag + 1,
+          })),
         setSavedViewport: (focusYear, logZoom) =>
           set({
             savedFocusYear: focusYear,

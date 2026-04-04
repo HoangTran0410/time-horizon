@@ -2,6 +2,9 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Event,
   EventCollectionMeta,
+  LocalizedText,
+  LocalizedTextRecord,
+  SUPPORTED_LANGUAGES,
   SupportedLanguage,
 } from "../constants/types";
 import { ChevronDown, X } from "lucide-react";
@@ -18,7 +21,6 @@ import {
   normalizeImageUrl,
 } from "../helpers";
 import {
-  createLocalizedTextDraft,
   LANGUAGE_OPTIONS,
   normalizeLocalizedText,
 } from "../helpers/localization";
@@ -132,6 +134,58 @@ const normalizeEventForSave = (event: Event): Event => ({
   link: normalizeExternalLinkUrl(event.link) ?? undefined,
 });
 
+const DEFAULT_EDITOR_LANGUAGE: SupportedLanguage = "en";
+
+const createEditableLocalizedTextDraft = (
+  value: LocalizedText | null | undefined,
+  preferredLanguage: SupportedLanguage = DEFAULT_EDITOR_LANGUAGE,
+): LocalizedTextRecord => {
+  const emptyDraft = Object.fromEntries(
+    SUPPORTED_LANGUAGES.map((language) => [language, ""]),
+  ) as LocalizedTextRecord;
+
+  if (typeof value === "string") {
+    emptyDraft[preferredLanguage] = value;
+    return emptyDraft;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return emptyDraft;
+  }
+
+  for (const language of SUPPORTED_LANGUAGES) {
+    emptyDraft[language] =
+      typeof value[language] === "string" ? value[language] : "";
+  }
+
+  return emptyDraft;
+};
+
+const getInitialVisibleLanguages = (event: Event): SupportedLanguage[] => {
+  const titleDraft = createEditableLocalizedTextDraft(event.title);
+  const descriptionDraft = createEditableLocalizedTextDraft(event.description);
+  const languagesWithContent = SUPPORTED_LANGUAGES.filter(
+    (supportedLanguage) =>
+      titleDraft[supportedLanguage].trim() ||
+      descriptionDraft[supportedLanguage].trim(),
+  );
+
+  if (languagesWithContent.length === 0) {
+    return [DEFAULT_EDITOR_LANGUAGE];
+  }
+
+  const orderedLanguages = [
+    DEFAULT_EDITOR_LANGUAGE,
+    ...SUPPORTED_LANGUAGES.filter(
+      (supportedLanguage) => supportedLanguage !== DEFAULT_EDITOR_LANGUAGE,
+    ),
+  ];
+
+  return orderedLanguages.filter((supportedLanguage) =>
+    languagesWithContent.includes(supportedLanguage),
+  );
+};
+
 export const EventEditor: React.FC<EventEditorProps> = ({
   event,
   mode,
@@ -141,15 +195,18 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   initialCollectionId = null,
   onAddCollection,
 }) => {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
   const [editedEvent, setEditedEvent] = useState<Event>({
     ...event,
-    title: createLocalizedTextDraft(event.title, language),
-    description: createLocalizedTextDraft(event.description, language),
+    title: createEditableLocalizedTextDraft(event.title),
+    description: createEditableLocalizedTextDraft(event.description),
     time: [...event.time] as Event["time"],
   });
+  const [visibleLanguages, setVisibleLanguages] = useState<SupportedLanguage[]>(
+    () => getInitialVisibleLanguages(event),
+  );
   const [selectedCollectionId, setSelectedCollectionId] = useState(
     initialCollectionId ?? availableCollections[0]?.id ?? "",
   );
@@ -158,15 +215,17 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [languageToAdd, setLanguageToAdd] = useState<SupportedLanguage | "">("");
 
   useEffect(() => {
     setEditedEvent({
       ...event,
-      title: createLocalizedTextDraft(event.title, language),
-      description: createLocalizedTextDraft(event.description, language),
+      title: createEditableLocalizedTextDraft(event.title),
+      description: createEditableLocalizedTextDraft(event.description),
       time: [...event.time] as Event["time"],
     });
-  }, [event]);
+    setVisibleLanguages(getInitialVisibleLanguages(event));
+  }, [event.id]);
 
   useEffect(() => {
     if (mode !== "create") return;
@@ -212,17 +271,38 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       setEditedEvent((prev) => ({
         ...prev,
         [field]: {
-          ...createLocalizedTextDraft(prev[field], language),
+          ...createEditableLocalizedTextDraft(prev[field]),
           [localizedLanguage]: value,
         },
       }));
     };
 
-  const titleDraft = createLocalizedTextDraft(editedEvent.title, language);
-  const descriptionDraft = createLocalizedTextDraft(
+  const titleDraft = createEditableLocalizedTextDraft(editedEvent.title);
+  const descriptionDraft = createEditableLocalizedTextDraft(
     editedEvent.description,
-    language,
   );
+  const handleAddLanguageVariant = (nextLanguage: SupportedLanguage | "") => {
+    setLanguageToAdd(nextLanguage);
+    if (!nextLanguage || visibleLanguages.includes(nextLanguage)) {
+      return;
+    }
+
+    setVisibleLanguages((prev) => [...prev, nextLanguage]);
+    setLanguageToAdd("");
+  };
+
+  const handleRemoveLanguageVariant = (localizedLanguage: SupportedLanguage) => {
+    setVisibleLanguages((prev) => {
+      if (prev.length === 1) return prev;
+      return prev.filter((languageOption) => languageOption !== localizedLanguage);
+    });
+  };
+
+  const stopEditorShortcutPropagation = (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    e.stopPropagation();
+  };
 
   const handleTimeChange = (index: 1 | 2 | 3 | 4 | 5, raw: string) => {
     if (raw !== "" && isNaN(Number(raw))) return;
@@ -425,70 +505,115 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <div className="space-y-5">
             <section className="space-y-3 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/45 p-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-zinc-300">
-                  {t("title")}
-                </label>
-                <p className="text-xs leading-6 text-zinc-500">
-                  {t("localizedFieldHint")}
-                </p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300">
+                    {t("title")}
+                  </label>
+                </div>
+                <div className="md:flex md:justify-end">
+                  <select
+                    value={languageToAdd}
+                    onChange={(e) =>
+                      handleAddLanguageVariant(
+                        e.target.value as SupportedLanguage | "",
+                      )
+                    }
+                    className="h-9 w-auto min-w-[8.5rem] rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="">{t("addLanguageVariant")}</option>
+                    {LANGUAGE_OPTIONS.map((option) => (
+                      <option
+                        key={`add-language-${option.value}`}
+                        value={option.value}
+                        disabled={visibleLanguages.includes(option.value)}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="grid gap-4">
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <div
-                    key={`title-${option.value}`}
-                    className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
-                  >
-                    <div className="absolute left-3 top-0 inline-flex -translate-y-1/2 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
-                      <span aria-hidden="true">{option.flag}</span>
-                      <span>{option.label}</span>
+                {visibleLanguages.map((visibleLanguage) => {
+                  const option = LANGUAGE_OPTIONS.find(
+                    (languageOption) => languageOption.value === visibleLanguage,
+                  );
+                  if (!option) return null;
+
+                  return (
+                    <div
+                      key={`title-${option.value}`}
+                      className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
+                    >
+                      <div className="absolute left-3 right-3 top-0 flex -translate-y-1/2 items-center justify-between">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
+                          <span aria-hidden="true">{option.flag}</span>
+                          <span>{option.label}</span>
+                        </div>
+                        {visibleLanguages.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLanguageVariant(option.value)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-zinc-500 hover:text-white"
+                            aria-label={t("removeLanguageVariant", {
+                              language: option.label,
+                            })}
+                          >
+                            <X width={14} height={14} />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={titleDraft[option.value]}
+                        onChange={handleLocalizedFieldChange("title", option.value)}
+                        onKeyDown={stopEditorShortcutPropagation}
+                        placeholder={`${t("title")} • ${option.label}`}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
+                      />
                     </div>
-                    <input
-                      type="text"
-                      value={titleDraft[option.value]}
-                      onChange={handleLocalizedFieldChange(
-                        "title",
-                        option.value,
-                      )}
-                      placeholder={`${t("title")} • ${option.label}`}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
-            <section className="space-y-3 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/45 p-4">
+            <section className="space-y-2 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/35 p-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-zinc-300">
                   {t("description")}
                 </label>
-                <p className="text-xs leading-6 text-zinc-500">
-                  {t("localizedFieldHint")}
-                </p>
               </div>
-              <div className="grid gap-4">
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <div
-                    key={`description-${option.value}`}
-                    className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
-                  >
-                    <div className="absolute left-3 top-0 inline-flex -translate-y-1/2 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
-                      <span aria-hidden="true">{option.flag}</span>
-                      <span>{option.label}</span>
+              <div className="grid gap-3">
+                {visibleLanguages.map((visibleLanguage) => {
+                  const option = LANGUAGE_OPTIONS.find(
+                    (languageOption) => languageOption.value === visibleLanguage,
+                  );
+                  if (!option) return null;
+
+                  return (
+                    <div
+                      key={`description-${option.value}`}
+                      className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
+                    >
+                      <div className="absolute left-3 top-0 inline-flex -translate-y-1/2 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
+                        <span aria-hidden="true">{option.flag}</span>
+                        <span>{option.label}</span>
+                      </div>
+                      <textarea
+                        value={descriptionDraft[option.value]}
+                        onChange={handleLocalizedFieldChange(
+                          "description",
+                          option.value,
+                        )}
+                        onKeyDown={stopEditorShortcutPropagation}
+                        rows={3}
+                        placeholder={`${t("description")} • ${option.label}`}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
+                      />
                     </div>
-                    <textarea
-                      value={descriptionDraft[option.value]}
-                      onChange={handleLocalizedFieldChange(
-                        "description",
-                        option.value,
-                      )}
-                      rows={4}
-                      placeholder={`${t("description")} • ${option.label}`}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </div>

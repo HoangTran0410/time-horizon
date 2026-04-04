@@ -77,6 +77,8 @@ export const Controller: React.FC<ControllerProps> = ({
     timeRangeStartInput,
     timeRangeEndInput,
   });
+  const mobileInfoPanelReopenFlag = useStore((s) => s.mobileInfoPanelReopenFlag);
+  const prevMobileInfoPanelReopenFlagRef = React.useRef(mobileInfoPanelReopenFlag);
 
   const togglePanel = (panel: Exclude<ActivePanel, null>) => {
     setActivePanel((current) => (current === panel ? null : panel));
@@ -106,6 +108,20 @@ export const Controller: React.FC<ControllerProps> = ({
 
     previousSelectedEventIdRef.current = nextSelectedEventId;
   }, [selectedEvent]);
+
+  // Re-open panel when user clicks the already-selected event on mobile
+  React.useEffect(() => {
+    if (mobileInfoPanelReopenFlag === prevMobileInfoPanelReopenFlagRef.current) return;
+    prevMobileInfoPanelReopenFlagRef.current = mobileInfoPanelReopenFlag;
+
+    if (
+      activePanel === null &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    ) {
+      setActivePanel("info");
+    }
+  }, [mobileInfoPanelReopenFlag]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div

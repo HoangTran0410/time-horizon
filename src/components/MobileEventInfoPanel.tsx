@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ExternalLink,
-  FileImage,
   Locate,
   Pencil,
   Play,
