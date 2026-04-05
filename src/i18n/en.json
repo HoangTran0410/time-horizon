@@ -115,6 +115,7 @@
   "mediaLinks": "Media & Links",
   "optional": "Optional",
   "imageUrl": "Image URL",
+  "previewVideo": "Preview video",
   "externalLink": "External Link",
   "priority": "Priority (Higher = more visible)",
   "addEvent": "Add Event",

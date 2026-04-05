@@ -7,7 +7,7 @@ import {
   SUPPORTED_LANGUAGES,
   SupportedLanguage,
 } from "../constants/types";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Play, X } from "lucide-react";
 
 // Lazy-load the heavy emoji picker — only loaded when user opens the picker UI
 const EmojiPicker = lazy(() =>
@@ -21,10 +21,12 @@ import {
   normalizeImageUrl,
 } from "../helpers";
 import {
+  getLocalizedText,
   LANGUAGE_OPTIONS,
   normalizeLocalizedText,
 } from "../helpers/localization";
 import { useI18n } from "../i18n";
+import { EventVideoModal } from "./EventVideoModal";
 
 interface EventEditorProps {
   event: Event;
@@ -125,15 +127,6 @@ const COLOR_SWATCHES = [
   { label: "Zinc", value: "#71717a" },
 ];
 
-const normalizeEventForSave = (event: Event): Event => ({
-  ...event,
-  title: normalizeLocalizedText(event.title) ?? "",
-  description: normalizeLocalizedText(event.description) ?? "",
-  image: normalizeImageUrl(event.image) ?? undefined,
-  video: normalizeEmbedVideoUrl(event.video) ?? undefined,
-  link: normalizeExternalLinkUrl(event.link) ?? undefined,
-});
-
 const DEFAULT_EDITOR_LANGUAGE: SupportedLanguage = "en";
 
 const createEditableLocalizedTextDraft = (
@@ -186,6 +179,43 @@ const getInitialVisibleLanguages = (event: Event): SupportedLanguage[] => {
   );
 };
 
+const normalizeLocalizedDraftForSave = (
+  value: LocalizedText | null | undefined,
+  visibleLanguages: SupportedLanguage[],
+): LocalizedText | null => {
+  const draft = createEditableLocalizedTextDraft(value);
+  if (visibleLanguages.length <= 1) {
+    const [visibleLanguage = DEFAULT_EDITOR_LANGUAGE] = visibleLanguages;
+    return normalizeLocalizedText(draft[visibleLanguage]);
+  }
+
+  const localizedEntries = visibleLanguages.reduce<LocalizedTextRecord>(
+    (acc, language) => {
+      const normalizedValue = normalizeLocalizedText(draft[language]);
+      if (typeof normalizedValue === "string") {
+        acc[language] = normalizedValue;
+      }
+      return acc;
+    },
+    {},
+  );
+
+  return normalizeLocalizedText(localizedEntries);
+};
+
+const normalizeEventForSave = (
+  event: Event,
+  visibleLanguages: SupportedLanguage[],
+): Event => ({
+  ...event,
+  title: normalizeLocalizedDraftForSave(event.title, visibleLanguages) ?? "",
+  description:
+    normalizeLocalizedDraftForSave(event.description, visibleLanguages) ?? "",
+  image: normalizeImageUrl(event.image) ?? undefined,
+  video: normalizeEmbedVideoUrl(event.video) ?? undefined,
+  link: normalizeExternalLinkUrl(event.link) ?? undefined,
+});
+
 export const EventEditor: React.FC<EventEditorProps> = ({
   event,
   mode,
@@ -195,7 +225,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   initialCollectionId = null,
   onAddCollection,
 }) => {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
   const [editedEvent, setEditedEvent] = useState<Event>({
@@ -214,6 +244,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isVideoPreviewOpen, setIsVideoPreviewOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [languageToAdd, setLanguageToAdd] = useState<SupportedLanguage | "">("");
 
@@ -237,6 +268,12 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   }, [availableCollections, initialCollectionId, mode]);
 
   const [year, month, day, hour, minute, seconds] = editedEvent.time;
+  const imagePreviewUrl = normalizeImageUrl(editedEvent.image) ?? null;
+  const videoPreviewUrl = normalizeEmbedVideoUrl(editedEvent.video) ?? null;
+  const previewTitle =
+    getLocalizedText(editedEvent.title, language, {
+      emptyFallback: t("newEvent"),
+    }) || t("newEvent");
   const hasMonth = month != null;
   const hasDay = day != null;
   const hasHour = hour != null;
@@ -389,10 +426,16 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       }));
     };
 
+  useEffect(() => {
+    if (!videoPreviewUrl && isVideoPreviewOpen) {
+      setIsVideoPreviewOpen(false);
+    }
+  }, [isVideoPreviewOpen, videoPreviewUrl]);
+
   const handleSave = () => {
     if (!validateDate()) return;
 
-    const normalizedEvent = normalizeEventForSave(editedEvent);
+    const normalizedEvent = normalizeEventForSave(editedEvent, visibleLanguages);
     if (!normalizeLocalizedText(normalizedEvent.title)) {
       setCollectionError(t("titleRequiredAtLeastOneLanguage"));
       return;
@@ -929,15 +972,37 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                   placeholder="https://upload.wikimedia.org/..."
                 />
+                {imagePreviewUrl && (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70">
+                    <img
+                      src={imagePreviewUrl}
+                      alt={previewTitle}
+                      className="max-h-64 w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
                 {/* <p className="mt-1 text-xs text-zinc-500">
                 Paste any direct image URL.
               </p> */}
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">
-                  {t("video")}
-                </label>
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <label className="block text-xs text-zinc-500">
+                    {t("video")}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsVideoPreviewOpen(true)}
+                    disabled={!videoPreviewUrl}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={t("previewVideo")}
+                    title={t("previewVideo")}
+                  >
+                    <Play width={12} height={12} className="translate-x-[1px]" />
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={editedEvent.video ?? ""}
@@ -1022,6 +1087,13 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             {mode === "create" ? t("addEvent") : t("save")}
           </button>
         </div>
+
+        <EventVideoModal
+          isOpen={isVideoPreviewOpen}
+          videoUrl={videoPreviewUrl}
+          title={previewTitle}
+          onClose={() => setIsVideoPreviewOpen(false)}
+        />
       </div>
     </div>
   );
