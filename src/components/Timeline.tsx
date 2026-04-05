@@ -869,19 +869,18 @@ export const Timeline = ({
             }
             description={
               hiddenDownloadedCollectionIds.length > 0
-                ? `You already have ${hiddenDownloadedCollectionIds.length} collection${
-                    hiddenDownloadedCollectionIds.length === 1 ? "" : "s"
-                  } downloaded, but they are currently hidden from the timeline.`
+                ? t("nothingVisibleDescription", { count: hiddenDownloadedCollectionIds.length })
                 : downloadedCollectionIds.length > 0
-                  ? "Open the collections panel to browse what is installed, toggle visibility, or pull in a different collection."
-                  : "Browse the catalog or import a collection file to populate the timeline with events."
+                  ? t("visibleTimelineEmptyDescription")
+                  : t("welcomeTimelineDescription")
             }
             actions={[
               {
                 label:
-                  downloadedCollectionIds.length > 0
-                    ? "Open Collections"
-                    : "Browse Collections",
+                  downloadedCollectionIds.length > 0 ||
+                  hiddenDownloadedCollectionIds.length > 0
+                    ? t("openCollections")
+                    : t("browseCollections"),
                 onClick:
                   downloadedCollectionIds.length > 0 ||
                   hiddenDownloadedCollectionIds.length > 0

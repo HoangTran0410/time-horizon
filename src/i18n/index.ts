@@ -18,7 +18,9 @@ const interpolate = (template: string, params?: MessageParams): string => {
     /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
     (_, key, singular, plural) => {
       const n = Number(params?.[key]) ?? 0;
-      return n === 1 ? singular : plural;
+      const selected = n === 1 ? singular : plural;
+      // Replace # with the actual count value (ICU # shorthand)
+      return selected.replace(/#/g, String(n));
     },
   );
 
