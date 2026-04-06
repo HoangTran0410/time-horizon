@@ -7,7 +7,7 @@ import {
   DateJumpTarget,
   EventCollectionMeta,
 } from "../constants/types";
-import { MobileEventInfoPanel } from "./MobileEventInfoPanel";
+import { EventInfoPanel } from "./EventInfoPanel";
 import { NavigationPanel } from "./NavigationPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
 import { SearchPanel } from "./SearchPanel";
@@ -219,13 +219,13 @@ export const Controller: React.FC<ControllerProps> = ({
                   />
                 ) : null}
                 {activePanel === "info" ? (
-                  <MobileEventInfoPanel
+                  <EventInfoPanel
                     isOpen
-                    onClose={() => setActivePanel(null)}
                     event={selectedEvent}
                     previousEvent={previousEvent}
                     nextEvent={nextEvent}
                     isRulerActive={isRulerActive}
+                    hideOnDesktop
                     onFocus={onFocusSelectedEvent}
                     onEdit={onEditSelectedEvent}
                     onDelete={onDeleteSelectedEvent}
@@ -240,7 +240,7 @@ export const Controller: React.FC<ControllerProps> = ({
                       }
                     }}
                     onToggleRuler={onToggleSelectedEventRuler}
-                    onCloseSelection={onCloseSelectedEvent}
+                    onClose={() => setActivePanel(null)}
                   />
                 ) : null}
               </motion.div>
