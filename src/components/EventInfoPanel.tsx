@@ -1,6 +1,8 @@
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   ChevronDown,
   ExternalLink,
@@ -30,12 +32,16 @@ import { EventVideoModal } from "./EventVideoModal";
 
 interface EventInfoPanelProps {
   event: Event;
+  previousEvent: Event | null;
+  nextEvent: Event | null;
   isRulerActive: boolean;
   isCollapsed: boolean;
   hideOnMobile?: boolean;
   onFocus: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onSelectPreviousEvent: () => void;
+  onSelectNextEvent: () => void;
   onToggleRuler: () => void;
   onToggleCollapsed: () => void;
   onClose: () => void;
@@ -196,12 +202,16 @@ const EventImagePreview: React.FC<EventImagePreviewProps> = ({
 
 export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   event,
+  previousEvent,
+  nextEvent,
   isRulerActive,
   isCollapsed,
   hideOnMobile = false,
   onFocus,
   onEdit,
   onDelete,
+  onSelectPreviousEvent,
+  onSelectNextEvent,
   onToggleRuler,
   onToggleCollapsed,
   onClose,
@@ -216,6 +226,12 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
     language,
     t("noDescriptionYet"),
   );
+  const previousEventLabel = previousEvent
+    ? getLocalizedEventTitle(previousEvent, language)
+    : t("previousEvent");
+  const nextEventLabel = nextEvent
+    ? getLocalizedEventTitle(nextEvent, language)
+    : t("nextEvent");
   const [mediaModal, setMediaModal] = React.useState<"image" | "video" | null>(
     null,
   );
@@ -555,6 +571,40 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                     <p className="mt-2 text-[0.84rem] text-zinc-300">
                       {description}
                     </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={onSelectPreviousEvent}
+                        disabled={!previousEvent}
+                        className="ui-button ui-button-secondary min-w-0 flex-1 rounded-[1rem] px-3 py-2 text-[0.76rem] disabled:cursor-not-allowed disabled:opacity-45"
+                        title={previousEventLabel}
+                      >
+                        <ChevronLeft
+                          width={13}
+                          height={13}
+                          className="shrink-0"
+                        />
+                        <span className="min-w-0 truncate">
+                          {previousEventLabel}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onSelectNextEvent}
+                        disabled={!nextEvent}
+                        className="ui-button ui-button-secondary min-w-0 flex-1 rounded-[1rem] px-3 py-2 text-[0.76rem] disabled:cursor-not-allowed disabled:opacity-45"
+                        title={nextEventLabel}
+                      >
+                        <span className="min-w-0 truncate">
+                          {nextEventLabel}
+                        </span>
+                        <ChevronRight
+                          width={13}
+                          height={13}
+                          className="shrink-0"
+                        />
+                      </button>
+                    </div>
                     {(imageUrl || embeddedVideoUrl || externalLinkUrl) && (
                       <div className="mt-3 flex items-center gap-2">
                         {imageUrl && (

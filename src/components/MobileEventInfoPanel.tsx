@@ -2,6 +2,8 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Locate,
   Pencil,
@@ -28,10 +30,14 @@ interface MobileEventInfoPanelProps {
   isOpen: boolean;
   onClose: () => void;
   event: Event | null;
+  previousEvent: Event | null;
+  nextEvent: Event | null;
   isRulerActive: boolean;
   onFocus: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onSelectPreviousEvent: () => void;
+  onSelectNextEvent: () => void;
   onToggleRuler: () => void;
   onCloseSelection: () => void;
 }
@@ -40,10 +46,14 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
   isOpen,
   onClose,
   event,
+  previousEvent,
+  nextEvent,
   isRulerActive,
   onFocus,
   onEdit,
   onDelete,
+  onSelectPreviousEvent,
+  onSelectNextEvent,
   onToggleRuler,
   onCloseSelection,
 }) => {
@@ -56,6 +66,12 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
   const eventDescription = event
     ? getLocalizedEventDescription(event, language, t("noDescriptionYet"))
     : "";
+  const previousEventLabel = previousEvent
+    ? getLocalizedEventTitle(previousEvent, language)
+    : t("previousEvent");
+  const nextEventLabel = nextEvent
+    ? getLocalizedEventTitle(nextEvent, language)
+    : t("nextEvent");
   const [isImagePreviewOpen, setIsImagePreviewOpen] = React.useState(false);
   const [isVideoPreviewOpen, setIsVideoPreviewOpen] = React.useState(false);
 
@@ -202,40 +218,67 @@ export const MobileEventInfoPanel: React.FC<MobileEventInfoPanelProps> = ({
               <div className="grid grid-cols-2 gap-2 pb-2">
                 <button
                   type="button"
-                  onClick={onFocus}
-                  className="ui-button ui-button-secondary w-full px-3 py-2.5 text-[0.76rem]"
+                  onClick={onSelectPreviousEvent}
+                  disabled={!previousEvent}
+                  className="ui-button ui-button-secondary w-full px-3 py-2 text-[0.74rem] disabled:cursor-not-allowed disabled:opacity-45"
+                  title={previousEventLabel}
                 >
-                  <Locate width={14} height={14} />
-                  <span>{t("focusEvent")}</span>
+                  <ChevronLeft width={14} height={14} />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {previousEventLabel}
+                  </span>
                 </button>
                 <button
                   type="button"
-                  onClick={onEdit}
-                  className="ui-button ui-button-secondary w-full px-3 py-2.5 text-[0.76rem]"
+                  onClick={onSelectNextEvent}
+                  disabled={!nextEvent}
+                  className="ui-button ui-button-secondary w-full px-3 py-2 text-[0.74rem] disabled:cursor-not-allowed disabled:opacity-45"
+                  title={nextEventLabel}
                 >
-                  <Pencil width={14} height={14} />
-                  <span>{t("editEvent")}</span>
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {nextEventLabel}
+                  </span>
+                  <ChevronRight width={14} height={14} />
                 </button>
-                <button
-                  type="button"
-                  onClick={onToggleRuler}
-                  className={`ui-button w-full px-3 py-2.5 text-[0.76rem] ${
-                    isRulerActive
-                      ? "border-amber-400/60 bg-amber-500/15 text-amber-100 hover:bg-amber-500/20"
-                      : "ui-button-secondary"
-                  }`}
-                >
-                  <Ruler width={14} height={14} />
-                  <span>{t("toggleRuler")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="ui-button ui-button-danger w-full px-3 py-2.5 text-[0.76rem]"
-                >
-                  <Trash2 width={14} height={14} />
-                  <span>{t("deleteEvent")}</span>
-                </button>
+
+                <div className="col-span-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onFocus}
+                    aria-label={t("focusEvent")}
+                    className="ui-icon-button h-10 flex-1 rounded-[0.95rem]"
+                  >
+                    <Locate width={14} height={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    aria-label={t("editEvent")}
+                    className="ui-icon-button h-10 flex-1 rounded-[0.95rem]"
+                  >
+                    <Pencil width={14} height={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onToggleRuler}
+                    aria-label={t("toggleRuler")}
+                    className={`ui-icon-button h-10 flex-1 rounded-[0.95rem] ${
+                      isRulerActive
+                        ? "border-amber-400/60 bg-amber-500/15 text-amber-100 hover:bg-amber-500/20"
+                        : "ui-button-secondary"
+                    }`}
+                  >
+                    <Ruler width={14} height={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    aria-label={t("deleteEvent")}
+                    className="ui-icon-button h-10 flex-1 rounded-[0.95rem] border-rose-500/35 bg-rose-500/12 text-rose-100 hover:bg-rose-500/18"
+                  >
+                    <Trash2 width={14} height={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

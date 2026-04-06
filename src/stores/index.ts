@@ -56,6 +56,7 @@ type AbsoluteYearRange = {
 };
 
 export type TimelineAppView = "landing" | "timeline";
+export type NavigationPanelTab = "zoom" | "jump" | "fit";
 
 type TimelineStoreState = {
   theme: ThemeMode;
@@ -78,6 +79,7 @@ type TimelineStoreState = {
   selectedEventId: string | null;
   /** Incremented by the viewport click handler when user re-clicks the selected event */
   mobileInfoPanelReopenFlag: number;
+  navigationPanelTab: NavigationPanelTab;
   savedFocusYear: number | null;
   savedLogZoom: number | null;
   lastOpenedView: TimelineAppView;
@@ -135,6 +137,7 @@ type TimelineStoreState = {
   clearFocusedEvent: () => void;
   /** Increment the flag to signal the mobile info panel should re-open */
   reopenMobileInfoPanel: () => void;
+  setNavigationPanelTab: (tab: NavigationPanelTab) => void;
   setSavedViewport: (focusYear: number, logZoom: number) => void;
   setLastOpenedView: (view: TimelineAppView) => void;
   setHasHydrated: (value: boolean) => void;
@@ -218,6 +221,7 @@ type TimelinePersistedState = Pick<
   | "visibleCollectionIds"
   | "collectionColorPreferences"
   | "selectedEventId"
+  | "navigationPanelTab"
   | "savedFocusYear"
   | "savedLogZoom"
   | "lastOpenedView"
@@ -273,6 +277,11 @@ const sanitizeCollectionEventsById = (collections: unknown) => {
 
 const sanitizeLastOpenedView = (value: unknown): TimelineAppView | undefined =>
   value === "landing" || value === "timeline" ? value : undefined;
+
+const sanitizeNavigationPanelTab = (
+  value: unknown,
+): NavigationPanelTab | undefined =>
+  value === "zoom" || value === "jump" || value === "fit" ? value : undefined;
 
 const buildCollectionLibrary = (
   collectionEventsById: Record<string, Event[]>,
@@ -637,6 +646,9 @@ const sanitizePersistedTimelineState = (
     selectedEventId: sanitizeSelectedEventId(
       (candidate as { selectedEventId?: unknown }).selectedEventId,
       collectionLibrary,
+    ),
+    navigationPanelTab: sanitizeNavigationPanelTab(
+      (candidate as { navigationPanelTab?: unknown }).navigationPanelTab,
     ),
     savedFocusYear: normalizeFiniteNumber(
       (candidate as { savedFocusYear?: unknown }).savedFocusYear,
@@ -1203,6 +1215,7 @@ export const useStore = create<TimelineStoreState>()(
         collectionColorPreferences: {},
         selectedEventId: null,
         mobileInfoPanelReopenFlag: 0,
+        navigationPanelTab: "zoom",
         savedFocusYear: null,
         savedLogZoom: null,
         lastOpenedView: "landing",
@@ -1723,6 +1736,10 @@ export const useStore = create<TimelineStoreState>()(
           set((state) => ({
             mobileInfoPanelReopenFlag: state.mobileInfoPanelReopenFlag + 1,
           })),
+        setNavigationPanelTab: (tab) =>
+          set({
+            navigationPanelTab: tab,
+          }),
         setSavedViewport: (focusYear, logZoom) =>
           set({
             savedFocusYear: focusYear,
@@ -1819,6 +1836,7 @@ export const useStore = create<TimelineStoreState>()(
         visibleCollectionIds: state.visibleCollectionIds,
         collectionColorPreferences: state.collectionColorPreferences,
         selectedEventId: state.selectedEventId,
+        navigationPanelTab: state.navigationPanelTab,
         savedFocusYear: state.savedFocusYear,
         savedLogZoom: state.savedLogZoom,
         lastOpenedView: state.lastOpenedView,

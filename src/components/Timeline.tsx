@@ -23,6 +23,7 @@ import { WarpOverlay } from "./TimelineMarkers";
 import {
   createLocalDateStamp,
   createNewTimelineEvent,
+  getEventTimelineYear,
   stripRuntimeEventIds,
 } from "../helpers";
 import { getLocalizedEventTitle } from "../helpers/localization";
@@ -196,6 +197,40 @@ export const Timeline = ({
       timelineEvents,
     ],
   );
+
+  const orderedTimelineEvents = useMemo(
+    () =>
+      [...renderedTimelineEvents].sort((first, second) => {
+        const yearDiff =
+          getEventTimelineYear(first) - getEventTimelineYear(second);
+        if (yearDiff !== 0) return yearDiff;
+        return first.id.localeCompare(second.id);
+      }),
+    [renderedTimelineEvents],
+  );
+
+  const selectedEventNeighbors = useMemo(() => {
+    if (!selectedEventInfo) {
+      return { previousEvent: null, nextEvent: null };
+    }
+
+    const selectedIndex = orderedTimelineEvents.findIndex(
+      (event) => event.id === selectedEventInfo.id,
+    );
+
+    if (selectedIndex === -1) {
+      return { previousEvent: null, nextEvent: null };
+    }
+
+    return {
+      previousEvent:
+        selectedIndex > 0 ? orderedTimelineEvents[selectedIndex - 1] : null,
+      nextEvent:
+        selectedIndex < orderedTimelineEvents.length - 1
+          ? orderedTimelineEvents[selectedIndex + 1]
+          : null,
+    };
+  }, [orderedTimelineEvents, selectedEventInfo]);
 
   const {
     focusPixel,
@@ -517,13 +552,18 @@ export const Timeline = ({
     );
     const eventTitle = getLocalizedEventTitle(event, language);
     const confirmationMessage = ownerCollection
-      ? `This will remove "${eventTitle}" from "${ownerCollection.name}".`
-      : `This will remove "${eventTitle}".`;
+      ? t("deleteEventDescriptionWithCollection", {
+          event: eventTitle,
+          collection: ownerCollection.name,
+        })
+      : t("deleteEventDescription", {
+          event: eventTitle,
+        });
 
     setConfirmDialog({
-      title: "Delete event?",
+      title: t("deleteEventTitle"),
       description: confirmationMessage,
-      confirmLabel: "Delete Event",
+      confirmLabel: t("deleteEventConfirm"),
       tone: "danger",
       onConfirm: () => {
         deleteEvent(event.id);
@@ -945,6 +985,8 @@ export const Timeline = ({
           zoomRangeLabel={zoomRangeLabel}
           searchableEvents={timelineEvents}
           selectedEvent={selectedEventInfo}
+          previousEvent={selectedEventNeighbors.previousEvent}
+          nextEvent={selectedEventNeighbors.nextEvent}
           visibleCollections={visibleCollections}
           collectionEventsById={collectionEventsById}
           isRulerActive={isRulerActive}
@@ -986,6 +1028,8 @@ export const Timeline = ({
         {selectedEventInfo && (
           <EventInfoPanel
             event={selectedEventInfo}
+            previousEvent={selectedEventNeighbors.previousEvent}
+            nextEvent={selectedEventNeighbors.nextEvent}
             isRulerActive={isRulerActive}
             isCollapsed={isEventInfoCollapsed}
             hideOnMobile
@@ -996,6 +1040,16 @@ export const Timeline = ({
               openEventEditor(selectedEventInfo.id);
             }}
             onDelete={() => handleDeleteTimelineEvent(selectedEventInfo)}
+            onSelectPreviousEvent={() => {
+              if (selectedEventNeighbors.previousEvent) {
+                handleFocusEvent(selectedEventNeighbors.previousEvent);
+              }
+            }}
+            onSelectNextEvent={() => {
+              if (selectedEventNeighbors.nextEvent) {
+                handleFocusEvent(selectedEventNeighbors.nextEvent);
+              }
+            }}
             onToggleRuler={() => {
               setIsRulerActive(!isRulerActive);
             }}

@@ -3,6 +3,7 @@ import { motion, MotionValue } from "motion/react";
 import { ChevronDown } from "lucide-react";
 import { AutoFitRangeTarget, DateJumpTarget } from "../constants/types";
 import { useI18n } from "../i18n";
+import { NavigationPanelTab, useStore } from "../stores";
 
 interface NavigationPanelProps {
   isOpen: boolean;
@@ -18,8 +19,6 @@ interface NavigationPanelProps {
   onZoomDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void;
   onComplete?: () => void;
 }
-
-type NavigationTab = "zoom" | "jump" | "fit";
 
 const getMaxDay = (year: number, month: number): number => {
   const date = new Date(Date.UTC(0, month, 0));
@@ -42,7 +41,8 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   onComplete,
 }) => {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = React.useState<NavigationTab>("zoom");
+  const activeTab = useStore((state) => state.navigationPanelTab);
+  const setActiveTab = useStore((state) => state.setNavigationPanelTab);
   const [yearInput, setYearInput] = React.useState("");
   const [monthInput, setMonthInput] = React.useState("");
   const [dayInput, setDayInput] = React.useState("");
@@ -140,7 +140,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             type="button"
             className="ui-tab"
             data-active={activeTab === "zoom"}
-            onClick={() => setActiveTab("zoom")}
+            onClick={() => setActiveTab("zoom" as NavigationPanelTab)}
           >
             {t("zoom")}
           </button>
@@ -148,7 +148,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             type="button"
             className="ui-tab"
             data-active={activeTab === "jump"}
-            onClick={() => setActiveTab("jump")}
+            onClick={() => setActiveTab("jump" as NavigationPanelTab)}
           >
             {t("jump")}
           </button>
@@ -156,7 +156,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             type="button"
             className="ui-tab"
             data-active={activeTab === "fit"}
-            onClick={() => setActiveTab("fit")}
+            onClick={() => setActiveTab("fit" as NavigationPanelTab)}
           >
             {t("fit")}
           </button>

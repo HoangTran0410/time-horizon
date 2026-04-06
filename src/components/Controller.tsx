@@ -1,7 +1,12 @@
 import React from "react";
 import { AnimatePresence, motion, MotionValue } from "motion/react";
 import { Compass, FileText, Search } from "lucide-react";
-import { Event, AutoFitRangeTarget, DateJumpTarget, EventCollectionMeta } from "../constants/types";
+import {
+  Event,
+  AutoFitRangeTarget,
+  DateJumpTarget,
+  EventCollectionMeta,
+} from "../constants/types";
 import { MobileEventInfoPanel } from "./MobileEventInfoPanel";
 import { NavigationPanel } from "./NavigationPanel";
 import { PanelToggleButton } from "./PanelToggleButton";
@@ -13,6 +18,8 @@ interface ControllerProps {
   zoomRangeLabel: string;
   searchableEvents: Event[];
   selectedEvent: Event | null;
+  previousEvent: Event | null;
+  nextEvent: Event | null;
   isRulerActive: boolean;
   visibleCollections?: EventCollectionMeta[];
   collectionEventsById?: Record<string, Event[]>;
@@ -41,6 +48,8 @@ export const Controller: React.FC<ControllerProps> = ({
   zoomRangeLabel,
   searchableEvents,
   selectedEvent,
+  previousEvent,
+  nextEvent,
   isRulerActive,
   visibleCollections,
   collectionEventsById,
@@ -77,8 +86,12 @@ export const Controller: React.FC<ControllerProps> = ({
     timeRangeStartInput,
     timeRangeEndInput,
   });
-  const mobileInfoPanelReopenFlag = useStore((s) => s.mobileInfoPanelReopenFlag);
-  const prevMobileInfoPanelReopenFlagRef = React.useRef(mobileInfoPanelReopenFlag);
+  const mobileInfoPanelReopenFlag = useStore(
+    (s) => s.mobileInfoPanelReopenFlag,
+  );
+  const prevMobileInfoPanelReopenFlagRef = React.useRef(
+    mobileInfoPanelReopenFlag,
+  );
 
   const togglePanel = (panel: Exclude<ActivePanel, null>) => {
     setActivePanel((current) => (current === panel ? null : panel));
@@ -111,7 +124,11 @@ export const Controller: React.FC<ControllerProps> = ({
 
   // Re-open panel when user clicks the already-selected event on mobile
   React.useEffect(() => {
-    if (mobileInfoPanelReopenFlag === prevMobileInfoPanelReopenFlagRef.current) return;
+    if (
+      mobileInfoPanelReopenFlag === prevMobileInfoPanelReopenFlagRef.current
+    ) {
+      return;
+    }
     prevMobileInfoPanelReopenFlagRef.current = mobileInfoPanelReopenFlag;
 
     if (
@@ -206,10 +223,22 @@ export const Controller: React.FC<ControllerProps> = ({
                     isOpen
                     onClose={() => setActivePanel(null)}
                     event={selectedEvent}
+                    previousEvent={previousEvent}
+                    nextEvent={nextEvent}
                     isRulerActive={isRulerActive}
                     onFocus={onFocusSelectedEvent}
                     onEdit={onEditSelectedEvent}
                     onDelete={onDeleteSelectedEvent}
+                    onSelectPreviousEvent={() => {
+                      if (previousEvent) {
+                        onSearchSelect(previousEvent);
+                      }
+                    }}
+                    onSelectNextEvent={() => {
+                      if (nextEvent) {
+                        onSearchSelect(nextEvent);
+                      }
+                    }}
                     onToggleRuler={onToggleSelectedEventRuler}
                     onCloseSelection={onCloseSelectedEvent}
                   />
