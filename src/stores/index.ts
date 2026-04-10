@@ -110,7 +110,7 @@ type TimelineStoreState = {
     syncableIds: string[],
   ) => void;
   /** Download a catalog collection by ID */
-  downloadCollection: (collectionId: string) => Promise<void>;
+  downloadCollection: (collectionId: string) => Promise<boolean>;
   /** Re-sync / re-download a catalog collection by ID */
   syncCollection: (collectionId: string) => Promise<void>;
   setCollectionVisibility: (collectionId: string, visible: boolean) => void;
@@ -1289,13 +1289,13 @@ export const useStore = create<TimelineStoreState>()(
           const catalogEntry = catalogMeta[collectionId];
           if (!catalogEntry?.dataUrl) {
             // Not a catalog collection — nothing to download
-            return;
+            return false;
           }
 
           const currentState = get();
           if (currentState.collectionLibrary[collectionId]) {
             currentState.addVisibleCollection(collectionId);
-            return;
+            return true;
           }
 
           set(
@@ -1323,8 +1323,10 @@ export const useStore = create<TimelineStoreState>()(
                 }
               }),
             );
+            return true;
           } catch (error) {
             console.error(error);
+            return false;
           } finally {
             set(
               produce((state) => {

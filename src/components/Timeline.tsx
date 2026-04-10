@@ -68,6 +68,7 @@ export const Timeline = ({
   const [confirmDialog, setConfirmDialog] =
     useState<ConfirmDialogOptions | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [pendingImportEvents, setPendingImportEvents] = useState<
     Event[] | null
   >(null);
@@ -164,6 +165,10 @@ export const Timeline = ({
         ? findEventByIdInCollections(collectionEventsById, editingEventId)
         : null,
     [collectionEventsById, editingEventId],
+  );
+  const draftEventForCreate = useMemo(
+    () => (addingEvent ? createNewTimelineEvent() : null),
+    [addingEvent],
   );
 
   const deferredTimelineSearchQuery = useDeferredValue(searchQuery);
@@ -298,10 +303,20 @@ export const Timeline = ({
   });
 
   // Auto-fit when user toggles collection visibility in Sidebar
+  const handleAutoFitRef = useRef<any | null>(null);
+  useEffect(() => {
+    handleAutoFitRef.current = handleAutoFit;
+  }, [handleAutoFit]);
+
   useEffect(() => {
     if (!hasBootstrappedRef.current) return;
     // Defer to next frame so events have finished rendering first
-    requestAnimationFrame(() => handleAutoFit(false));
+    const frame = requestAnimationFrame(() =>
+      handleAutoFitRef.current?.(false),
+    );
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [visibleCollectionIds]);
 
   const downloadedCollectionIds = useMemo(
@@ -508,8 +523,10 @@ export const Timeline = ({
     try {
       await handleImportCollectionFile(file);
     } catch (error) {
-      // silent — error is handled inside handleImportCollectionFile via store toast
       console.error(error);
+      setImportError(
+        error instanceof Error ? error.message : "Import failed unexpectedly.",
+      );
     }
   };
 
@@ -736,13 +753,22 @@ export const Timeline = ({
     }
 
     const applySharedUrl = async () => {
-      await Promise.all(
+      const downloadResults = await Promise.all(
         sharedCollectionIdsFromUrl.map((collectionId) =>
           downloadCollection(collectionId),
         ),
       );
 
       if (isCancelled) return;
+
+      if (downloadResults.some((result) => !result)) {
+        sharedUrlFocusRequestedSignatureRef.current = null;
+        setSharedUrlCollectionsReadySignature(null);
+        lastAppliedSharedUrlSignatureRef.current = sharedUrlSignature;
+        setIsApplyingSharedUrl(false);
+        return;
+      }
+
       setSharedUrlCollectionsReadySignature(sharedUrlSignature);
     };
 
@@ -909,7 +935,9 @@ export const Timeline = ({
             }
             description={
               hiddenDownloadedCollectionIds.length > 0
-                ? t("nothingVisibleDescription", { count: hiddenDownloadedCollectionIds.length })
+                ? t("nothingVisibleDescription", {
+                    count: hiddenDownloadedCollectionIds.length,
+                  })
                 : downloadedCollectionIds.length > 0
                   ? t("visibleTimelineEmptyDescription")
                   : t("welcomeTimelineDescription")
@@ -1069,10 +1097,10 @@ export const Timeline = ({
           />
         )}
 
-        {addingEvent && (
+        {addingEvent && draftEventForCreate && (
           <EventEditor
             mode="create"
-            event={createNewTimelineEvent()}
+            event={draftEventForCreate}
             availableCollections={writableCollections}
             initialCollectionId={addingCollectionId}
             onAddCollection={openCollectionCreator}
@@ -1148,6 +1176,16 @@ export const Timeline = ({
           tone={confirmDialog?.tone}
           onConfirm={handleConfirmDialog}
           onCancel={handleCloseConfirmDialog}
+        />
+
+        <ConfirmDialog
+          isOpen={Boolean(importError)}
+          title="Import failed"
+          description={importError ?? ""}
+          confirmLabel="OK"
+          cancelLabel="Close"
+          onConfirm={() => setImportError(null)}
+          onCancel={() => setImportError(null)}
         />
 
         {pendingImportDialog && (

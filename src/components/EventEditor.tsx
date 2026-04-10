@@ -127,11 +127,9 @@ const COLOR_SWATCHES = [
   { label: "Zinc", value: "#71717a" },
 ];
 
-const DEFAULT_EDITOR_LANGUAGE: SupportedLanguage = "en";
-
 const createEditableLocalizedTextDraft = (
   value: LocalizedText | null | undefined,
-  preferredLanguage: SupportedLanguage = DEFAULT_EDITOR_LANGUAGE,
+  preferredLanguage: SupportedLanguage,
 ): LocalizedTextRecord => {
   const emptyDraft = Object.fromEntries(
     SUPPORTED_LANGUAGES.map((language) => [language, ""]),
@@ -154,9 +152,18 @@ const createEditableLocalizedTextDraft = (
   return emptyDraft;
 };
 
-const getInitialVisibleLanguages = (event: Event): SupportedLanguage[] => {
-  const titleDraft = createEditableLocalizedTextDraft(event.title);
-  const descriptionDraft = createEditableLocalizedTextDraft(event.description);
+const getInitialVisibleLanguages = (
+  event: Event,
+  preferredLanguage: SupportedLanguage,
+): SupportedLanguage[] => {
+  const titleDraft = createEditableLocalizedTextDraft(
+    event.title,
+    preferredLanguage,
+  );
+  const descriptionDraft = createEditableLocalizedTextDraft(
+    event.description,
+    preferredLanguage,
+  );
   const languagesWithContent = SUPPORTED_LANGUAGES.filter(
     (supportedLanguage) =>
       titleDraft[supportedLanguage].trim() ||
@@ -164,13 +171,13 @@ const getInitialVisibleLanguages = (event: Event): SupportedLanguage[] => {
   );
 
   if (languagesWithContent.length === 0) {
-    return [DEFAULT_EDITOR_LANGUAGE];
+    return [preferredLanguage];
   }
 
   const orderedLanguages = [
-    DEFAULT_EDITOR_LANGUAGE,
+    preferredLanguage,
     ...SUPPORTED_LANGUAGES.filter(
-      (supportedLanguage) => supportedLanguage !== DEFAULT_EDITOR_LANGUAGE,
+      (supportedLanguage) => supportedLanguage !== preferredLanguage,
     ),
   ];
 
@@ -182,10 +189,11 @@ const getInitialVisibleLanguages = (event: Event): SupportedLanguage[] => {
 const normalizeLocalizedDraftForSave = (
   value: LocalizedText | null | undefined,
   visibleLanguages: SupportedLanguage[],
+  preferredLanguage: SupportedLanguage,
 ): LocalizedText | null => {
-  const draft = createEditableLocalizedTextDraft(value);
+  const draft = createEditableLocalizedTextDraft(value, preferredLanguage);
   if (visibleLanguages.length <= 1) {
-    const [visibleLanguage = DEFAULT_EDITOR_LANGUAGE] = visibleLanguages;
+    const [visibleLanguage = preferredLanguage] = visibleLanguages;
     return normalizeLocalizedText(draft[visibleLanguage]);
   }
 
@@ -206,11 +214,21 @@ const normalizeLocalizedDraftForSave = (
 const normalizeEventForSave = (
   event: Event,
   visibleLanguages: SupportedLanguage[],
+  preferredLanguage: SupportedLanguage,
 ): Event => ({
   ...event,
-  title: normalizeLocalizedDraftForSave(event.title, visibleLanguages) ?? "",
+  title:
+    normalizeLocalizedDraftForSave(
+      event.title,
+      visibleLanguages,
+      preferredLanguage,
+    ) ?? "",
   description:
-    normalizeLocalizedDraftForSave(event.description, visibleLanguages) ?? "",
+    normalizeLocalizedDraftForSave(
+      event.description,
+      visibleLanguages,
+      preferredLanguage,
+    ) ?? "",
   image: normalizeImageUrl(event.image) ?? undefined,
   video: normalizeEmbedVideoUrl(event.video) ?? undefined,
   link: normalizeExternalLinkUrl(event.link) ?? undefined,
@@ -230,12 +248,12 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const shouldCloseOnPointerUpRef = useRef(false);
   const [editedEvent, setEditedEvent] = useState<Event>({
     ...event,
-    title: createEditableLocalizedTextDraft(event.title),
-    description: createEditableLocalizedTextDraft(event.description),
+    title: createEditableLocalizedTextDraft(event.title, language),
+    description: createEditableLocalizedTextDraft(event.description, language),
     time: [...event.time] as Event["time"],
   });
   const [visibleLanguages, setVisibleLanguages] = useState<SupportedLanguage[]>(
-    () => getInitialVisibleLanguages(event),
+    () => getInitialVisibleLanguages(event, language),
   );
   const [selectedCollectionId, setSelectedCollectionId] = useState(
     initialCollectionId ?? availableCollections[0]?.id ?? "",
@@ -251,11 +269,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   useEffect(() => {
     setEditedEvent({
       ...event,
-      title: createEditableLocalizedTextDraft(event.title),
-      description: createEditableLocalizedTextDraft(event.description),
+      title: createEditableLocalizedTextDraft(event.title, language),
+      description: createEditableLocalizedTextDraft(event.description, language),
       time: [...event.time] as Event["time"],
     });
-    setVisibleLanguages(getInitialVisibleLanguages(event));
+    setVisibleLanguages(getInitialVisibleLanguages(event, language));
   }, [event.id]);
 
   useEffect(() => {
@@ -308,15 +326,16 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       setEditedEvent((prev) => ({
         ...prev,
         [field]: {
-          ...createEditableLocalizedTextDraft(prev[field]),
+          ...createEditableLocalizedTextDraft(prev[field], language),
           [localizedLanguage]: value,
         },
       }));
     };
 
-  const titleDraft = createEditableLocalizedTextDraft(editedEvent.title);
+  const titleDraft = createEditableLocalizedTextDraft(editedEvent.title, language);
   const descriptionDraft = createEditableLocalizedTextDraft(
     editedEvent.description,
+    language,
   );
   const handleAddLanguageVariant = (nextLanguage: SupportedLanguage | "") => {
     setLanguageToAdd(nextLanguage);
@@ -435,7 +454,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const handleSave = () => {
     if (!validateDate()) return;
 
-    const normalizedEvent = normalizeEventForSave(editedEvent, visibleLanguages);
+    const normalizedEvent = normalizeEventForSave(
+      editedEvent,
+      visibleLanguages,
+      language,
+    );
     if (!normalizeLocalizedText(normalizedEvent.title)) {
       setCollectionError(t("titleRequiredAtLeastOneLanguage"));
       return;

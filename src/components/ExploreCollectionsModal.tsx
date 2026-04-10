@@ -19,7 +19,7 @@ interface ExploreCollectionsModalProps {
   downloadingCollectionIds: string[];
   collectionEventsById: Record<string, Event[]>;
   onClose: () => void;
-  onDownloadCollection: (collectionId: string) => Promise<void> | void;
+  onDownloadCollection: (collectionId: string) => Promise<boolean> | boolean;
   onDeleteCollection: (collection: EventCollectionMeta) => void;
   onSetCollectionVisibility: (
     collectionId: string,
