@@ -329,6 +329,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     y: 0,
     isVisible: false,
   });
+  const hoverFrameRef = useRef<number | null>(null);
+  const pendingPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     onRenderFrameRef.current = onRenderFrame;
@@ -336,7 +338,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
   useEffect(() => {
     wrappedEventTitleCacheRef.current.clear();
-  }, [timelineEvents]);
+  }, [language, timelineEvents]);
 
   const requestRender = useCallback(() => {
     if (renderFrameRef.current !== null) return;
@@ -426,6 +428,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   useEffect(() => {
     requestRender();
   }, [
+    language,
     ticks,
     timelineEvents,
     collapsedGroups,
@@ -1055,7 +1058,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             currentEventAccentColors[currentRulerEvent.id] ??
             canvasTheme.bigBangText;
           const deltaYears = targetYear - originYear;
-          const rulerLabel = formatElapsedTimelineTime(deltaYears);
+          const rulerLabel = formatElapsedTimelineTime(deltaYears, language);
           const lineLength = Math.hypot(targetX - originX, targetY - originY);
 
           if (lineLength >= 8) {
@@ -1187,7 +1190,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         renderFrameRef.current = null;
       }
     };
-  }, [canvasTheme, containerRef, focusPixel, focusYear, zoom]);
+  }, [canvasTheme, containerRef, focusPixel, focusYear, language, zoom]);
 
   useEffect(() => {
     const unsubscribeFocusPixel = focusPixel.on("change", requestRender);
@@ -1232,6 +1235,15 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     timelineEvents.length,
   ]);
 
+  useEffect(
+    () => () => {
+      if (hoverFrameRef.current !== null) {
+        cancelAnimationFrame(hoverFrameRef.current);
+      }
+    },
+    [],
+  );
+
   const handleCanvasPointerMove = (e: React.PointerEvent) => {
     const pointer = getPointerPosition(e.clientX, e.clientY);
     if (pointer) {
@@ -1242,18 +1254,33 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       };
     }
 
-    const target = findHitTarget(e.clientX, e.clientY);
-    hoveredRef.current =
-      target?.type === "event"
-        ? { type: "event", id: target.event.id }
-        : target?.type === "collapsed"
-          ? { type: "collapsed", id: target.group.id }
-          : target?.type === "bigbang"
-            ? { type: "bigbang", id: "bigbang" }
-            : { type: null, id: null };
-    updateCursor(target ? "pointer" : "grab");
-    requestRender();
     onPointerMove(e);
+
+    pendingPointerRef.current = { x: e.clientX, y: e.clientY };
+    if (hoverFrameRef.current !== null) {
+      return;
+    }
+
+    // Batch hover hit-testing to one pass per frame during pointer scrubs.
+    hoverFrameRef.current = requestAnimationFrame(() => {
+      hoverFrameRef.current = null;
+      const pendingPointer = pendingPointerRef.current;
+      if (!pendingPointer) {
+        return;
+      }
+
+      const target = findHitTarget(pendingPointer.x, pendingPointer.y);
+      hoveredRef.current =
+        target?.type === "event"
+          ? { type: "event", id: target.event.id }
+          : target?.type === "collapsed"
+            ? { type: "collapsed", id: target.group.id }
+            : target?.type === "bigbang"
+              ? { type: "bigbang", id: "bigbang" }
+              : { type: null, id: null };
+      updateCursor(target ? "pointer" : "grab");
+      requestRender();
+    });
   };
 
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
@@ -1312,6 +1339,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={handleCanvasPointerUp}
       onPointerCancel={(e) => {
+        if (hoverFrameRef.current !== null) {
+          cancelAnimationFrame(hoverFrameRef.current);
+          hoverFrameRef.current = null;
+        }
+        pendingPointerRef.current = null;
         hoveredRef.current = { type: null, id: null };
         rulerPointerRef.current = {
           ...rulerPointerRef.current,
@@ -1322,6 +1354,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         onPointerUp(e);
       }}
       onPointerLeave={() => {
+        if (hoverFrameRef.current !== null) {
+          cancelAnimationFrame(hoverFrameRef.current);
+          hoverFrameRef.current = null;
+        }
+        pendingPointerRef.current = null;
         hoveredRef.current = { type: null, id: null };
         rulerPointerRef.current = {
           ...rulerPointerRef.current,

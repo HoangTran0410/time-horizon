@@ -203,6 +203,55 @@ const formatDurationUnit = (
   return `${formatCount(roundedValue, maximumFractionDigits)} ${label}`;
 };
 
+const formatWholeDurationUnit = (
+  value: number,
+  singular: string,
+  plural: string,
+): string => {
+  const label = Math.abs(value) === 1 ? singular : plural;
+  return `${formatCount(value)} ${label}`;
+};
+
+const YEAR_IN_DAYS = 365.25;
+const MONTH_IN_DAYS = YEAR_IN_DAYS / 12;
+const ELAPSED_TIME_LABELS: Record<
+  SupportedLanguage,
+  {
+    billionYear: [string, string];
+    millionYear: [string, string];
+    year: [string, string];
+    month: [string, string];
+    day: [string, string];
+    hour: [string, string];
+    minute: [string, string];
+    second: [string, string];
+    underOneSecond: string;
+  }
+> = {
+  en: {
+    billionYear: ["billion year", "billion years"],
+    millionYear: ["million year", "million years"],
+    year: ["year", "years"],
+    month: ["month", "months"],
+    day: ["day", "days"],
+    hour: ["hour", "hours"],
+    minute: ["minute", "minutes"],
+    second: ["second", "seconds"],
+    underOneSecond: "under 1 second",
+  },
+  vi: {
+    billionYear: ["tỷ năm", "tỷ năm"],
+    millionYear: ["triệu năm", "triệu năm"],
+    year: ["năm", "năm"],
+    month: ["tháng", "tháng"],
+    day: ["ngày", "ngày"],
+    hour: ["giờ", "giờ"],
+    minute: ["phút", "phút"],
+    second: ["giây", "giây"],
+    underOneSecond: "dưới 1 giây",
+  },
+};
+
 export const withAlpha = (color: string, alpha: number): string => {
   const normalized = color.trim();
   const safeAlpha = Math.max(0, Math.min(1, alpha));
@@ -419,14 +468,18 @@ export const getEventDisplayLabel = (
   locale: SupportedLanguage,
 ): string => formatEventTime(event, locale);
 
-export const formatElapsedTimelineTime = (years: number): string => {
+export const formatElapsedTimelineTime = (
+  years: number,
+  locale: SupportedLanguage = "en",
+): string => {
   const absoluteYears = Math.abs(years);
+  const labels = ELAPSED_TIME_LABELS[locale];
 
   if (absoluteYears >= 1e9) {
     return formatDurationUnit(
       absoluteYears / 1e9,
-      "billion year",
-      "billion years",
+      labels.billionYear[0],
+      labels.billionYear[1],
       absoluteYears >= 1e10 ? 0 : 1,
     );
   }
@@ -434,42 +487,88 @@ export const formatElapsedTimelineTime = (years: number): string => {
   if (absoluteYears >= 1e6) {
     return formatDurationUnit(
       absoluteYears / 1e6,
-      "million year",
-      "million years",
+      labels.millionYear[0],
+      labels.millionYear[1],
       absoluteYears >= 1e7 ? 0 : 1,
     );
   }
 
-  if (absoluteYears >= 1) {
-    return formatDurationUnit(absoluteYears, "year", "years");
+  const days = absoluteYears * 365.25;
+  const roundedDays = Math.round(days);
+
+  if (roundedDays >= 1) {
+    const totalMonths = absoluteYears * 12;
+    let normalizedYears = Math.floor(totalMonths / 12);
+    let normalizedMonths = Math.floor(totalMonths - normalizedYears * 12);
+    let normalizedDays = Math.round(
+      (totalMonths - normalizedYears * 12 - normalizedMonths) * MONTH_IN_DAYS,
+    );
+
+    if (normalizedDays >= Math.round(MONTH_IN_DAYS)) {
+      normalizedMonths += 1;
+      normalizedDays = 0;
+    }
+
+    if (normalizedMonths >= 12) {
+      normalizedYears += Math.floor(normalizedMonths / 12);
+      normalizedMonths %= 12;
+    }
+
+    const parts: string[] = [];
+    if (normalizedYears > 0) {
+      parts.push(
+        formatWholeDurationUnit(
+          normalizedYears,
+          labels.year[0],
+          labels.year[1],
+        ),
+      );
+    }
+    if (normalizedMonths > 0) {
+      parts.push(
+        formatWholeDurationUnit(
+          normalizedMonths,
+          labels.month[0],
+          labels.month[1],
+        ),
+      );
+    }
+    if (normalizedDays > 0) {
+      parts.push(
+        formatWholeDurationUnit(normalizedDays, labels.day[0], labels.day[1]),
+      );
+    }
+
+    if (parts.length > 0) {
+      return parts.slice(0, 3).join(" ");
+    }
   }
 
   const months = absoluteYears * 12;
   if (months >= 1) {
-    return formatDurationUnit(months, "month", "months");
+    return formatDurationUnit(months, labels.month[0], labels.month[1]);
   }
 
-  const days = absoluteYears * 365.25;
   if (days >= 1) {
-    return formatDurationUnit(days, "day", "days");
+    return formatDurationUnit(days, labels.day[0], labels.day[1]);
   }
 
   const hours = days * 24;
   if (hours >= 1) {
-    return formatDurationUnit(hours, "hour", "hours");
+    return formatDurationUnit(hours, labels.hour[0], labels.hour[1]);
   }
 
   const minutes = hours * 60;
   if (minutes >= 1) {
-    return formatDurationUnit(minutes, "minute", "minutes");
+    return formatDurationUnit(minutes, labels.minute[0], labels.minute[1]);
   }
 
   const seconds = Math.max(minutes * 60, 0);
   if (seconds < 1) {
-    return "under 1 second";
+    return labels.underOneSecond;
   }
 
-  return formatDurationUnit(seconds, "second", "seconds");
+  return formatDurationUnit(seconds, labels.second[0], labels.second[1]);
 };
 
 export const getNiceInterval = (ideal: number): number => {

@@ -78,6 +78,7 @@ type UseTimelineViewportParams = {
 };
 
 const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
+const WHEEL_PINCH_GESTURE_GAP_MS = 140;
 
 export const useTimelineViewport = ({
   containerRef,
@@ -162,6 +163,11 @@ export const useTimelineViewport = ({
   const inertiaFrame = useRef<number | null>(null);
   const activePointersRef = useRef(new Map<number, ActivePointer>());
   const pinchGestureRef = useRef<PinchGestureState | null>(null);
+  const wheelPinchGestureRef = useRef<{
+    anchorPixel: number;
+    anchorYear: number;
+    lastEventTime: number;
+  } | null>(null);
   const suppressNextClickRef = useRef(false);
   const dragDistanceRef = useRef(0);
 
@@ -846,17 +852,41 @@ export const useTimelineViewport = ({
     const isTrackpadPinch = event.ctrlKey;
 
     if (isTrackpadPinch) {
-      const anchorYear = (mouseX - panX.get()) / currentZoom;
+      const now = performance.now();
+      const currentWheelPinchGesture = wheelPinchGestureRef.current;
+      const shouldStartNewWheelPinchGesture =
+        !currentWheelPinchGesture ||
+        now - currentWheelPinchGesture.lastEventTime >
+          WHEEL_PINCH_GESTURE_GAP_MS;
+
+      if (shouldStartNewWheelPinchGesture) {
+        const anchorPixel = Math.max(
+          0,
+          Math.min(rect.width, focusPixel.get() || rect.width / 2),
+        );
+        wheelPinchGestureRef.current = {
+          anchorPixel,
+          anchorYear: (anchorPixel - panX.get()) / currentZoom,
+          lastEventTime: now,
+        };
+      } else {
+        currentWheelPinchGesture.lastEventTime = now;
+      }
+
+      const wheelPinchGesture = wheelPinchGestureRef.current;
+      if (!wheelPinchGesture) return;
       const nextLogZoom = clampLogZoom(
         targetLogZoom.current - normalizedDeltaY * 0.015,
       );
 
-      focusPixel.set(mouseX);
-      focusYear.set(anchorYear);
+      focusPixel.set(wheelPinchGesture.anchorPixel);
+      focusYear.set(wheelPinchGesture.anchorYear);
       targetLogZoom.current = nextLogZoom;
       logZoom.set(nextLogZoom);
       return;
     }
+
+    wheelPinchGestureRef.current = null;
 
     if (event.deltaMode === 0 && Math.abs(normalizedDeltaX) > 0) {
       setCameraFromPanX(panX.get() - normalizedDeltaX, currentZoom, mouseX);
@@ -1032,6 +1062,7 @@ export const useTimelineViewport = ({
 
     event.preventDefault();
     stopCameraAnimations();
+    wheelPinchGestureRef.current = null;
     clearInertia();
     clearDragFrame();
     activePointersRef.current.set(event.pointerId, {
@@ -1339,6 +1370,7 @@ export const useTimelineViewport = ({
     clearDragFrame();
     resetDragState();
     pinchGestureRef.current = null;
+    wheelPinchGestureRef.current = null;
     activePointersRef.current.clear();
     stopCameraAnimations();
 
