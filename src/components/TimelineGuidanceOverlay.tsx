@@ -3,6 +3,7 @@ import React from "react";
 type TimelineGuidanceAction = {
   label: string;
   onClick: () => void;
+  icon?: React.ReactNode;
   tone?: "primary" | "secondary";
 };
 
@@ -43,7 +44,14 @@ export const TimelineGuidanceOverlay: React.FC<
                 : "ui-button-primary"
             }`}
           >
-            {action.label}
+            <span className="inline-flex items-center gap-2">
+              {action.icon ? (
+                <span aria-hidden="true" className="inline-flex">
+                  {action.icon}
+                </span>
+              ) : null}
+              <span>{action.label}</span>
+            </span>
           </button>
         ))}
       </div>

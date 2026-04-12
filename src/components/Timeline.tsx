@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FileText } from "lucide-react";
+import { FileText, FolderOpen, Plus } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
 import { Event, EventCollectionMeta, StoredEvent } from "../constants/types";
 import { CollectionEditor } from "./CollectionEditor";
@@ -949,11 +949,20 @@ export const Timeline = ({
                   hiddenDownloadedCollectionIds.length > 0
                     ? t("openCollections")
                     : t("browseCollections"),
+                icon: <FolderOpen size={16} />,
                 onClick:
                   downloadedCollectionIds.length > 0 ||
                   hiddenDownloadedCollectionIds.length > 0
                     ? openSidebar
                     : openSidebarExplore,
+              },
+              {
+                label: t("newEvent"),
+                icon: <Plus size={16} />,
+                onClick: () => {
+                  handleStartAddEvent();
+                },
+                tone: "secondary",
               },
             ]}
           />
