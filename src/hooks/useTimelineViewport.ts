@@ -40,6 +40,7 @@ import {
 import {
   CAMERA_FIT_PADDING,
   CAMERA_SPRING,
+  EVENT_LAYOUT_SPRING,
   FOCUS_SPRING,
   FPS_SAMPLE_WINDOW_MS,
   LAYOUT_MARGIN_RATIO,
@@ -361,11 +362,7 @@ export const useTimelineViewport = ({
           if (immediate) {
             layout.y.set(targetY);
           } else {
-            animate(layout.y, targetY, {
-              type: "spring",
-              stiffness: 600,
-              damping: 32,
-            });
+            animate(layout.y, targetY, EVENT_LAYOUT_SPRING);
           }
         }
 

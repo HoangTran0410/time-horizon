@@ -25,6 +25,11 @@ export const FOCUS_SPRING = {
   stiffness: 400,
   damping: 40,
 };
+export const EVENT_LAYOUT_SPRING = {
+  type: "spring" as const,
+  stiffness: 160,
+  damping: 42,
+};
 
 export const LAYOUT_LEVELS = [1, 2, 3] as const;
 export const LAYOUT_ROW_OFFSET = 80;
