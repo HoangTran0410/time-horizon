@@ -12,7 +12,7 @@ export const getSystemTheme = (): ThemeMode => {
 };
 
 export const getInitialTheme = (): ThemeMode => {
-  return getSystemTheme();
+  return "dark";
 };
 
 export const resolveThemeMode = (theme: unknown): ThemeMode => {

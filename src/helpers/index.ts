@@ -125,6 +125,28 @@ export const normalizeExternalLinkUrl = (link?: string): string | null => {
   return `https://en.wikipedia.org/wiki/${encodeURIComponent(articleName)}`;
 };
 
+export {
+  clampSpatialLatitude,
+  createSpatialAnchorFromViewport,
+  DEFAULT_SPATIAL_MAPPING,
+  DEFAULT_SPATIAL_MAP_THEME,
+  DEFAULT_SPATIAL_MAP_OPACITY,
+  DEFAULT_SPATIAL_METERS_PER_YEAR,
+  formatCoordinate,
+  getOpenFreeMapStyleUrl,
+  getMetersPerYearForMapZoom,
+  getSpatialCameraState,
+  MAP_EQUATOR_METERS_PER_PIXEL_AT_Z0,
+  OPEN_FREE_MAP_MAX_ZOOM,
+  OPEN_FREE_MAP_MIN_ZOOM,
+  sanitizeMetersPerYear,
+  sanitizeSpatialMapTheme,
+  sanitizeSpatialMapOpacity,
+  sanitizeSpatialMapping,
+  SPATIAL_MAX_SAFE_LATITUDE,
+  SPATIAL_WORLD_CIRCUMFERENCE_METERS,
+} from "./spatialMapping";
+
 // Cache: event time is immutable, so the timeline year is deterministic.
 // WeakMap avoids memory leaks — entries disappear when Event is GC'd.
 const _timelineYearCache = new WeakMap<Event, number>();

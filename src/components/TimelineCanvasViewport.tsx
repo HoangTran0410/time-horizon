@@ -24,6 +24,8 @@ interface TimelineCanvasViewportProps {
   theme: ThemeMode;
   language: SupportedLanguage;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  backgroundLayer?: React.ReactNode;
+  isInteractionDisabled?: boolean;
   focusPixel: MotionValue<number>;
   focusYear: MotionValue<number>;
   zoom: MotionValue<number>;
@@ -271,6 +273,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   theme,
   language,
   containerRef,
+  backgroundLayer = null,
+  isInteractionDisabled = false,
   focusPixel,
   focusYear,
   zoom,
@@ -469,6 +473,9 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     if (!container) return;
 
     const handleNativeWheel = (event: globalThis.WheelEvent) => {
+      if (isInteractionDisabled) {
+        return;
+      }
       onWheel(event);
     };
 
@@ -476,7 +483,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     return () => {
       container.removeEventListener("wheel", handleNativeWheel);
     };
-  }, [containerRef, onWheel]);
+  }, [containerRef, isInteractionDisabled, onWheel]);
 
   const getScreenX = (year: number) =>
     focusPixel.get() + (year - focusYear.get()) * zoom.get();
@@ -1245,6 +1252,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   );
 
   const handleCanvasPointerMove = (e: React.PointerEvent) => {
+    if (isInteractionDisabled) return;
     const pointer = getPointerPosition(e.clientX, e.clientY);
     if (pointer) {
       rulerPointerRef.current = {
@@ -1284,11 +1292,13 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   };
 
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
+    if (isInteractionDisabled) return;
     updateCursor("grabbing");
     onPointerDown(e);
   };
 
   const handleCanvasPointerUp = (e: React.PointerEvent) => {
+    if (isInteractionDisabled) return;
     const pointer = getPointerPosition(e.clientX, e.clientY);
     if (pointer) {
       rulerPointerRef.current = {
@@ -1305,6 +1315,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
+    if (isInteractionDisabled) return;
     if (consumeClickSuppression()) {
       e.preventDefault();
       e.stopPropagation();
@@ -1327,14 +1338,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   };
 
   const canvasClassName = useMemo(
-    () => "absolute inset-0 h-full w-full touch-none select-none",
-    [],
+    () =>
+      [
+        "absolute inset-0 h-full w-full touch-none select-none",
+        isInteractionDisabled ? "pointer-events-none" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    [isInteractionDisabled],
   );
 
   return (
     <div
       ref={containerRef}
-      className="timeline-viewport relative h-screen w-full overflow-hidden bg-zinc-950 text-white touch-none select-none"
+      className="timeline-viewport relative h-screen w-full overflow-hidden bg-transparent text-white touch-none select-none"
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={handleCanvasPointerUp}
@@ -1369,6 +1386,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       }}
       onClick={handleCanvasClick}
     >
+      {backgroundLayer}
       <canvas ref={canvasRef} className={canvasClassName} />
     </div>
   );

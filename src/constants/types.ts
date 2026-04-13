@@ -146,3 +146,15 @@ export type ExpandedCollapsedGroup = {
 };
 
 export type WarpOverlayMode = "travel" | "zoom-in" | "zoom-out";
+
+export type SpatialMapTheme = "dark" | "light";
+
+export interface SpatialMappingConfig {
+  enabled: boolean;
+  anchorYear: number | null;
+  anchorLat: number | null;
+  anchorLng: number | null;
+  metersPerYear: number;
+  mapTheme: SpatialMapTheme;
+  mapOpacity: number;
+}

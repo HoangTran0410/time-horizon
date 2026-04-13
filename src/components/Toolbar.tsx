@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  Globe2,
   Maximize2,
   Minimize2,
   MoonStar,
@@ -8,24 +9,50 @@ import {
 } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
 import { LanguagePickerButton } from "./LanguagePickerButton";
+import { SpatialSettingsPanel } from "./SpatialSettingsPanel";
+import type {
+  SpatialMapTheme,
+  SpatialMappingConfig,
+} from "../constants/types";
 import { useI18n } from "../i18n";
 
 interface ToolbarProps {
   logicFps: number;
   renderFps: number;
   theme: ThemeMode;
+  spatialMapping: SpatialMappingConfig;
+  currentFocusYear: number;
+  isSpatialAnchorPickMode: boolean;
   onToggleTheme: () => void;
   onShare: () => void;
+  onToggleSpatialMappingEnabled: () => void;
+  onSetSpatialMetersPerYear: (value: number) => void;
+  onSetSpatialMapTheme: (value: SpatialMapTheme) => void;
+  onSetSpatialMapOpacity: (value: number) => void;
+  onStartSpatialAnchorPickMode: () => void;
+  onStopSpatialAnchorPickMode: () => void;
+  onResetSpatialMapping: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   logicFps,
   renderFps,
   theme,
+  spatialMapping,
+  currentFocusYear,
+  isSpatialAnchorPickMode,
   onToggleTheme,
   onShare,
+  onToggleSpatialMappingEnabled,
+  onSetSpatialMetersPerYear,
+  onSetSpatialMapTheme,
+  onSetSpatialMapOpacity,
+  onStartSpatialAnchorPickMode,
+  onStopSpatialAnchorPickMode,
+  onResetSpatialMapping,
 }) => {
   const { t } = useI18n();
+  const [isSpatialPanelOpen, setIsSpatialPanelOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(() => {
     if (typeof document === "undefined") return false;
     return document.fullscreenElement !== null;
@@ -69,6 +96,33 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <div className="ui-badge font-mono text-[0.72rem]">
         {logicFps}|{renderFps}
       </div>
+      <button
+        type="button"
+        onClick={() => setIsSpatialPanelOpen(true)}
+        className="ui-icon-button h-10 w-10 shrink-0"
+        aria-label={t("spaceTimeMapping")}
+        title={t("spaceTimeMapping")}
+      >
+        <Globe2
+          width={15}
+          height={15}
+          className={spatialMapping.enabled ? "text-emerald-300" : undefined}
+        />
+      </button>
+      <SpatialSettingsPanel
+        isOpen={isSpatialPanelOpen}
+        mapping={spatialMapping}
+        isAnchorPickMode={isSpatialAnchorPickMode}
+        currentFocusYear={currentFocusYear}
+        onToggleEnabled={onToggleSpatialMappingEnabled}
+        onSetMetersPerYear={onSetSpatialMetersPerYear}
+        onSetMapTheme={onSetSpatialMapTheme}
+        onSetMapOpacity={onSetSpatialMapOpacity}
+        onStartPickMode={onStartSpatialAnchorPickMode}
+        onStopPickMode={onStopSpatialAnchorPickMode}
+        onReset={onResetSpatialMapping}
+        onClose={() => setIsSpatialPanelOpen(false)}
+      />
       {supportsFullscreen ? (
         <button
           type="button"

@@ -794,9 +794,24 @@ select {
   background: var(--app-vignette);
 }
 
-.timeline-viewport > * {
-  position: relative;
+.timeline-viewport > canvas {
   z-index: 1;
+}
+
+[data-spatial-map-container="true"] {
+  height: 100%;
+  width: 100%;
+}
+
+[data-spatial-map-container="true"].maplibregl-map,
+[data-spatial-map-container="true"] .maplibregl-canvas-container,
+[data-spatial-map-container="true"] .maplibregl-canvas {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+[data-spatial-map-container="true"] .maplibregl-canvas {
+  display: block;
 }
 
 .ui-display-title {

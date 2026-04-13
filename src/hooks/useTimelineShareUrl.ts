@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { SpatialMappingConfig } from "../constants/types";
+import {
+  sanitizeSpatialMapOpacity,
+  sanitizeSpatialMapTheme,
+  sanitizeSpatialMapping,
+} from "../helpers";
 
 const SHARED_COLLECTIONS_QUERY_PARAM = "c";
 const LEGACY_SHARED_COLLECTIONS_QUERY_PARAM = "collections";
@@ -6,6 +12,13 @@ const SHARED_EVENT_QUERY_PARAM = "e";
 const TIMELINE_VIEW_QUERY_PARAM = "t";
 const TIMELINE_VIEWPORT_YEAR_PARAM = "y";
 const TIMELINE_VIEWPORT_ZOOM_PARAM = "z";
+const SPATIAL_ENABLED_QUERY_PARAM = "sm";
+const SPATIAL_ANCHOR_YEAR_QUERY_PARAM = "say";
+const SPATIAL_ANCHOR_LAT_QUERY_PARAM = "salat";
+const SPATIAL_ANCHOR_LNG_QUERY_PARAM = "salng";
+const SPATIAL_METERS_PER_YEAR_QUERY_PARAM = "smpy";
+const SPATIAL_MAP_THEME_QUERY_PARAM = "smt";
+const SPATIAL_MAP_OPACITY_QUERY_PARAM = "smo";
 const TIMELINE_URL_CHANGE_EVENT = "time-horizon:url-change";
 
 export type ShareOptions = {
@@ -17,6 +30,7 @@ export type ShareOptions = {
   includeViewport?: boolean;
   focusYear?: number;
   logZoom?: number;
+  spatialMapping?: SpatialMappingConfig;
 };
 
 // ─── URL state reader ─────────────────────────────────────────────────
@@ -27,6 +41,7 @@ type UrlState = {
   sharedEventId: string | null;
   sharedFocusYear: number | null;
   sharedLogZoom: number | null;
+  sharedSpatialMapping: SpatialMappingConfig | null;
   shouldOpenTimeline: boolean;
   shouldShowLanding: boolean;
 };
@@ -39,6 +54,7 @@ const readUrlState = (): UrlState => {
       sharedEventId: null,
       sharedFocusYear: null,
       sharedLogZoom: null,
+      sharedSpatialMapping: null,
       shouldOpenTimeline: false,
       shouldShowLanding: false,
     };
@@ -54,11 +70,13 @@ const readUrlState = (): UrlState => {
     sharedEventId: getSharedEventIdFromSearch(search),
     sharedFocusYear: getSharedViewportYearFromSearch(search),
     sharedLogZoom: getSharedLogZoomFromSearch(search),
+    sharedSpatialMapping: getSharedSpatialMappingFromSearch(search),
     shouldOpenTimeline:
       hasTimelineViewInSearch(search) ||
       hasSharedEventIdInSearch(search) ||
       hasSharedCollectionIdsInSearch(search) ||
-      hasSharedViewportInSearch(search),
+      hasSharedViewportInSearch(search) ||
+      hasSharedSpatialMappingInSearch(search),
     shouldShowLanding: search.includes("?l=1") || search.includes("&l=1"),
   };
 };
@@ -112,6 +130,7 @@ export const useTimelineShareUrl = () => {
       url.searchParams.delete("e");
       url.searchParams.delete("l");
       clearSharedViewportInUrl(url);
+      clearSharedSpatialMappingInUrl(url);
     });
   }, []);
 
@@ -128,6 +147,7 @@ export const useTimelineShareUrl = () => {
       includeViewport,
       focusYear,
       logZoom,
+      spatialMapping,
     }: ShareOptions): string => {
       const url = new URL(window.location.href);
       url.hash = "";
@@ -149,6 +169,12 @@ export const useTimelineShareUrl = () => {
         setSharedViewportInUrl(url, focusYear, logZoom);
       } else {
         clearSharedViewportInUrl(url);
+      }
+
+      if (spatialMapping) {
+        setSharedSpatialMappingInUrl(url, spatialMapping);
+      } else {
+        clearSharedSpatialMappingInUrl(url);
       }
 
       return url.toString();
@@ -331,4 +357,114 @@ export const setSharedViewportInUrl = (
 export const clearSharedViewportInUrl = (url: URL): void => {
   url.searchParams.delete(TIMELINE_VIEWPORT_YEAR_PARAM);
   url.searchParams.delete(TIMELINE_VIEWPORT_ZOOM_PARAM);
+};
+
+const getFiniteNumberParam = (
+  params: URLSearchParams,
+  key: string,
+): number | null => {
+  const raw = params.get(key);
+  if (!raw) return null;
+  const parsed = Number(raw.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export const getSharedSpatialMappingFromSearch = (
+  search: string,
+): SpatialMappingConfig | null => {
+  const params = new URLSearchParams(search);
+  const enabled = params.get(SPATIAL_ENABLED_QUERY_PARAM);
+  const anchorYear = getFiniteNumberParam(params, SPATIAL_ANCHOR_YEAR_QUERY_PARAM);
+  const anchorLat = getFiniteNumberParam(params, SPATIAL_ANCHOR_LAT_QUERY_PARAM);
+  const anchorLng = getFiniteNumberParam(params, SPATIAL_ANCHOR_LNG_QUERY_PARAM);
+  const metersPerYear = getFiniteNumberParam(
+    params,
+    SPATIAL_METERS_PER_YEAR_QUERY_PARAM,
+  );
+  const mapTheme = params.get(SPATIAL_MAP_THEME_QUERY_PARAM);
+  const mapOpacity = getFiniteNumberParam(params, SPATIAL_MAP_OPACITY_QUERY_PARAM);
+
+  if (
+    enabled === null &&
+    anchorYear === null &&
+    anchorLat === null &&
+    anchorLng === null &&
+    metersPerYear === null &&
+    mapTheme === null &&
+    mapOpacity === null
+  ) {
+    return null;
+  }
+
+  return sanitizeSpatialMapping({
+    enabled: enabled === "1",
+    anchorYear,
+    anchorLat,
+    anchorLng,
+    metersPerYear: metersPerYear ?? undefined,
+    mapTheme: mapTheme === null ? undefined : sanitizeSpatialMapTheme(mapTheme),
+    mapOpacity:
+      mapOpacity === null ? undefined : sanitizeSpatialMapOpacity(mapOpacity),
+  });
+};
+
+export const hasSharedSpatialMappingInSearch = (search: string): boolean =>
+  getSharedSpatialMappingFromSearch(search) !== null;
+
+export const setSharedSpatialMappingInUrl = (
+  url: URL,
+  mapping: SpatialMappingConfig,
+): void => {
+  const safeMapping = sanitizeSpatialMapping(mapping);
+  url.searchParams.set(
+    SPATIAL_ENABLED_QUERY_PARAM,
+    safeMapping.enabled ? "1" : "0",
+  );
+
+  if (safeMapping.anchorYear !== null) {
+    url.searchParams.set(
+      SPATIAL_ANCHOR_YEAR_QUERY_PARAM,
+      String(Math.round(safeMapping.anchorYear * 1000) / 1000),
+    );
+  } else {
+    url.searchParams.delete(SPATIAL_ANCHOR_YEAR_QUERY_PARAM);
+  }
+
+  if (safeMapping.anchorLat !== null) {
+    url.searchParams.set(
+      SPATIAL_ANCHOR_LAT_QUERY_PARAM,
+      String(Math.round(safeMapping.anchorLat * 100000) / 100000),
+    );
+  } else {
+    url.searchParams.delete(SPATIAL_ANCHOR_LAT_QUERY_PARAM);
+  }
+
+  if (safeMapping.anchorLng !== null) {
+    url.searchParams.set(
+      SPATIAL_ANCHOR_LNG_QUERY_PARAM,
+      String(Math.round(safeMapping.anchorLng * 100000) / 100000),
+    );
+  } else {
+    url.searchParams.delete(SPATIAL_ANCHOR_LNG_QUERY_PARAM);
+  }
+
+  url.searchParams.set(
+    SPATIAL_METERS_PER_YEAR_QUERY_PARAM,
+    String(Math.round(safeMapping.metersPerYear * 1000) / 1000),
+  );
+  url.searchParams.set(SPATIAL_MAP_THEME_QUERY_PARAM, safeMapping.mapTheme);
+  url.searchParams.set(
+    SPATIAL_MAP_OPACITY_QUERY_PARAM,
+    String(Math.round(safeMapping.mapOpacity * 1000) / 1000),
+  );
+};
+
+export const clearSharedSpatialMappingInUrl = (url: URL): void => {
+  url.searchParams.delete(SPATIAL_ENABLED_QUERY_PARAM);
+  url.searchParams.delete(SPATIAL_ANCHOR_YEAR_QUERY_PARAM);
+  url.searchParams.delete(SPATIAL_ANCHOR_LAT_QUERY_PARAM);
+  url.searchParams.delete(SPATIAL_ANCHOR_LNG_QUERY_PARAM);
+  url.searchParams.delete(SPATIAL_METERS_PER_YEAR_QUERY_PARAM);
+  url.searchParams.delete(SPATIAL_MAP_THEME_QUERY_PARAM);
+  url.searchParams.delete(SPATIAL_MAP_OPACITY_QUERY_PARAM);
 };

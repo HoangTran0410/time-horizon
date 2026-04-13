@@ -9,6 +9,7 @@ import type {
   EventCollectionMeta,
   ImportedEvent,
   MediaFilter,
+  SpatialMappingConfig,
   StoredEvent,
   StoredTimelineCollection,
   CollectionCreationInput,
@@ -19,7 +20,9 @@ import {
   assignRuntimeEventIds,
   buildCustomCollectionMeta,
   createLocalDateStamp,
+  DEFAULT_SPATIAL_MAPPING,
   normalizeEventTimeParts,
+  sanitizeSpatialMapping,
   slugifyCollectionId,
   stripRuntimeEventIds,
 } from "../helpers";
@@ -82,6 +85,7 @@ type TimelineStoreState = {
   navigationPanelTab: NavigationPanelTab;
   savedFocusYear: number | null;
   savedLogZoom: number | null;
+  spatialMapping: SpatialMappingConfig;
   lastOpenedView: TimelineAppView;
   hasHydrated: boolean;
   isRulerActive: boolean;
@@ -90,6 +94,7 @@ type TimelineStoreState = {
   addingEvent: boolean;
   addingCollectionId: string | null;
   isCreatingCollection: boolean;
+  isSpatialAnchorPickMode: boolean;
   // Ephemeral sidebar UI state (not persisted)
   isSidebarOpen: boolean;
   isSidebarExploreOpen: boolean;
@@ -139,6 +144,11 @@ type TimelineStoreState = {
   reopenMobileInfoPanel: () => void;
   setNavigationPanelTab: (tab: NavigationPanelTab) => void;
   setSavedViewport: (focusYear: number, logZoom: number) => void;
+  setSpatialMapping: (mapping: Partial<SpatialMappingConfig>) => void;
+  resetSpatialMapping: () => void;
+  toggleSpatialMappingEnabled: () => void;
+  startSpatialAnchorPickMode: () => void;
+  stopSpatialAnchorPickMode: () => void;
   setLastOpenedView: (view: TimelineAppView) => void;
   setHasHydrated: (value: boolean) => void;
   setIsRulerActive: (value: boolean) => void;
@@ -224,6 +234,7 @@ type TimelinePersistedState = Pick<
   | "navigationPanelTab"
   | "savedFocusYear"
   | "savedLogZoom"
+  | "spatialMapping"
   | "lastOpenedView"
 >;
 
@@ -655,6 +666,10 @@ const sanitizePersistedTimelineState = (
     ),
     savedLogZoom: normalizeFiniteNumber(
       (candidate as { savedLogZoom?: unknown }).savedLogZoom,
+    ),
+    spatialMapping: sanitizeSpatialMapping(
+      (candidate as { spatialMapping?: Partial<SpatialMappingConfig> | null })
+        .spatialMapping,
     ),
     lastOpenedView: sanitizeLastOpenedView(
       (candidate as { lastOpenedView?: unknown }).lastOpenedView,
@@ -1218,6 +1233,7 @@ export const useStore = create<TimelineStoreState>()(
         navigationPanelTab: "zoom",
         savedFocusYear: null,
         savedLogZoom: null,
+        spatialMapping: DEFAULT_SPATIAL_MAPPING,
         lastOpenedView: "landing",
         hasHydrated: false,
         isRulerActive: false,
@@ -1226,6 +1242,7 @@ export const useStore = create<TimelineStoreState>()(
         addingEvent: false,
         addingCollectionId: null,
         isCreatingCollection: false,
+        isSpatialAnchorPickMode: false,
         isSidebarOpen: false,
         isSidebarExploreOpen: false,
         setTheme: (theme) => set({ theme }),
@@ -1747,6 +1764,33 @@ export const useStore = create<TimelineStoreState>()(
             savedFocusYear: focusYear,
             savedLogZoom: logZoom,
           }),
+        setSpatialMapping: (mapping) =>
+          set((state) => ({
+            spatialMapping: sanitizeSpatialMapping({
+              ...state.spatialMapping,
+              ...mapping,
+            }),
+          })),
+        resetSpatialMapping: () =>
+          set({
+            spatialMapping: DEFAULT_SPATIAL_MAPPING,
+            isSpatialAnchorPickMode: false,
+          }),
+        toggleSpatialMappingEnabled: () =>
+          set((state) => ({
+            spatialMapping: {
+              ...state.spatialMapping,
+              enabled: !state.spatialMapping.enabled,
+            },
+          })),
+        startSpatialAnchorPickMode: () =>
+          set({
+            isSpatialAnchorPickMode: true,
+          }),
+        stopSpatialAnchorPickMode: () =>
+          set({
+            isSpatialAnchorPickMode: false,
+          }),
         setLastOpenedView: (view) =>
           set({
             lastOpenedView: view,
@@ -1795,7 +1839,7 @@ export const useStore = create<TimelineStoreState>()(
     },
     {
       name: STORE_KEY,
-      version: 4,
+      version: 5,
       storage: timelinePersistStorage,
       migrate: (persistedState) => {
         const raw = persistedState as Partial<
@@ -1841,6 +1885,7 @@ export const useStore = create<TimelineStoreState>()(
         navigationPanelTab: state.navigationPanelTab,
         savedFocusYear: state.savedFocusYear,
         savedLogZoom: state.savedLogZoom,
+        spatialMapping: state.spatialMapping,
         lastOpenedView: state.lastOpenedView,
       }),
     }),
