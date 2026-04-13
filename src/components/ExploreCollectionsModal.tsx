@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ChevronDown,
   Download,
@@ -30,8 +36,18 @@ interface ExploreCollectionsModalProps {
 type CollectionInstallFilter = "all" | "installed" | "available";
 type CollectionDisplayMode = "grid" | "table";
 
-const GRID_PAGE_SIZE = 12;
-const TABLE_PAGE_SIZE = 10;
+const GRID_INITIAL_VISIBLE_COUNT = 24;
+const GRID_BATCH_SIZE = 12;
+const TABLE_INITIAL_VISIBLE_COUNT = 20;
+const TABLE_BATCH_SIZE = 16;
+
+const getInitialVisibleCount = (displayMode: CollectionDisplayMode) =>
+  displayMode === "grid"
+    ? GRID_INITIAL_VISIBLE_COUNT
+    : TABLE_INITIAL_VISIBLE_COUNT;
+
+const getVisibleBatchSize = (displayMode: CollectionDisplayMode) =>
+  displayMode === "grid" ? GRID_BATCH_SIZE : TABLE_BATCH_SIZE;
 
 const getCollectionCategories = (collection: EventCollectionMeta) =>
   (collection.categories ?? [])
@@ -92,12 +108,16 @@ export const ExploreCollectionsModal: React.FC<
   const { t } = useI18n();
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] =
     useState<CollectionInstallFilter>("all");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [displayMode, setDisplayMode] = useState<CollectionDisplayMode>("grid");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCollectionCount, setVisibleCollectionCount] = useState(
+    getInitialVisibleCount("grid"),
+  );
   const [areFiltersVisible, setAreFiltersVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isLowHeightViewport, setIsLowHeightViewport] = useState(false);
@@ -106,6 +126,7 @@ export const ExploreCollectionsModal: React.FC<
   >(null);
 
   const normalizedQuery = query.trim().toLowerCase();
+  const deferredNormalizedQuery = useDeferredValue(normalizedQuery);
   const installedCollectionIds = useMemo(
     () =>
       new Set(
@@ -151,7 +172,9 @@ export const ExploreCollectionsModal: React.FC<
   const filteredCollections = useMemo(
     () =>
       collections.filter((collection) => {
-        if (!matchesCollectionQuery(collection, normalizedQuery)) return false;
+        if (!matchesCollectionQuery(collection, deferredNormalizedQuery)) {
+          return false;
+        }
 
         if (
           !matchesInstallFilter(
@@ -173,19 +196,14 @@ export const ExploreCollectionsModal: React.FC<
       activeCategory,
       activeFilter,
       collections,
+      deferredNormalizedQuery,
       installedCollectionIds,
-      normalizedQuery,
     ],
   );
 
-  const pageSize = displayMode === "grid" ? GRID_PAGE_SIZE : TABLE_PAGE_SIZE;
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredCollections.length / pageSize),
-  );
-  const pagedCollections = filteredCollections.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
+  const visibleCollections = filteredCollections.slice(
+    0,
+    visibleCollectionCount,
   );
 
   const downloadedCollectionCount = installedCollectionIds.size;
@@ -233,13 +251,51 @@ export const ExploreCollectionsModal: React.FC<
   }, [activeCategory, categoryOptions]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [activeCategory, activeFilter, displayMode, normalizedQuery]);
+    const nextVisibleCount = getInitialVisibleCount(displayMode);
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    setVisibleCollectionCount(nextVisibleCount);
+  }, [activeCategory, activeFilter, deferredNormalizedQuery, displayMode]);
 
   useEffect(() => {
-    if (currentPage <= totalPages) return;
-    setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+    setVisibleCollectionCount((current) => {
+      if (filteredCollections.length === 0) {
+        return getInitialVisibleCount(displayMode);
+      }
+
+      return Math.min(
+        Math.max(current, getInitialVisibleCount(displayMode)),
+        filteredCollections.length,
+      );
+    });
+  }, [displayMode, filteredCollections.length]);
+
+  useEffect(() => {
+    const root = scrollContainerRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel || visibleCollectionCount >= filteredCollections.length) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+
+        setVisibleCollectionCount((current) =>
+          Math.min(
+            current + getVisibleBatchSize(displayMode),
+            filteredCollections.length,
+          ),
+        );
+      },
+      {
+        root,
+        rootMargin: "0px 0px 320px 0px",
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [displayMode, filteredCollections.length, visibleCollectionCount]);
 
   const requestClose = () => {
     if (isClosing) return;
@@ -448,17 +504,27 @@ export const ExploreCollectionsModal: React.FC<
 
     return (
       <tr key={`explore-table-${collection.id}`} className="align-top">
-        <td className="px-4 py-3">
-          <div className="flex min-w-[14rem] items-start gap-3">
+        <td className="px-3 py-3 md:px-4">
+          <div className="flex min-w-[18rem] items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] border border-zinc-800 bg-zinc-900 text-xl">
               {collection.emoji}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="truncate font-semibold text-white">
                 {collection.name}
               </div>
-              <div className="mt-1 text-[0.78rem] text-zinc-500">
-                {t("byAuthor", { author: collection.author })}
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.76rem] text-zinc-500">
+                <span>{t("byAuthor", { author: collection.author })}</span>
+                {isDownloaded ? (
+                  <span className="text-zinc-400">
+                    {t("eventsCount", { count: totalLoadedEvents })}
+                  </span>
+                ) : null}
+                {isVisibleOnTimeline ? (
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-emerald-200">
+                    {t("onTimeline")}
+                  </span>
+                ) : null}
               </div>
               <div className="mt-1 line-clamp-2 text-[0.8rem] text-zinc-400">
                 {collection.description}
@@ -466,7 +532,7 @@ export const ExploreCollectionsModal: React.FC<
             </div>
           </div>
         </td>
-        <td className="px-4 py-3">
+        <td className="px-3 py-3 md:px-4">
           <div className="flex min-w-[10rem] flex-wrap gap-1.5">
             {collectionCategories.length > 0 ? (
               collectionCategories.map((category) => (
@@ -482,23 +548,8 @@ export const ExploreCollectionsModal: React.FC<
             )}
           </div>
         </td>
-        <td className="px-4 py-3">
-          <div className="flex min-w-[7rem] flex-col gap-1">
-            <span className="text-[0.8rem] text-zinc-300">
-              {isDownloaded ? t("installed") : t("available")}
-            </span>
-            {isVisibleOnTimeline ? (
-              <span className="w-fit rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-emerald-200">
-                {t("onTimeline")}
-              </span>
-            ) : null}
-          </div>
-        </td>
-        <td className="px-4 py-3 text-[0.8rem] text-zinc-400">
-          {isDownloaded ? t("eventsCount", { count: totalLoadedEvents }) : "-"}
-        </td>
-        <td className="px-4 py-3">
-          <div className="flex min-w-[12rem] items-center justify-end gap-2">
+        <td className="px-3 py-3 md:px-4">
+          <div className="flex min-w-[11rem] items-center justify-end gap-2">
             {!isDownloaded ? (
               <button
                 onClick={() => void onDownloadCollection(collection.id)}
@@ -590,15 +641,15 @@ export const ExploreCollectionsModal: React.FC<
               <div>
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="relative min-w-0 flex-1">
-                  <input
-                    type="text"
-                    placeholder={t("searchCatalogPlaceholder")}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className={`ui-field pl-11 pr-4 ${
-                      isLowHeightViewport ? "py-2.5" : "py-3"
-                    }`}
-                  />
+                    <input
+                      type="text"
+                      placeholder={t("searchCatalogPlaceholder")}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className={`ui-field pl-11 pr-4 ${
+                        isLowHeightViewport ? "py-2.5" : "py-3"
+                      }`}
+                    />
                   </div>
                   <div
                     className={`hidden shrink-0 items-center gap-1 text-[11px] font-medium md:flex ${
@@ -770,13 +821,18 @@ export const ExploreCollectionsModal: React.FC<
 
           <div
             className={
-              isLowHeightViewport
-                ? "min-h-0 flex-1 overflow-y-auto p-4"
-                : "min-h-0 flex-1 overflow-y-auto p-6"
+              displayMode === "grid"
+                ? isLowHeightViewport
+                  ? "min-h-0 flex-1 overflow-y-auto p-4"
+                  : "min-h-0 flex-1 overflow-y-auto p-6"
+                : isLowHeightViewport
+                  ? "min-h-0 flex-1 overflow-y-auto px-0 pb-4"
+                  : "min-h-0 flex-1 overflow-y-auto px-0 pb-6"
             }
+            ref={scrollContainerRef}
           >
             {filteredCollections.length === 0 ? (
-              <div className="rounded-[1.4rem] border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center">
+              <div className="mx-4 rounded-[1.4rem] border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center md:mx-6">
                 <div className="text-lg font-semibold text-white">
                   {emptyStateTitle}
                 </div>
@@ -786,64 +842,36 @@ export const ExploreCollectionsModal: React.FC<
               </div>
             ) : displayMode === "grid" ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {pagedCollections.map(renderGridCard)}
+                {visibleCollections.map(renderGridCard)}
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[1.45rem] border border-zinc-800 bg-zinc-950/45">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-zinc-800 text-left">
-                    <thead className="bg-zinc-950/90 text-[0.7rem] uppercase tracking-[0.14em] text-zinc-500">
-                      <tr>
-                        <th className="px-4 py-3">{t("collection")}</th>
-                        <th className="px-4 py-3">{t("categories")}</th>
-                        <th className="px-4 py-3">{t("status")}</th>
-                        <th className="px-4 py-3">{t("events")}</th>
-                        <th className="px-4 py-3 text-right">
-                          {t("moreActions")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800/80">
-                      {pagedCollections.map(renderTableRow)}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-zinc-800/80 text-left">
+                  <thead className="sticky top-0 z-10 bg-zinc-950/95 text-[0.68rem] uppercase tracking-[0.14em] text-zinc-500 backdrop-blur-xl">
+                    <tr>
+                      <th className="px-3 py-3 md:px-4">{t("collection")}</th>
+                      <th className="px-3 py-3 md:px-4">{t("categories")}</th>
+                      <th className="px-3 py-3 text-right md:px-4">
+                        {t("moreActions")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {visibleCollections.map(renderTableRow)}
+                  </tbody>
+                </table>
               </div>
             )}
 
-            {filteredCollections.length > pageSize ? (
-              <div className="mt-4 flex flex-col gap-3 rounded-[1.2rem] border border-zinc-800 bg-zinc-950/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-[0.82rem] text-zinc-500">
-                  {t("pageSummary", {
-                    start: (currentPage - 1) * pageSize + 1,
-                    end: Math.min(currentPage * pageSize, filteredCollections.length),
-                    total: filteredCollections.length,
-                  })}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                    disabled={currentPage === 1}
-                    className="ui-button ui-button-secondary rounded-[0.95rem] px-3 py-2 text-[0.78rem] disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    {t("previousPage")}
-                  </button>
-                  <div className="text-[0.8rem] font-semibold text-zinc-300">
-                    {t("pageIndicator", { current: currentPage, total: totalPages })}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentPage((page) => Math.min(totalPages, page + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="ui-button ui-button-secondary rounded-[0.95rem] px-3 py-2 text-[0.78rem] disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    {t("nextPage")}
-                  </button>
-                </div>
-              </div>
+            {visibleCollectionCount < filteredCollections.length ? (
+              <div
+                ref={loadMoreSentinelRef}
+                className={
+                  displayMode === "grid"
+                    ? "h-8 w-full"
+                    : "mx-3 h-8 w-full md:mx-4"
+                }
+              />
             ) : null}
           </div>
         </div>
