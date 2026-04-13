@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Crosshair,
   Globe2,
@@ -73,7 +74,11 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
           year: Math.round(mapping.anchorYear * 1000) / 1000,
         });
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       {isOpen ? (
         <motion.div
@@ -290,6 +295,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
           </motion.div>
         </motion.div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };

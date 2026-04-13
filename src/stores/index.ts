@@ -90,6 +90,7 @@ type TimelineStoreState = {
   hasHydrated: boolean;
   isRulerActive: boolean;
   isEventInfoCollapsed: boolean;
+  isToolbarCollapsed: boolean;
   editingEventId: string | null;
   addingEvent: boolean;
   addingCollectionId: string | null;
@@ -153,6 +154,8 @@ type TimelineStoreState = {
   setHasHydrated: (value: boolean) => void;
   setIsRulerActive: (value: boolean) => void;
   toggleEventInfoCollapsed: () => void;
+  setToolbarCollapsed: (value: boolean) => void;
+  toggleToolbarCollapsed: () => void;
   openEventEditor: (eventId: string) => void;
   closeEventEditor: () => void;
   openEventCreator: (collectionId?: string | null) => void;
@@ -236,6 +239,7 @@ type TimelinePersistedState = Pick<
   | "savedLogZoom"
   | "spatialMapping"
   | "lastOpenedView"
+  | "isToolbarCollapsed"
 >;
 
 const STORE_KEY = "time-horizon:timeline-store:v1";
@@ -674,6 +678,10 @@ const sanitizePersistedTimelineState = (
     lastOpenedView: sanitizeLastOpenedView(
       (candidate as { lastOpenedView?: unknown }).lastOpenedView,
     ),
+    isToolbarCollapsed:
+      typeof candidate.isToolbarCollapsed === "boolean"
+        ? candidate.isToolbarCollapsed
+        : undefined,
   };
 };
 
@@ -795,6 +803,11 @@ const timelinePersistStorage = createJSONStorage(() => localStorage);
 const getInitialEventInfoCollapsed = () => {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(max-width: 640px)").matches;
+};
+
+const getInitialToolbarCollapsed = () => {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 767px)").matches;
 };
 
 export const findEventCollectionIdInCollections = (
@@ -1238,6 +1251,7 @@ export const useStore = create<TimelineStoreState>()(
         hasHydrated: false,
         isRulerActive: false,
         isEventInfoCollapsed: getInitialEventInfoCollapsed(),
+        isToolbarCollapsed: getInitialToolbarCollapsed(),
         editingEventId: null,
         addingEvent: false,
         addingCollectionId: null,
@@ -1804,6 +1818,11 @@ export const useStore = create<TimelineStoreState>()(
           set((state) => ({
             isEventInfoCollapsed: !state.isEventInfoCollapsed,
           })),
+        setToolbarCollapsed: (value) => set({ isToolbarCollapsed: value }),
+        toggleToolbarCollapsed: () =>
+          set((state) => ({
+            isToolbarCollapsed: !state.isToolbarCollapsed,
+          })),
         openEventEditor: (eventId) =>
           set({
             editingEventId: eventId,
@@ -1887,6 +1906,7 @@ export const useStore = create<TimelineStoreState>()(
         savedLogZoom: state.savedLogZoom,
         spatialMapping: state.spatialMapping,
         lastOpenedView: state.lastOpenedView,
+        isToolbarCollapsed: state.isToolbarCollapsed,
       }),
     }),
   ),

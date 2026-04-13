@@ -103,7 +103,9 @@ export const Timeline = ({
   const startSpatialAnchorPickMode = useStore(
     (s) => s.startSpatialAnchorPickMode,
   );
-  const stopSpatialAnchorPickMode = useStore((s) => s.stopSpatialAnchorPickMode);
+  const stopSpatialAnchorPickMode = useStore(
+    (s) => s.stopSpatialAnchorPickMode,
+  );
   const setIsRulerActive = useStore((s) => s.setIsRulerActive);
   const toggleEventInfoCollapsed = useStore((s) => s.toggleEventInfoCollapsed);
   const openEventEditor = useStore((s) => s.openEventEditor);
@@ -1125,7 +1127,7 @@ export const Timeline = ({
           onZoomDragEnd={handleZoomDragEnd}
         />
 
-        {selectedEventInfo && (
+        {selectedEventInfo && !isSpatialAnchorPickMode && (
           <EventInfoPanel
             event={selectedEventInfo}
             previousEvent={selectedEventNeighbors.previousEvent}
