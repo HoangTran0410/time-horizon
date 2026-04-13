@@ -95,6 +95,7 @@ export const TimelineSpatialBackground: React.FC<
   const implicitAnchorYearRef = useRef<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isMapVisible, setIsMapVisible] = useState(false);
+  const [isMapHiddenForZoom, setIsMapHiddenForZoom] = useState(false);
   const [isZoomClamped, setIsZoomClamped] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
@@ -225,8 +226,13 @@ export const TimelineSpatialBackground: React.FC<
         anchorYear: effectiveAnchorYear,
       },
     });
-    const shouldShowMap = isAnchorPickMode || mapping.enabled;
-    setIsZoomClamped(!nextCamera.visible && mapping.enabled);
+    const isWithinMapZoomRange = nextCamera.visible;
+    const shouldForceVisible = isAnchorPickMode;
+    const shouldShowMap =
+      shouldForceVisible || (mapping.enabled && isWithinMapZoomRange);
+
+    setIsMapHiddenForZoom(mapping.enabled && !isWithinMapZoomRange);
+    setIsZoomClamped(shouldForceVisible && !isWithinMapZoomRange);
     setIsMapVisible(shouldShowMap);
 
     if (!shouldShowMap) {
@@ -376,6 +382,13 @@ export const TimelineSpatialBackground: React.FC<
         <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
           <div className="rounded-2xl border border-rose-300/20 bg-slate-950/88 px-4 py-3 text-center text-[0.72rem] leading-5 text-rose-100 shadow-lg">
             {mapError}
+          </div>
+        </div>
+      ) : null}
+      {mapping.enabled && isMapHiddenForZoom && !isAnchorPickMode ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+          <div className="rounded-full border border-slate-200/10 bg-slate-950/82 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-200/70">
+            {t("mapHiddenAtCurrentZoom")}
           </div>
         </div>
       ) : null}

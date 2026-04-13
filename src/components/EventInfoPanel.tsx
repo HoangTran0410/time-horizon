@@ -842,7 +842,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
             {showDesktopExpanded ? (
               <motion.div
                 key="expanded"
-                className="fixed bottom-5 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2"
+                className="fixed bottom-5 left-1/2 z-30 w-[min(92vw,560px)] -translate-x-1/2"
                 initial={{ opacity: 0, y: 22, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 16, scale: 0.95 }}
@@ -916,15 +916,6 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                           {description}
                         </p>
 
-                        <EventNavigationButtons
-                          previousEvent={previousEvent}
-                          nextEvent={nextEvent}
-                          previousEventLabel={previousEventLabel}
-                          nextEventLabel={nextEventLabel}
-                          onSelectPreviousEvent={onSelectPreviousEvent}
-                          onSelectNextEvent={onSelectNextEvent}
-                        />
-
                         <EventMediaActions
                           imageUrl={imageUrl}
                           videoUrl={embeddedVideoUrl}
@@ -935,6 +926,15 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                           linkLabel={t("link")}
                           onOpenImage={() => setMediaModal("image")}
                           onOpenVideo={() => setMediaModal("video")}
+                        />
+
+                        <EventNavigationButtons
+                          previousEvent={previousEvent}
+                          nextEvent={nextEvent}
+                          previousEventLabel={previousEventLabel}
+                          nextEventLabel={nextEventLabel}
+                          onSelectPreviousEvent={onSelectPreviousEvent}
+                          onSelectNextEvent={onSelectNextEvent}
                         />
                       </div>
                     </div>

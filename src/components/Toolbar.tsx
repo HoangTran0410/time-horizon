@@ -10,10 +10,7 @@ import {
 import { ThemeMode } from "../constants/theme";
 import { LanguagePickerButton } from "./LanguagePickerButton";
 import { SpatialSettingsPanel } from "./SpatialSettingsPanel";
-import type {
-  SpatialMapTheme,
-  SpatialMappingConfig,
-} from "../constants/types";
+import type { SpatialMapTheme, SpatialMappingConfig } from "../constants/types";
 import { useI18n } from "../i18n";
 
 interface ToolbarProps {
@@ -89,7 +86,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <div
-      className="fixed right-4 top-4 z-40 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-1 sm:max-w-none"
+      className="fixed right-4 top-4 z-60 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-1 sm:max-w-none"
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
