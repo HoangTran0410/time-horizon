@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { SpatialMappingConfig } from "../constants/types";
+import type {
+  SpatialMappingConfig,
+  TimelineOrientation,
+} from "../constants/types";
 import {
   sanitizeSpatialMapOpacity,
   sanitizeSpatialMapTheme,
@@ -12,6 +15,7 @@ const SHARED_EVENT_QUERY_PARAM = "e";
 const TIMELINE_VIEW_QUERY_PARAM = "t";
 const TIMELINE_VIEWPORT_YEAR_PARAM = "y";
 const TIMELINE_VIEWPORT_ZOOM_PARAM = "z";
+const TIMELINE_ORIENTATION_PARAM = "o";
 const SPATIAL_ENABLED_QUERY_PARAM = "sm";
 const SPATIAL_ANCHOR_YEAR_QUERY_PARAM = "say";
 const SPATIAL_ANCHOR_LAT_QUERY_PARAM = "salat";
@@ -30,6 +34,7 @@ export type ShareOptions = {
   includeViewport?: boolean;
   focusYear?: number;
   logZoom?: number;
+  orientation?: TimelineOrientation;
   spatialMapping?: SpatialMappingConfig;
 };
 
@@ -41,6 +46,7 @@ type UrlState = {
   sharedEventId: string | null;
   sharedFocusYear: number | null;
   sharedLogZoom: number | null;
+  sharedOrientation: TimelineOrientation | null;
   sharedSpatialMapping: SpatialMappingConfig | null;
   shouldOpenTimeline: boolean;
   shouldShowLanding: boolean;
@@ -54,6 +60,7 @@ const readUrlState = (): UrlState => {
       sharedEventId: null,
       sharedFocusYear: null,
       sharedLogZoom: null,
+      sharedOrientation: null,
       sharedSpatialMapping: null,
       shouldOpenTimeline: false,
       shouldShowLanding: false,
@@ -70,12 +77,14 @@ const readUrlState = (): UrlState => {
     sharedEventId: getSharedEventIdFromSearch(search),
     sharedFocusYear: getSharedViewportYearFromSearch(search),
     sharedLogZoom: getSharedLogZoomFromSearch(search),
+    sharedOrientation: getSharedOrientationFromSearch(search),
     sharedSpatialMapping: getSharedSpatialMappingFromSearch(search),
     shouldOpenTimeline:
       hasTimelineViewInSearch(search) ||
       hasSharedEventIdInSearch(search) ||
       hasSharedCollectionIdsInSearch(search) ||
       hasSharedViewportInSearch(search) ||
+      getSharedOrientationFromSearch(search) !== null ||
       hasSharedSpatialMappingInSearch(search),
     shouldShowLanding: search.includes("?l=1") || search.includes("&l=1"),
   };
@@ -130,6 +139,7 @@ export const useTimelineShareUrl = () => {
       url.searchParams.delete("e");
       url.searchParams.delete("l");
       clearSharedViewportInUrl(url);
+      clearSharedOrientationInUrl(url);
       clearSharedSpatialMappingInUrl(url);
     });
   }, []);
@@ -147,6 +157,7 @@ export const useTimelineShareUrl = () => {
       includeViewport,
       focusYear,
       logZoom,
+      orientation,
       spatialMapping,
     }: ShareOptions): string => {
       const url = new URL(window.location.href);
@@ -167,8 +178,10 @@ export const useTimelineShareUrl = () => {
 
       if (includeViewport && focusYear != null && logZoom != null) {
         setSharedViewportInUrl(url, focusYear, logZoom);
+        setSharedOrientationInUrl(url, orientation ?? "horizontal");
       } else {
         clearSharedViewportInUrl(url);
+        clearSharedOrientationInUrl(url);
       }
 
       if (spatialMapping) {
@@ -334,6 +347,17 @@ export const hasSharedViewportInSearch = (search: string): boolean =>
   getSharedViewportYearFromSearch(search) !== null ||
   getSharedLogZoomFromSearch(search) !== null;
 
+export const getSharedOrientationFromSearch = (
+  search: string,
+): TimelineOrientation | null => {
+  const params = new URLSearchParams(search);
+  const raw = params.get(TIMELINE_ORIENTATION_PARAM);
+  if (raw === "horizontal" || raw === "vertical") {
+    return raw;
+  }
+  return null;
+};
+
 /** Write focusYear + logZoom to URL params. Uses scientific notation for large values. */
 export const setSharedViewportInUrl = (
   url: URL,
@@ -357,6 +381,17 @@ export const setSharedViewportInUrl = (
 export const clearSharedViewportInUrl = (url: URL): void => {
   url.searchParams.delete(TIMELINE_VIEWPORT_YEAR_PARAM);
   url.searchParams.delete(TIMELINE_VIEWPORT_ZOOM_PARAM);
+};
+
+export const setSharedOrientationInUrl = (
+  url: URL,
+  orientation: TimelineOrientation,
+): void => {
+  url.searchParams.set(TIMELINE_ORIENTATION_PARAM, orientation);
+};
+
+export const clearSharedOrientationInUrl = (url: URL): void => {
+  url.searchParams.delete(TIMELINE_ORIENTATION_PARAM);
 };
 
 const getFiniteNumberParam = (

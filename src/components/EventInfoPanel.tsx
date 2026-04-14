@@ -746,7 +746,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   const nextEventLabel = nextEvent
     ? getLocalizedEventTitle(nextEvent, language)
     : t("nextEvent");
-  const panelMaxHeight = "min(58vh, 30rem)";
+  const panelMaxHeight = "min(48vh, 26rem)";
   const canCollapse = typeof onToggleCollapsed === "function";
   const showDesktopExpanded = !canCollapse || !isCollapsed;
 

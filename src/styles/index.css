@@ -45,7 +45,8 @@ body,
 :root {
   --font-sans: "Be Vietnam Pro", "Segoe UI", "Helvetica Neue", sans-serif;
   --font-serif: "Lora", "Source Serif 4", "Noto Serif", serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-mono:
+    "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --app-bg: #0b0f14;
   --app-bg-image:
     radial-gradient(
@@ -1055,7 +1056,7 @@ select {
 
 .ui-tablist {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.3rem;
   border-radius: 999px;
   border: 1px solid var(--ui-border-zinc-800);
@@ -1077,6 +1078,10 @@ select {
     color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
+}
+
+.ui-tab .icon {
+  margin-right: 5px;
 }
 
 .ui-tab:hover {

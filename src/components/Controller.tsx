@@ -6,6 +6,9 @@ import {
   AutoFitRangeTarget,
   DateJumpTarget,
   EventCollectionMeta,
+  TimelineOrientation,
+  VerticalTimeDirection,
+  VerticalWheelBehavior,
 } from "../constants/types";
 import { EventInfoPanel } from "./EventInfoPanel";
 import { NavigationPanel } from "./NavigationPanel";
@@ -40,6 +43,12 @@ interface ControllerProps {
   onZoomDragStart: (e: React.PointerEvent<HTMLDivElement>) => void;
   onZoomDragMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   onZoomDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void;
+  timelineOrientation: TimelineOrientation;
+  onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
+  verticalWheelBehavior: VerticalWheelBehavior;
+  onVerticalWheelBehaviorChange: (behavior: VerticalWheelBehavior) => void;
+  verticalTimeDirection: VerticalTimeDirection;
+  onVerticalTimeDirectionChange: (direction: VerticalTimeDirection) => void;
 }
 
 type ActivePanel = "navigate" | "search" | "info" | null;
@@ -70,6 +79,12 @@ export const Controller: React.FC<ControllerProps> = ({
   onZoomDragStart,
   onZoomDragMove,
   onZoomDragEnd,
+  timelineOrientation,
+  onTimelineOrientationChange,
+  verticalWheelBehavior,
+  onVerticalWheelBehaviorChange,
+  verticalTimeDirection,
+  onVerticalTimeDirectionChange,
 }) => {
   const { t } = useI18n();
   const [activePanel, setActivePanel] = React.useState<ActivePanel>(null);
@@ -204,6 +219,16 @@ export const Controller: React.FC<ControllerProps> = ({
                     onZoomDragStart={onZoomDragStart}
                     onZoomDragMove={onZoomDragMove}
                     onZoomDragEnd={onZoomDragEnd}
+                    timelineOrientation={timelineOrientation}
+                    onTimelineOrientationChange={onTimelineOrientationChange}
+                    verticalWheelBehavior={verticalWheelBehavior}
+                    onVerticalWheelBehaviorChange={
+                      onVerticalWheelBehaviorChange
+                    }
+                    verticalTimeDirection={verticalTimeDirection}
+                    onVerticalTimeDirectionChange={
+                      onVerticalTimeDirectionChange
+                    }
                     onComplete={() => setActivePanel(null)}
                   />
                 ) : null}

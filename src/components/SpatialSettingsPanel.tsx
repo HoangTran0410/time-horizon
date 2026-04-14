@@ -83,7 +83,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
       {isOpen ? (
         <motion.div
           key="spatial-settings-overlay"
-          className="ui-modal-overlay bg-black/80 fixed inset-0 z-100 flex items-center justify-center p-4"
+          className="ui-modal-overlay bg-black/80 fixed inset-0 z-100 flex items-start justify-center overflow-y-auto p-4 sm:items-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -92,7 +92,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
         >
           <motion.div
             key="spatial-settings-card"
-            className="ui-modal-surface ui-panel w-full max-w-md rounded-[1.9rem] p-6 sm:p-8"
+            className="ui-modal-surface ui-panel my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-[1.9rem] p-6 sm:p-8"
             initial={{ opacity: 0, scale: 0.94, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 4 }}

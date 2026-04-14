@@ -14,6 +14,9 @@ import type {
   StoredTimelineCollection,
   CollectionCreationInput,
   SupportedLanguage,
+  TimelineOrientation,
+  VerticalWheelBehavior,
+  VerticalTimeDirection,
 } from "../constants/types";
 import { MEDIA_FILTERS } from "../constants/types";
 import {
@@ -59,7 +62,7 @@ type AbsoluteYearRange = {
 };
 
 export type TimelineAppView = "landing" | "timeline";
-export type NavigationPanelTab = "zoom" | "jump" | "fit";
+export type NavigationPanelTab = "view" | "zoom" | "jump" | "fit";
 
 type TimelineStoreState = {
   theme: ThemeMode;
@@ -83,6 +86,9 @@ type TimelineStoreState = {
   /** Incremented by the viewport click handler when user re-clicks the selected event */
   mobileInfoPanelReopenFlag: number;
   navigationPanelTab: NavigationPanelTab;
+  timelineOrientation: TimelineOrientation;
+  verticalWheelBehavior: VerticalWheelBehavior;
+  verticalTimeDirection: VerticalTimeDirection;
   savedFocusYear: number | null;
   savedLogZoom: number | null;
   spatialMapping: SpatialMappingConfig;
@@ -90,7 +96,7 @@ type TimelineStoreState = {
   hasHydrated: boolean;
   isRulerActive: boolean;
   isEventInfoCollapsed: boolean;
-  isToolbarCollapsed: boolean;
+  isToolbarExpanded: boolean;
   editingEventId: string | null;
   addingEvent: boolean;
   addingCollectionId: string | null;
@@ -127,7 +133,10 @@ type TimelineStoreState = {
   saveEvent: (updatedEvent: Event) => void;
   addEvent: (newEvent: Event, targetCollectionId: string) => void;
   addEvents: (newEvents: Event[], targetCollectionId: string) => void;
-  replaceCollectionEvents: (targetCollectionId: string, events: Event[]) => void;
+  replaceCollectionEvents: (
+    targetCollectionId: string,
+    events: Event[],
+  ) => void;
   deleteEvent: (eventId: string) => void;
   createCollection: (
     collection: CollectionCreationInput,
@@ -144,6 +153,9 @@ type TimelineStoreState = {
   /** Increment the flag to signal the mobile info panel should re-open */
   reopenMobileInfoPanel: () => void;
   setNavigationPanelTab: (tab: NavigationPanelTab) => void;
+  setTimelineOrientation: (orientation: TimelineOrientation) => void;
+  setVerticalWheelBehavior: (behavior: VerticalWheelBehavior) => void;
+  setVerticalTimeDirection: (direction: VerticalTimeDirection) => void;
   setSavedViewport: (focusYear: number, logZoom: number) => void;
   setSpatialMapping: (mapping: Partial<SpatialMappingConfig>) => void;
   resetSpatialMapping: () => void;
@@ -235,11 +247,14 @@ type TimelinePersistedState = Pick<
   | "collectionColorPreferences"
   | "selectedEventId"
   | "navigationPanelTab"
+  | "timelineOrientation"
+  | "verticalWheelBehavior"
+  | "verticalTimeDirection"
   | "savedFocusYear"
   | "savedLogZoom"
   | "spatialMapping"
   | "lastOpenedView"
-  | "isToolbarCollapsed"
+  | "isToolbarExpanded"
 >;
 
 const STORE_KEY = "time-horizon:timeline-store:v1";
@@ -296,7 +311,24 @@ const sanitizeLastOpenedView = (value: unknown): TimelineAppView | undefined =>
 const sanitizeNavigationPanelTab = (
   value: unknown,
 ): NavigationPanelTab | undefined =>
-  value === "zoom" || value === "jump" || value === "fit" ? value : undefined;
+  value === "view" || value === "zoom" || value === "jump" || value === "fit"
+    ? value
+    : undefined;
+
+const sanitizeTimelineOrientation = (
+  value: unknown,
+): TimelineOrientation | undefined =>
+  value === "horizontal" || value === "vertical" ? value : undefined;
+
+const sanitizeVerticalWheelBehavior = (
+  value: unknown,
+): VerticalWheelBehavior | undefined =>
+  value === "pan" || value === "zoom" ? value : undefined;
+
+const sanitizeVerticalTimeDirection = (
+  value: unknown,
+): VerticalTimeDirection | undefined =>
+  value === "up" || value === "down" ? value : undefined;
 
 const buildCollectionLibrary = (
   collectionEventsById: Record<string, Event[]>,
@@ -480,11 +512,7 @@ export const sanitizeImportedEvents = (
     const time = sanitizeImportedEventTime(candidate.time);
     const title = normalizeLocalizedText(candidate.title);
     const description = normalizeLocalizedText(candidate.description) ?? "";
-    if (
-      !title ||
-      !isNonEmptyString(candidate.emoji) ||
-      !time
-    ) {
+    if (!title || !isNonEmptyString(candidate.emoji) || !time) {
       return [];
     }
 
@@ -665,6 +693,15 @@ const sanitizePersistedTimelineState = (
     navigationPanelTab: sanitizeNavigationPanelTab(
       (candidate as { navigationPanelTab?: unknown }).navigationPanelTab,
     ),
+    timelineOrientation: sanitizeTimelineOrientation(
+      (candidate as { timelineOrientation?: unknown }).timelineOrientation,
+    ),
+    verticalWheelBehavior: sanitizeVerticalWheelBehavior(
+      (candidate as { verticalWheelBehavior?: unknown }).verticalWheelBehavior,
+    ),
+    verticalTimeDirection: sanitizeVerticalTimeDirection(
+      (candidate as { verticalTimeDirection?: unknown }).verticalTimeDirection,
+    ),
     savedFocusYear: normalizeFiniteNumber(
       (candidate as { savedFocusYear?: unknown }).savedFocusYear,
     ),
@@ -678,9 +715,9 @@ const sanitizePersistedTimelineState = (
     lastOpenedView: sanitizeLastOpenedView(
       (candidate as { lastOpenedView?: unknown }).lastOpenedView,
     ),
-    isToolbarCollapsed:
-      typeof candidate.isToolbarCollapsed === "boolean"
-        ? candidate.isToolbarCollapsed
+    isToolbarExpanded:
+      typeof candidate.isToolbarExpanded === "boolean"
+        ? candidate.isToolbarExpanded
         : undefined,
   };
 };
@@ -1231,683 +1268,726 @@ export const useStore = create<TimelineStoreState>()(
   immer(
     persist(
       (set, get) => {
-      return {
-        theme: getInitialTheme(),
-        currentLanguage: DEFAULT_LANGUAGE,
-        ...createInitialTimelineSearchState(),
-        syncableIds: [],
-        catalogMeta: {},
-        collectionLibrary: {},
-        visibleCollectionIds: [],
-        downloadingCollectionIds: [],
-        collectionColorPreferences: {},
-        selectedEventId: null,
-        mobileInfoPanelReopenFlag: 0,
+        return {
+          theme: getInitialTheme(),
+          currentLanguage: DEFAULT_LANGUAGE,
+          ...createInitialTimelineSearchState(),
+          syncableIds: [],
+          catalogMeta: {},
+          collectionLibrary: {},
+          visibleCollectionIds: [],
+          downloadingCollectionIds: [],
+          collectionColorPreferences: {},
+          selectedEventId: null,
+          mobileInfoPanelReopenFlag: 0,
         navigationPanelTab: "zoom",
+        timelineOrientation: "horizontal",
+        verticalWheelBehavior: "pan",
+        verticalTimeDirection: "down",
         savedFocusYear: null,
-        savedLogZoom: null,
-        spatialMapping: DEFAULT_SPATIAL_MAPPING,
-        lastOpenedView: "landing",
-        hasHydrated: false,
-        isRulerActive: false,
-        isEventInfoCollapsed: getInitialEventInfoCollapsed(),
-        isToolbarCollapsed: getInitialToolbarCollapsed(),
-        editingEventId: null,
-        addingEvent: false,
-        addingCollectionId: null,
-        isCreatingCollection: false,
-        isSpatialAnchorPickMode: false,
-        isSidebarOpen: false,
-        isSidebarExploreOpen: false,
-        setTheme: (theme) => set({ theme }),
-        setCurrentLanguage: (currentLanguage) => set({ currentLanguage }),
-        toggleTheme: () =>
-          set((state) => ({
-            theme: state.theme === "dark" ? "light" : "dark",
-          })),
-        setSearchQuery: (value) => set({ searchQuery: value }),
-        toggleMediaFilter: (filter) =>
-          set(
-            produce((state) => {
-              const idx = state.activeMediaFilters.indexOf(filter);
-              if (idx >= 0) {
-                state.activeMediaFilters.splice(idx, 1);
-              } else {
-                state.activeMediaFilters.push(filter);
-              }
-            }),
-          ),
-        setSearchSortMode: (value) => set({ searchSortMode: value }),
-        setTimeRangeStartInput: (value) => set({ timeRangeStartInput: value }),
-        setTimeRangeEndInput: (value) => set({ timeRangeEndInput: value }),
-        setShowOnlyResultsOnTimeline: (value) =>
-          set({ showOnlyResultsOnTimeline: value }),
-        showCollections: (collectionIds) =>
-          set(
-            produce((state) => {
-              collectionIds.forEach((collectionId) => {
-                if (
-                  Object.prototype.hasOwnProperty.call(
-                    state.collectionLibrary,
-                    collectionId,
-                  ) &&
-                  !state.visibleCollectionIds.includes(collectionId)
-                ) {
+          savedLogZoom: null,
+          spatialMapping: DEFAULT_SPATIAL_MAPPING,
+          lastOpenedView: "landing",
+          hasHydrated: false,
+          isRulerActive: false,
+          isEventInfoCollapsed: getInitialEventInfoCollapsed(),
+          isToolbarExpanded: getInitialToolbarCollapsed(),
+          editingEventId: null,
+          addingEvent: false,
+          addingCollectionId: null,
+          isCreatingCollection: false,
+          isSpatialAnchorPickMode: false,
+          isSidebarOpen: false,
+          isSidebarExploreOpen: false,
+          setTheme: (theme) => set({ theme }),
+          setCurrentLanguage: (currentLanguage) => set({ currentLanguage }),
+          toggleTheme: () =>
+            set((state) => ({
+              theme: state.theme === "dark" ? "light" : "dark",
+            })),
+          setSearchQuery: (value) => set({ searchQuery: value }),
+          toggleMediaFilter: (filter) =>
+            set(
+              produce((state) => {
+                const idx = state.activeMediaFilters.indexOf(filter);
+                if (idx >= 0) {
+                  state.activeMediaFilters.splice(idx, 1);
+                } else {
+                  state.activeMediaFilters.push(filter);
+                }
+              }),
+            ),
+          setSearchSortMode: (value) => set({ searchSortMode: value }),
+          setTimeRangeStartInput: (value) =>
+            set({ timeRangeStartInput: value }),
+          setTimeRangeEndInput: (value) => set({ timeRangeEndInput: value }),
+          setShowOnlyResultsOnTimeline: (value) =>
+            set({ showOnlyResultsOnTimeline: value }),
+          showCollections: (collectionIds) =>
+            set(
+              produce((state) => {
+                collectionIds.forEach((collectionId) => {
+                  if (
+                    Object.prototype.hasOwnProperty.call(
+                      state.collectionLibrary,
+                      collectionId,
+                    ) &&
+                    !state.visibleCollectionIds.includes(collectionId)
+                  ) {
+                    state.visibleCollectionIds.push(collectionId);
+                  }
+                });
+                const init = createInitialTimelineSearchState();
+                Object.assign(state, init);
+              }),
+            ),
+          addVisibleCollection: (collectionId) =>
+            set(
+              produce((state) => {
+                if (!state.visibleCollectionIds.includes(collectionId)) {
                   state.visibleCollectionIds.push(collectionId);
                 }
+              }),
+            ),
+          setCatalogMeta: (catalogMeta, syncableIds) =>
+            set(
+              produce((state) => {
+                state.catalogMeta = catalogMeta;
+                state.syncableIds = syncableIds;
+              }),
+            ),
+          downloadCollection: async (collectionId) => {
+            const catalogMeta = get().catalogMeta;
+            const catalogEntry = catalogMeta[collectionId];
+            if (!catalogEntry?.dataUrl) {
+              // Not a catalog collection — nothing to download
+              return false;
+            }
+
+            const currentState = get();
+            if (currentState.collectionLibrary[collectionId]) {
+              currentState.addVisibleCollection(collectionId);
+              return true;
+            }
+
+            set(
+              produce((state) => {
+                if (!state.downloadingCollectionIds.includes(collectionId)) {
+                  state.downloadingCollectionIds.push(collectionId);
+                }
+              }),
+            );
+
+            try {
+              const loadedEvents = await loadCatalogCollectionData(
+                collectionId,
+                catalogEntry.dataUrl,
+              );
+              set(
+                produce((state) => {
+                  state.collectionLibrary[collectionId] = {
+                    ...state.collectionLibrary[collectionId],
+                    events: loadedEvents,
+                    meta: catalogEntry,
+                  };
+                  if (!state.visibleCollectionIds.includes(collectionId)) {
+                    state.visibleCollectionIds.push(collectionId);
+                  }
+                }),
+              );
+              return true;
+            } catch (error) {
+              console.error(error);
+              return false;
+            } finally {
+              set(
+                produce((state) => {
+                  state.downloadingCollectionIds =
+                    state.downloadingCollectionIds.filter(
+                      (id) => id !== collectionId,
+                    );
+                }),
+              );
+            }
+          },
+          syncCollection: async (collectionId) => {
+            const catalogMeta = get().catalogMeta;
+            const catalogEntry = catalogMeta[collectionId];
+            if (!catalogEntry?.dataUrl) return;
+
+            if (get().downloadingCollectionIds.includes(collectionId)) {
+              return;
+            }
+
+            set(
+              produce((state) => {
+                if (!state.downloadingCollectionIds.includes(collectionId)) {
+                  state.downloadingCollectionIds.push(collectionId);
+                }
+              }),
+            );
+
+            try {
+              const loadedEvents = await loadCatalogCollectionData(
+                collectionId,
+                catalogEntry.dataUrl,
+              );
+              set(
+                produce((state) => {
+                  state.collectionLibrary[collectionId] = {
+                    ...state.collectionLibrary[collectionId],
+                    events: loadedEvents,
+                  };
+                }),
+              );
+            } catch (error) {
+              console.error(error);
+            } finally {
+              set(
+                produce((state) => {
+                  state.downloadingCollectionIds =
+                    state.downloadingCollectionIds.filter(
+                      (id) => id !== collectionId,
+                    );
+                }),
+              );
+            }
+          },
+          setCollectionVisibility: (collectionId, visible) =>
+            set(
+              produce((state) => {
+                if (visible) {
+                  if (!state.visibleCollectionIds.includes(collectionId)) {
+                    state.visibleCollectionIds.push(collectionId);
+                  }
+                } else {
+                  state.visibleCollectionIds =
+                    state.visibleCollectionIds.filter(
+                      (id) => id !== collectionId,
+                    );
+                }
+                const init = createInitialTimelineSearchState();
+                Object.assign(state, init);
+              }),
+            ),
+          importCollections: (collections) => {
+            const currentState = get();
+            const existingCollections = [
+              ...getCustomCollectionsFromLibrary(
+                currentState.collectionLibrary,
+              ),
+            ];
+            const existingIds = new Set(
+              existingCollections.map((item) => item.id),
+            );
+            const importedCollectionIds: string[] = [];
+
+            // Pre-compute what will be written so we can assign directly in produce
+            const collectionWrites: Array<{
+              id: string;
+              events: Event[];
+              meta: EventCollectionMeta;
+              colorPref?: string;
+              visible: boolean;
+            }> = [];
+
+            collections.forEach((collection) => {
+              const candidateMeta = collection.meta;
+              if (!candidateMeta) return;
+
+              const name = isNonEmptyString(candidateMeta.name)
+                ? candidateMeta.name.trim()
+                : "";
+              const emoji = isNonEmptyString(candidateMeta.emoji)
+                ? candidateMeta.emoji.trim()
+                : "";
+              const description =
+                typeof candidateMeta.description === "string"
+                  ? candidateMeta.description.trim()
+                  : "";
+
+              if (!name || !emoji) return;
+
+              const preferredId =
+                isNonEmptyString(candidateMeta.id) &&
+                candidateMeta.id.trim().length > 0
+                  ? candidateMeta.id.trim()
+                  : name;
+              const nextId = createUniqueCollectionId(preferredId, existingIds);
+              const importedEvents = sanitizeImportedEvents(collection.events, {
+                collectionId: nextId,
               });
-              const init = createInitialTimelineSearchState();
-              Object.assign(state, init);
-            }),
-          ),
-        addVisibleCollection: (collectionId) =>
-          set(
-            produce((state) => {
-              if (!state.visibleCollectionIds.includes(collectionId)) {
-                state.visibleCollectionIds.push(collectionId);
-              }
-            }),
-          ),
-        setCatalogMeta: (catalogMeta, syncableIds) =>
-          set(
-            produce((state) => {
-              state.catalogMeta = catalogMeta;
-              state.syncableIds = syncableIds;
-            }),
-          ),
-        downloadCollection: async (collectionId) => {
-          const catalogMeta = get().catalogMeta;
-          const catalogEntry = catalogMeta[collectionId];
-          if (!catalogEntry?.dataUrl) {
-            // Not a catalog collection — nothing to download
-            return false;
-          }
+              const nextCollection: EventCollectionMeta = {
+                id: nextId,
+                name,
+                emoji,
+                description,
+                author: isNonEmptyString(candidateMeta.author)
+                  ? candidateMeta.author.trim()
+                  : "Imported",
+                createdAt: isNonEmptyString(candidateMeta.createdAt)
+                  ? candidateMeta.createdAt.trim()
+                  : createLocalDateStamp(),
+                color:
+                  typeof candidateMeta.color === "string"
+                    ? candidateMeta.color
+                    : null,
+                dataUrl: undefined,
+              };
 
-          const currentState = get();
-          if (currentState.collectionLibrary[collectionId]) {
-            currentState.addVisibleCollection(collectionId);
-            return true;
-          }
+              importedCollectionIds.push(nextId);
 
-          set(
-            produce((state) => {
-              if (!state.downloadingCollectionIds.includes(collectionId)) {
-                state.downloadingCollectionIds.push(collectionId);
-              }
-            }),
-          );
+              const colorPref =
+                typeof collection.color === "string" && collection.color.trim()
+                  ? collection.color.trim()
+                  : (nextCollection.color ?? undefined);
 
-          try {
-            const loadedEvents = await loadCatalogCollectionData(
-              collectionId,
-              catalogEntry.dataUrl,
-            );
+              collectionWrites.push({
+                id: nextId,
+                events: importedEvents,
+                meta: nextCollection,
+                colorPref,
+                visible: collection.visible !== false,
+              });
+            });
+
+            if (importedCollectionIds.length === 0) {
+              return { importedCollectionIds };
+            }
+
             set(
               produce((state) => {
-                state.collectionLibrary[collectionId] = {
-                  ...state.collectionLibrary[collectionId],
-                  events: loadedEvents,
-                  meta: catalogEntry,
-                };
-                if (!state.visibleCollectionIds.includes(collectionId)) {
-                  state.visibleCollectionIds.push(collectionId);
-                }
-              }),
-            );
-            return true;
-          } catch (error) {
-            console.error(error);
-            return false;
-          } finally {
-            set(
-              produce((state) => {
-                state.downloadingCollectionIds = state.downloadingCollectionIds.filter(
-                  (id) => id !== collectionId,
+                const init = createInitialTimelineSearchState();
+                Object.assign(state, init);
+                collectionWrites.forEach(
+                  ({ id, events, meta, colorPref, visible }) => {
+                    state.collectionLibrary[id] = {
+                      events,
+                      meta,
+                      isLocal: true,
+                    };
+                    if (colorPref)
+                      state.collectionColorPreferences[id] = colorPref;
+                    if (visible && !state.visibleCollectionIds.includes(id)) {
+                      state.visibleCollectionIds.push(id);
+                    }
+                  },
                 );
               }),
             );
-          }
-        },
-        syncCollection: async (collectionId) => {
-          const catalogMeta = get().catalogMeta;
-          const catalogEntry = catalogMeta[collectionId];
-          if (!catalogEntry?.dataUrl) return;
 
-          if (get().downloadingCollectionIds.includes(collectionId)) {
-            return;
-          }
-
-          set(
-            produce((state) => {
-              if (!state.downloadingCollectionIds.includes(collectionId)) {
-                state.downloadingCollectionIds.push(collectionId);
-              }
-            }),
-          );
-
-          try {
-            const loadedEvents = await loadCatalogCollectionData(
-              collectionId,
-              catalogEntry.dataUrl,
-            );
+            return { importedCollectionIds };
+          },
+          deleteCollection: (collectionId) =>
             set(
               produce((state) => {
-                state.collectionLibrary[collectionId] = {
-                  ...state.collectionLibrary[collectionId],
-                  events: loadedEvents,
-                };
-              }),
-            );
-          } catch (error) {
-            console.error(error);
-          } finally {
-            set(
-              produce((state) => {
-                state.downloadingCollectionIds = state.downloadingCollectionIds.filter(
-                  (id) => id !== collectionId,
-                );
-              }),
-            );
-          }
-        },
-        setCollectionVisibility: (collectionId, visible) =>
-          set(
-            produce((state) => {
-              if (visible) {
-                if (!state.visibleCollectionIds.includes(collectionId)) {
-                  state.visibleCollectionIds.push(collectionId);
-                }
-              } else {
+                const selectedInCollection =
+                  state.selectedEventId !== null &&
+                  findEventCollectionIdInState(state, state.selectedEventId) ===
+                    collectionId;
+                const editingInCollection =
+                  state.editingEventId !== null &&
+                  findEventCollectionIdInState(state, state.editingEventId) ===
+                    collectionId;
+                delete state.collectionLibrary[collectionId];
+                delete state.collectionColorPreferences[collectionId];
                 state.visibleCollectionIds = state.visibleCollectionIds.filter(
                   (id) => id !== collectionId,
                 );
-              }
-              const init = createInitialTimelineSearchState();
-              Object.assign(state, init);
-            }),
-          ),
-        importCollections: (collections) => {
-          const currentState = get();
-          const existingCollections = [
-            ...getCustomCollectionsFromLibrary(currentState.collectionLibrary),
-          ];
-          const existingIds = new Set(
-            existingCollections.map((item) => item.id),
-          );
-          const importedCollectionIds: string[] = [];
-
-          // Pre-compute what will be written so we can assign directly in produce
-          const collectionWrites: Array<{
-            id: string;
-            events: Event[];
-            meta: EventCollectionMeta;
-            colorPref?: string;
-            visible: boolean;
-          }> = [];
-
-          collections.forEach((collection) => {
-            const candidateMeta = collection.meta;
-            if (!candidateMeta) return;
-
-            const name = isNonEmptyString(candidateMeta.name)
-              ? candidateMeta.name.trim()
-              : "";
-            const emoji = isNonEmptyString(candidateMeta.emoji)
-              ? candidateMeta.emoji.trim()
-              : "";
-            const description =
-              typeof candidateMeta.description === "string"
-                ? candidateMeta.description.trim()
-                : "";
-
-            if (!name || !emoji) return;
-
-            const preferredId =
-              isNonEmptyString(candidateMeta.id) &&
-              candidateMeta.id.trim().length > 0
-                ? candidateMeta.id.trim()
-                : name;
-            const nextId = createUniqueCollectionId(preferredId, existingIds);
-            const importedEvents = sanitizeImportedEvents(collection.events, {
-              collectionId: nextId,
-            });
-            const nextCollection: EventCollectionMeta = {
-              id: nextId,
-              name,
-              emoji,
-              description,
-              author: isNonEmptyString(candidateMeta.author)
-                ? candidateMeta.author.trim()
-                : "Imported",
-              createdAt: isNonEmptyString(candidateMeta.createdAt)
-                ? candidateMeta.createdAt.trim()
-                : createLocalDateStamp(),
-              color:
-                typeof candidateMeta.color === "string"
-                  ? candidateMeta.color
-                  : null,
-              dataUrl: undefined,
-            };
-
-            importedCollectionIds.push(nextId);
-
-            const colorPref =
-              typeof collection.color === "string" && collection.color.trim()
-                ? collection.color.trim()
-                : nextCollection.color ?? undefined;
-
-            collectionWrites.push({
-              id: nextId,
-              events: importedEvents,
-              meta: nextCollection,
-              colorPref,
-              visible: collection.visible !== false,
-            });
-          });
-
-          if (importedCollectionIds.length === 0) {
-            return { importedCollectionIds };
-          }
-
-          set(
-            produce((state) => {
-              const init = createInitialTimelineSearchState();
-              Object.assign(state, init);
-              collectionWrites.forEach(({ id, events, meta, colorPref, visible }) => {
-                state.collectionLibrary[id] = { events, meta, isLocal: true };
-                if (colorPref) state.collectionColorPreferences[id] = colorPref;
-                if (visible && !state.visibleCollectionIds.includes(id)) {
-                  state.visibleCollectionIds.push(id);
+                state.downloadingCollectionIds =
+                  state.downloadingCollectionIds.filter(
+                    (id) => id !== collectionId,
+                  );
+                if (selectedInCollection) {
+                  state.selectedEventId = null;
+                  state.isRulerActive = false;
                 }
-              });
-            }),
-          );
+                if (editingInCollection) {
+                  state.editingEventId = null;
+                }
+                if (state.addingCollectionId === collectionId) {
+                  state.addingEvent = false;
+                  state.addingCollectionId = null;
+                }
+              }),
+            ),
+          saveEvent: (updatedEvent) =>
+            set(
+              produce((state) => {
+                const ownerCollectionId = findEventCollectionIdInState(
+                  state,
+                  updatedEvent.id,
+                );
+                if (!ownerCollectionId) return;
+                const ownerCollection =
+                  state.collectionLibrary[ownerCollectionId];
+                if (!ownerCollection) return;
+                const idx = ownerCollection.events.findIndex(
+                  (event) => event.id === updatedEvent.id,
+                );
+                if (idx < 0) return;
 
-          return { importedCollectionIds };
-        },
-        deleteCollection: (collectionId) =>
-          set(
-            produce((state) => {
-              const selectedInCollection =
-                state.selectedEventId !== null &&
-                findEventCollectionIdInState(state, state.selectedEventId) ===
-                  collectionId;
-              const editingInCollection =
-                state.editingEventId !== null &&
-                findEventCollectionIdInState(state, state.editingEventId) ===
-                  collectionId;
-              delete state.collectionLibrary[collectionId];
-              delete state.collectionColorPreferences[collectionId];
-              state.visibleCollectionIds = state.visibleCollectionIds.filter(
-                (id) => id !== collectionId,
-              );
-              state.downloadingCollectionIds = state.downloadingCollectionIds.filter(
-                (id) => id !== collectionId,
-              );
-              if (selectedInCollection) {
-                state.selectedEventId = null;
-                state.isRulerActive = false;
-              }
-              if (editingInCollection) {
-                state.editingEventId = null;
-              }
-              if (state.addingCollectionId === collectionId) {
-                state.addingEvent = false;
-                state.addingCollectionId = null;
-              }
-            }),
-          ),
-        saveEvent: (updatedEvent) =>
-          set(
-            produce((state) => {
-              const ownerCollectionId = findEventCollectionIdInState(
-                state,
-                updatedEvent.id,
-              );
-              if (!ownerCollectionId) return;
-              const ownerCollection = state.collectionLibrary[ownerCollectionId];
-              if (!ownerCollection) return;
-              const idx = ownerCollection.events.findIndex(
-                (event) => event.id === updatedEvent.id,
-              );
-              if (idx < 0) return;
+                const nextEvents = [...ownerCollection.events];
+                nextEvents[idx] = updatedEvent;
+                ownerCollection.events = rematerializeCollectionEvents(
+                  ownerCollectionId,
+                  nextEvents,
+                  ownerCollection.events,
+                );
 
-              const nextEvents = [...ownerCollection.events];
-              nextEvents[idx] = updatedEvent;
-              ownerCollection.events = rematerializeCollectionEvents(
-                ownerCollectionId,
-                nextEvents,
-                ownerCollection.events,
-              );
+                const nextEventId = ownerCollection.events[idx]?.id ?? null;
+                if (state.selectedEventId === updatedEvent.id) {
+                  state.selectedEventId = nextEventId;
+                }
+                if (state.editingEventId === updatedEvent.id) {
+                  state.editingEventId = nextEventId;
+                }
+              }),
+            ),
+          addEvent: (newEvent, targetCollectionId) =>
+            set(
+              produce((state) => {
+                if (!state.collectionLibrary[targetCollectionId]) {
+                  state.collectionLibrary[targetCollectionId] = {
+                    events: [],
+                  };
+                }
+                const ownerCollection =
+                  state.collectionLibrary[targetCollectionId];
+                ownerCollection.events = rematerializeCollectionEvents(
+                  targetCollectionId,
+                  [...ownerCollection.events, newEvent],
+                  ownerCollection.events,
+                );
+                if (!state.visibleCollectionIds.includes(targetCollectionId)) {
+                  state.visibleCollectionIds.push(targetCollectionId);
+                }
+              }),
+            ),
+          addEvents: (newEvents, targetCollectionId) =>
+            set(
+              produce((state) => {
+                if (!state.collectionLibrary[targetCollectionId]) {
+                  state.collectionLibrary[targetCollectionId] = { events: [] };
+                }
+                const ownerCollection =
+                  state.collectionLibrary[targetCollectionId];
+                ownerCollection.events = rematerializeCollectionEvents(
+                  targetCollectionId,
+                  [...ownerCollection.events, ...newEvents],
+                  ownerCollection.events,
+                );
+                if (!state.visibleCollectionIds.includes(targetCollectionId)) {
+                  state.visibleCollectionIds.push(targetCollectionId);
+                }
+              }),
+            ),
+          replaceCollectionEvents: (targetCollectionId, events) =>
+            set(
+              produce((state) => {
+                if (!state.collectionLibrary[targetCollectionId]) {
+                  state.collectionLibrary[targetCollectionId] = { events: [] };
+                }
 
-              const nextEventId = ownerCollection.events[idx]?.id ?? null;
-              if (state.selectedEventId === updatedEvent.id) {
-                state.selectedEventId = nextEventId;
-              }
-              if (state.editingEventId === updatedEvent.id) {
-                state.editingEventId = nextEventId;
-              }
-            }),
-          ),
-        addEvent: (newEvent, targetCollectionId) =>
-          set(
-            produce((state) => {
-              if (!state.collectionLibrary[targetCollectionId]) {
-                state.collectionLibrary[targetCollectionId] = {
+                const ownerCollection =
+                  state.collectionLibrary[targetCollectionId];
+                ownerCollection.events = rematerializeCollectionEvents(
+                  targetCollectionId,
+                  events,
+                  ownerCollection.events,
+                );
+
+                if (!state.visibleCollectionIds.includes(targetCollectionId)) {
+                  state.visibleCollectionIds.push(targetCollectionId);
+                }
+
+                if (
+                  state.selectedEventId &&
+                  !ownerCollection.events.some(
+                    (event) => event.id === state.selectedEventId,
+                  ) &&
+                  findEventCollectionIdInState(state, state.selectedEventId) ===
+                    null
+                ) {
+                  state.selectedEventId = null;
+                  state.isRulerActive = false;
+                }
+
+                if (
+                  state.editingEventId &&
+                  !ownerCollection.events.some(
+                    (event) => event.id === state.editingEventId,
+                  ) &&
+                  findEventCollectionIdInState(state, state.editingEventId) ===
+                    null
+                ) {
+                  state.editingEventId = null;
+                }
+              }),
+            ),
+          deleteEvent: (eventId) =>
+            set(
+              produce((state) => {
+                const ownerCollectionId = findEventCollectionIdInState(
+                  state,
+                  eventId,
+                );
+                if (!ownerCollectionId) return;
+                const ownerCollection =
+                  state.collectionLibrary[ownerCollectionId];
+                if (!ownerCollection) return;
+                const nextEvents = ownerCollection.events.filter(
+                  (event) => event.id !== eventId,
+                );
+                ownerCollection.events = rematerializeCollectionEvents(
+                  ownerCollectionId,
+                  nextEvents,
+                  ownerCollection.events,
+                );
+                if (state.selectedEventId === eventId) {
+                  state.selectedEventId = null;
+                  state.isRulerActive = false;
+                }
+                if (state.editingEventId === eventId) {
+                  state.editingEventId = null;
+                }
+              }),
+            ),
+          createCollection: (collection) => {
+            const currentState = get();
+            const existingCollections = [
+              ...getCustomCollectionsFromLibrary(
+                currentState.collectionLibrary,
+              ),
+            ];
+            const nextCollection = buildCustomCollectionMeta(
+              collection,
+              existingCollections,
+            );
+
+            set(
+              produce((state) => {
+                state.collectionLibrary[nextCollection.id] = {
                   events: [],
+                  meta: nextCollection,
+                  isLocal: true,
                 };
-              }
-              const ownerCollection = state.collectionLibrary[targetCollectionId];
-              ownerCollection.events = rematerializeCollectionEvents(
-                targetCollectionId,
-                [...ownerCollection.events, newEvent],
-                ownerCollection.events,
-              );
-              if (!state.visibleCollectionIds.includes(targetCollectionId)) {
-                state.visibleCollectionIds.push(targetCollectionId);
-              }
-            }),
-          ),
-        addEvents: (newEvents, targetCollectionId) =>
-          set(
-            produce((state) => {
-              if (!state.collectionLibrary[targetCollectionId]) {
-                state.collectionLibrary[targetCollectionId] = { events: [] };
-              }
-              const ownerCollection = state.collectionLibrary[targetCollectionId];
-              ownerCollection.events = rematerializeCollectionEvents(
-                targetCollectionId,
-                [...ownerCollection.events, ...newEvents],
-                ownerCollection.events,
-              );
-              if (!state.visibleCollectionIds.includes(targetCollectionId)) {
-                state.visibleCollectionIds.push(targetCollectionId);
-              }
-            }),
-          ),
-        replaceCollectionEvents: (targetCollectionId, events) =>
-          set(
-            produce((state) => {
-              if (!state.collectionLibrary[targetCollectionId]) {
-                state.collectionLibrary[targetCollectionId] = { events: [] };
-              }
+                if (!state.visibleCollectionIds.includes(nextCollection.id)) {
+                  state.visibleCollectionIds.push(nextCollection.id);
+                }
+              }),
+            );
 
-              const ownerCollection = state.collectionLibrary[targetCollectionId];
-              ownerCollection.events = rematerializeCollectionEvents(
-                targetCollectionId,
-                events,
-                ownerCollection.events,
-              );
-
-              if (!state.visibleCollectionIds.includes(targetCollectionId)) {
-                state.visibleCollectionIds.push(targetCollectionId);
-              }
-
-              if (
-                state.selectedEventId &&
-                !ownerCollection.events.some(
-                  (event) => event.id === state.selectedEventId,
-                ) &&
-                findEventCollectionIdInState(state, state.selectedEventId) ===
-                  null
-              ) {
-                state.selectedEventId = null;
-                state.isRulerActive = false;
-              }
-
-              if (
-                state.editingEventId &&
-                !ownerCollection.events.some(
-                  (event) => event.id === state.editingEventId,
-                ) &&
-                findEventCollectionIdInState(state, state.editingEventId) ===
-                  null
-              ) {
-                state.editingEventId = null;
-              }
+            return nextCollection;
+          },
+          updateCollection: (collectionId, collection) =>
+            set(
+              produce((state) => {
+                const existingCollection =
+                  state.collectionLibrary[collectionId];
+                const baseCollection = existingCollection?.meta;
+                if (!existingCollection || !baseCollection) return;
+                state.collectionLibrary[collectionId] = {
+                  ...existingCollection,
+                  isLocal: true,
+                  meta: {
+                    ...baseCollection,
+                    emoji: collection.emoji.trim() || baseCollection.emoji,
+                    name: collection.name.trim() || baseCollection.name,
+                    description: collection.description.trim(),
+                  },
+                };
+              }),
+            ),
+          setCollectionColor: (collectionId, color) =>
+            set(
+              produce((state) => {
+                state.collectionColorPreferences[collectionId] = color;
+              }),
+            ),
+          resetCollectionColor: (collectionId) =>
+            set(
+              produce((state) => {
+                delete state.collectionColorPreferences[collectionId];
+              }),
+            ),
+          focusEvent: (eventId) =>
+            set({
+              selectedEventId: eventId,
+              isRulerActive: false,
             }),
-          ),
-        deleteEvent: (eventId) =>
-          set(
-            produce((state) => {
-              const ownerCollectionId = findEventCollectionIdInState(
-                state,
-                eventId,
-              );
-              if (!ownerCollectionId) return;
-              const ownerCollection = state.collectionLibrary[ownerCollectionId];
-              if (!ownerCollection) return;
-              const nextEvents = ownerCollection.events.filter(
-                (event) => event.id !== eventId,
-              );
-              ownerCollection.events = rematerializeCollectionEvents(
-                ownerCollectionId,
-                nextEvents,
-                ownerCollection.events,
-              );
-              if (state.selectedEventId === eventId) {
-                state.selectedEventId = null;
-                state.isRulerActive = false;
-              }
-              if (state.editingEventId === eventId) {
-                state.editingEventId = null;
-              }
+          previewEvent: (eventId) =>
+            set({
+              selectedEventId: eventId,
+              isRulerActive: false,
+              isEventInfoCollapsed: false,
             }),
-          ),
-        createCollection: (collection) => {
-          const currentState = get();
-          const existingCollections = [
-            ...getCustomCollectionsFromLibrary(currentState.collectionLibrary),
-          ];
-          const nextCollection = buildCustomCollectionMeta(
-            collection,
-            existingCollections,
-          );
-
-          set(
-            produce((state) => {
-              state.collectionLibrary[nextCollection.id] = {
-                events: [],
-                meta: nextCollection,
-                isLocal: true,
-              };
-              if (!state.visibleCollectionIds.includes(nextCollection.id)) {
-                state.visibleCollectionIds.push(nextCollection.id);
-              }
+          clearFocusedEvent: () =>
+            set({
+              selectedEventId: null,
+              isRulerActive: false,
             }),
-          );
-
-          return nextCollection;
-        },
-        updateCollection: (collectionId, collection) =>
-          set(
-            produce((state) => {
-              const existingCollection = state.collectionLibrary[collectionId];
-              const baseCollection = existingCollection?.meta;
-              if (!existingCollection || !baseCollection) return;
-              state.collectionLibrary[collectionId] = {
-                ...existingCollection,
-                isLocal: true,
-                meta: {
-                  ...baseCollection,
-                  emoji: collection.emoji.trim() || baseCollection.emoji,
-                  name: collection.name.trim() || baseCollection.name,
-                  description: collection.description.trim(),
-                },
-              };
+          reopenMobileInfoPanel: () =>
+            set((state) => ({
+              mobileInfoPanelReopenFlag: state.mobileInfoPanelReopenFlag + 1,
+            })),
+          setNavigationPanelTab: (tab) =>
+            set({
+              navigationPanelTab: tab,
             }),
-          ),
-        setCollectionColor: (collectionId, color) =>
-          set(
-            produce((state) => {
-              state.collectionColorPreferences[collectionId] = color;
+          setTimelineOrientation: (timelineOrientation) =>
+            set({
+              timelineOrientation,
             }),
-          ),
-        resetCollectionColor: (collectionId) =>
-          set(
-            produce((state) => {
-              delete state.collectionColorPreferences[collectionId];
-            }),
-          ),
-        focusEvent: (eventId) =>
+        setVerticalWheelBehavior: (verticalWheelBehavior) =>
           set({
-            selectedEventId: eventId,
-            isRulerActive: false,
+            verticalWheelBehavior,
           }),
-        previewEvent: (eventId) =>
+        setVerticalTimeDirection: (verticalTimeDirection) =>
           set({
-            selectedEventId: eventId,
-            isRulerActive: false,
-            isEventInfoCollapsed: false,
-          }),
-        clearFocusedEvent: () =>
-          set({
-            selectedEventId: null,
-            isRulerActive: false,
-          }),
-        reopenMobileInfoPanel: () =>
-          set((state) => ({
-            mobileInfoPanelReopenFlag: state.mobileInfoPanelReopenFlag + 1,
-          })),
-        setNavigationPanelTab: (tab) =>
-          set({
-            navigationPanelTab: tab,
+            verticalTimeDirection,
           }),
         setSavedViewport: (focusYear, logZoom) =>
           set({
             savedFocusYear: focusYear,
-            savedLogZoom: logZoom,
-          }),
-        setSpatialMapping: (mapping) =>
-          set((state) => ({
-            spatialMapping: sanitizeSpatialMapping({
-              ...state.spatialMapping,
-              ...mapping,
+              savedLogZoom: logZoom,
             }),
-          })),
-        resetSpatialMapping: () =>
-          set({
-            spatialMapping: DEFAULT_SPATIAL_MAPPING,
-            isSpatialAnchorPickMode: false,
-          }),
-        toggleSpatialMappingEnabled: () =>
-          set((state) => ({
-            spatialMapping: {
-              ...state.spatialMapping,
-              enabled: !state.spatialMapping.enabled,
-            },
-          })),
-        startSpatialAnchorPickMode: () =>
-          set({
-            isSpatialAnchorPickMode: true,
-          }),
-        stopSpatialAnchorPickMode: () =>
-          set({
-            isSpatialAnchorPickMode: false,
-          }),
-        setLastOpenedView: (view) =>
-          set({
-            lastOpenedView: view,
-          }),
-        setHasHydrated: (value) =>
-          set({
-            hasHydrated: value,
-          }),
-        setIsRulerActive: (value) => set({ isRulerActive: value }),
-        toggleEventInfoCollapsed: () =>
-          set((state) => ({
-            isEventInfoCollapsed: !state.isEventInfoCollapsed,
-          })),
-        setToolbarCollapsed: (value) => set({ isToolbarCollapsed: value }),
-        toggleToolbarCollapsed: () =>
-          set((state) => ({
-            isToolbarCollapsed: !state.isToolbarCollapsed,
-          })),
-        openEventEditor: (eventId) =>
-          set({
-            editingEventId: eventId,
-          }),
-        closeEventEditor: () =>
-          set({
-            editingEventId: null,
-          }),
-        openEventCreator: (collectionId = null) =>
-          set({
-            addingEvent: true,
-            addingCollectionId: collectionId,
-          }),
-        closeEventCreator: () =>
-          set({
-            addingEvent: false,
-            addingCollectionId: null,
-          }),
-        openCollectionCreator: () =>
-          set({
-            isCreatingCollection: true,
-          }),
-        closeCollectionCreator: () =>
-          set({
-            isCreatingCollection: false,
-          }),
-        openSidebar: () => set({ isSidebarOpen: true }),
-        closeSidebar: () => set({ isSidebarOpen: false }),
-        openSidebarExplore: () =>
-          set({ isSidebarOpen: true, isSidebarExploreOpen: true }),
-        closeSidebarExplore: () => set({ isSidebarExploreOpen: false }),
-      };
-    },
-    {
-      name: STORE_KEY,
-      version: 5,
-      storage: timelinePersistStorage,
-      migrate: (persistedState) => {
-        const raw = persistedState as Partial<
-          TimelinePersistedState & { version?: number }
-        >;
-        if (!raw || raw.version === 0 || raw.version === undefined) {
-          const legacy = getLegacyPersistedTimelineState();
-          return sanitizePersistedTimelineState(
-            Object.keys(legacy).length > 0 ? legacy : persistedState,
-          );
-        }
-        return sanitizePersistedTimelineState(persistedState);
+          setSpatialMapping: (mapping) =>
+            set((state) => ({
+              spatialMapping: sanitizeSpatialMapping({
+                ...state.spatialMapping,
+                ...mapping,
+              }),
+            })),
+          resetSpatialMapping: () =>
+            set({
+              spatialMapping: DEFAULT_SPATIAL_MAPPING,
+              isSpatialAnchorPickMode: false,
+            }),
+          toggleSpatialMappingEnabled: () =>
+            set((state) => ({
+              spatialMapping: {
+                ...state.spatialMapping,
+                enabled: !state.spatialMapping.enabled,
+              },
+            })),
+          startSpatialAnchorPickMode: () =>
+            set({
+              isSpatialAnchorPickMode: true,
+            }),
+          stopSpatialAnchorPickMode: () =>
+            set({
+              isSpatialAnchorPickMode: false,
+            }),
+          setLastOpenedView: (view) =>
+            set({
+              lastOpenedView: view,
+            }),
+          setHasHydrated: (value) =>
+            set({
+              hasHydrated: value,
+            }),
+          setIsRulerActive: (value) => set({ isRulerActive: value }),
+          toggleEventInfoCollapsed: () =>
+            set((state) => ({
+              isEventInfoCollapsed: !state.isEventInfoCollapsed,
+            })),
+          setToolbarCollapsed: (value) => set({ isToolbarExpanded: value }),
+          toggleToolbarCollapsed: () =>
+            set((state) => ({
+              isToolbarExpanded: !state.isToolbarExpanded,
+            })),
+          openEventEditor: (eventId) =>
+            set({
+              editingEventId: eventId,
+            }),
+          closeEventEditor: () =>
+            set({
+              editingEventId: null,
+            }),
+          openEventCreator: (collectionId = null) =>
+            set({
+              addingEvent: true,
+              addingCollectionId: collectionId,
+            }),
+          closeEventCreator: () =>
+            set({
+              addingEvent: false,
+              addingCollectionId: null,
+            }),
+          openCollectionCreator: () =>
+            set({
+              isCreatingCollection: true,
+            }),
+          closeCollectionCreator: () =>
+            set({
+              isCreatingCollection: false,
+            }),
+          openSidebar: () => set({ isSidebarOpen: true }),
+          closeSidebar: () => set({ isSidebarOpen: false }),
+          openSidebarExplore: () =>
+            set({ isSidebarOpen: true, isSidebarExploreOpen: true }),
+          closeSidebarExplore: () => set({ isSidebarExploreOpen: false }),
+        };
       },
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...sanitizePersistedTimelineState(persistedState),
-      }),
-      onRehydrateStorage: () => (state) => {
-        cleanupLegacyCollectionStorage();
-        state?.setHasHydrated(true);
-      },
-      partialize: (state) => ({
-        theme: state.theme,
-        currentLanguage: state.currentLanguage,
-        searchQuery: state.searchQuery,
-        activeMediaFilters: state.activeMediaFilters,
-        searchSortMode: state.searchSortMode,
-        timeRangeStartInput: state.timeRangeStartInput,
-        timeRangeEndInput: state.timeRangeEndInput,
-        showOnlyResultsOnTimeline: state.showOnlyResultsOnTimeline,
-        collectionLibrary: Object.fromEntries(
-          Object.entries(state.collectionLibrary).map(([collectionId, collection]) => [
-            collectionId,
-            {
-              ...collection,
-              events: stripRuntimeEventIds(collection.events),
-            },
-          ]),
-        ),
-        visibleCollectionIds: state.visibleCollectionIds,
-        collectionColorPreferences: state.collectionColorPreferences,
-        selectedEventId: state.selectedEventId,
+      {
+        name: STORE_KEY,
+        version: 5,
+        storage: timelinePersistStorage,
+        migrate: (persistedState) => {
+          const raw = persistedState as Partial<
+            TimelinePersistedState & { version?: number }
+          >;
+          if (!raw || raw.version === 0 || raw.version === undefined) {
+            const legacy = getLegacyPersistedTimelineState();
+            return sanitizePersistedTimelineState(
+              Object.keys(legacy).length > 0 ? legacy : persistedState,
+            );
+          }
+          return sanitizePersistedTimelineState(persistedState);
+        },
+        merge: (persistedState, currentState) => ({
+          ...currentState,
+          ...sanitizePersistedTimelineState(persistedState),
+        }),
+        onRehydrateStorage: () => (state) => {
+          cleanupLegacyCollectionStorage();
+          state?.setHasHydrated(true);
+        },
+        partialize: (state) => ({
+          theme: state.theme,
+          currentLanguage: state.currentLanguage,
+          searchQuery: state.searchQuery,
+          activeMediaFilters: state.activeMediaFilters,
+          searchSortMode: state.searchSortMode,
+          timeRangeStartInput: state.timeRangeStartInput,
+          timeRangeEndInput: state.timeRangeEndInput,
+          showOnlyResultsOnTimeline: state.showOnlyResultsOnTimeline,
+          collectionLibrary: Object.fromEntries(
+            Object.entries(state.collectionLibrary).map(
+              ([collectionId, collection]) => [
+                collectionId,
+                {
+                  ...collection,
+                  events: stripRuntimeEventIds(collection.events),
+                },
+              ],
+            ),
+          ),
+          visibleCollectionIds: state.visibleCollectionIds,
+          collectionColorPreferences: state.collectionColorPreferences,
+          selectedEventId: state.selectedEventId,
         navigationPanelTab: state.navigationPanelTab,
+        timelineOrientation: state.timelineOrientation,
+        verticalWheelBehavior: state.verticalWheelBehavior,
+        verticalTimeDirection: state.verticalTimeDirection,
         savedFocusYear: state.savedFocusYear,
-        savedLogZoom: state.savedLogZoom,
-        spatialMapping: state.spatialMapping,
-        lastOpenedView: state.lastOpenedView,
-        isToolbarCollapsed: state.isToolbarCollapsed,
-      }),
-    }),
+          savedLogZoom: state.savedLogZoom,
+          spatialMapping: state.spatialMapping,
+          lastOpenedView: state.lastOpenedView,
+          isToolbarExpanded: state.isToolbarExpanded,
+        }),
+      },
+    ),
   ),
 );

@@ -1,6 +1,8 @@
 import React, {
+  Suspense,
   useDeferredValue,
   useEffect,
+  lazy,
   useMemo,
   useRef,
   useState,
@@ -16,7 +18,6 @@ import { ConfirmDialog, type ConfirmDialogOptions } from "./ConfirmDialog";
 import { ShareModal } from "./ShareModal";
 import { ImportEventsDialog } from "./ImportEventsDialog";
 import { EventInfoPanel } from "./EventInfoPanel";
-import { TimelineSpatialBackground } from "./TimelineSpatialBackground";
 import { Toolbar } from "./Toolbar";
 import { TimelineGuidanceOverlay } from "./TimelineGuidanceOverlay";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
@@ -41,6 +42,11 @@ import {
   useStore,
   type ImportedCollectionInput,
 } from "../stores";
+
+const LazyTimelineSpatialBackground = lazy(async () => {
+  const module = await import("./TimelineSpatialBackground");
+  return { default: module.TimelineSpatialBackground };
+});
 
 interface TimelineProps {
   theme: ThemeMode;
@@ -88,6 +94,9 @@ export const Timeline = ({
   const isCreatingCollection = useStore((s) => s.isCreatingCollection);
   const savedFocusYear = useStore((s) => s.savedFocusYear);
   const savedLogZoom = useStore((s) => s.savedLogZoom);
+  const timelineOrientation = useStore((s) => s.timelineOrientation);
+  const verticalWheelBehavior = useStore((s) => s.verticalWheelBehavior);
+  const verticalTimeDirection = useStore((s) => s.verticalTimeDirection);
   const spatialMapping = useStore((s) => s.spatialMapping);
   const isSpatialAnchorPickMode = useStore((s) => s.isSpatialAnchorPickMode);
   const focusEvent = useStore((s) => s.focusEvent);
@@ -95,6 +104,13 @@ export const Timeline = ({
   const clearFocusedEvent = useStore((s) => s.clearFocusedEvent);
   const reopenMobileInfoPanel = useStore((s) => s.reopenMobileInfoPanel);
   const setSavedViewport = useStore((s) => s.setSavedViewport);
+  const setTimelineOrientation = useStore((s) => s.setTimelineOrientation);
+  const setVerticalWheelBehavior = useStore(
+    (s) => s.setVerticalWheelBehavior,
+  );
+  const setVerticalTimeDirection = useStore(
+    (s) => s.setVerticalTimeDirection,
+  );
   const setSpatialMapping = useStore((s) => s.setSpatialMapping);
   const resetSpatialMapping = useStore((s) => s.resetSpatialMapping);
   const toggleSpatialMappingEnabled = useStore(
@@ -165,6 +181,7 @@ export const Timeline = ({
     sharedEventId: sharedEventIdFromUrl,
     sharedFocusYear,
     sharedLogZoom,
+    sharedOrientation,
     sharedSpatialMapping,
     generateShareUrl,
   } = useTimelineShareUrl();
@@ -193,7 +210,15 @@ export const Timeline = ({
     sharedEventIdFromUrl !== null ||
     sharedFocusYear !== null ||
     sharedLogZoom !== null ||
+    sharedOrientation !== null ||
     sharedSpatialMapping !== null;
+  const effectiveTimelineOrientation = timelineOrientation;
+
+  useEffect(() => {
+    if (sharedOrientation && sharedOrientation !== timelineOrientation) {
+      setTimelineOrientation(sharedOrientation);
+    }
+  }, [setTimelineOrientation, sharedOrientation, timelineOrientation]);
 
   const renderedTimelineEvents = useMemo(
     () =>
@@ -301,6 +326,9 @@ export const Timeline = ({
     initialLogZoom: hasSharedTimelineState
       ? (sharedLogZoom ?? undefined)
       : (savedLogZoom ?? undefined),
+    orientation: effectiveTimelineOrientation,
+    verticalWheelBehavior,
+    verticalTimeDirection,
     onSelectEvent: (event) => {
       if (event) {
         // If re-selecting the same event, trigger mobile panel to re-open
@@ -1010,27 +1038,36 @@ export const Timeline = ({
           language={language}
           containerRef={containerRef}
           backgroundLayer={
-            <TimelineSpatialBackground
-              focusPixel={focusPixel}
-              focusYear={focusYear}
-              zoom={zoom}
-              mapping={spatialMapping}
-              isAnchorPickMode={isSpatialAnchorPickMode}
-              onCancelPick={stopSpatialAnchorPickMode}
-              onPickAnchor={(year, lat, lng, metersPerYear) => {
-                setSpatialMapping({
-                  enabled: true,
-                  metersPerYear,
-                  ...createSpatialAnchorFromViewport(year, lat, lng),
-                });
-                stopSpatialAnchorPickMode();
-              }}
-            />
+            spatialMapping.enabled || isSpatialAnchorPickMode ? (
+              <Suspense fallback={null}>
+                <LazyTimelineSpatialBackground
+                  focusPixel={focusPixel}
+                  focusYear={focusYear}
+                  zoom={zoom}
+                  orientation={effectiveTimelineOrientation}
+                  verticalTimeDirection={verticalTimeDirection}
+                  mapping={spatialMapping}
+                  isAnchorPickMode={isSpatialAnchorPickMode}
+                  onStartPickMode={startSpatialAnchorPickMode}
+                  onCancelPick={stopSpatialAnchorPickMode}
+                  onPickAnchor={(year, lat, lng, metersPerYear) => {
+                    setSpatialMapping({
+                      enabled: true,
+                      metersPerYear,
+                      ...createSpatialAnchorFromViewport(year, lat, lng),
+                    });
+                    stopSpatialAnchorPickMode();
+                  }}
+                />
+              </Suspense>
+            ) : null
           }
           isInteractionDisabled={isSpatialAnchorPickMode}
           focusPixel={focusPixel}
           focusYear={focusYear}
           zoom={zoom}
+          orientation={effectiveTimelineOrientation}
+          verticalTimeDirection={verticalTimeDirection}
           ticks={ticks}
           timelineEvents={renderedTimelineEvents}
           collapsedGroups={collapsedGroups}
@@ -1056,10 +1093,18 @@ export const Timeline = ({
           renderFps={renderFps}
           theme={theme}
           spatialMapping={spatialMapping}
+          timelineOrientation={effectiveTimelineOrientation}
           currentFocusYear={focusYear.get()}
           isSpatialAnchorPickMode={isSpatialAnchorPickMode}
           onToggleTheme={onToggleTheme}
           onShare={() => setShareModalOpen(true)}
+          onToggleTimelineOrientation={() =>
+            setTimelineOrientation(
+              effectiveTimelineOrientation === "horizontal"
+                ? "vertical"
+                : "horizontal",
+            )
+          }
           onToggleSpatialMappingEnabled={() => {
             if (spatialMapping.enabled && isSpatialAnchorPickMode) {
               stopSpatialAnchorPickMode();
@@ -1125,6 +1170,12 @@ export const Timeline = ({
           onZoomDragStart={handleZoomDragStart}
           onZoomDragMove={handleZoomDragMove}
           onZoomDragEnd={handleZoomDragEnd}
+          timelineOrientation={effectiveTimelineOrientation}
+          onTimelineOrientationChange={setTimelineOrientation}
+          verticalWheelBehavior={verticalWheelBehavior}
+          onVerticalWheelBehaviorChange={setVerticalWheelBehavior}
+          verticalTimeDirection={verticalTimeDirection}
+          onVerticalTimeDirectionChange={setVerticalTimeDirection}
         />
 
         {selectedEventInfo && !isSpatialAnchorPickMode && (
@@ -1232,6 +1283,7 @@ export const Timeline = ({
                 collectionIds: shareableVisibleCollectionIds,
                 focusYear: focusYear.get(),
                 logZoom: currentLogZoom.get(),
+                orientation: effectiveTimelineOrientation,
                 spatialMapping,
                 overrideEventId: opts.includeSelectedEvent
                   ? shareableSelectedEventId
@@ -1282,7 +1334,8 @@ export const Timeline = ({
           direction={warpDirection}
           theme={theme}
           zoom={zoom}
-          zoomPivotX={focusPixel}
+          orientation={effectiveTimelineOrientation}
+          zoomPivot={focusPixel}
         />
       </div>
     </>

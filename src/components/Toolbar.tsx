@@ -4,6 +4,8 @@ import {
   ChevronRight,
   Github,
   Globe2,
+  ArrowDownUp,
+  ArrowLeftRight,
   Maximize2,
   Minimize2,
   MoonStar,
@@ -13,7 +15,11 @@ import {
 import { ThemeMode } from "../constants/theme";
 import { LanguagePickerButton } from "./LanguagePickerButton";
 import { SpatialSettingsPanel } from "./SpatialSettingsPanel";
-import type { SpatialMapTheme, SpatialMappingConfig } from "../constants/types";
+import type {
+  SpatialMapTheme,
+  SpatialMappingConfig,
+  TimelineOrientation,
+} from "../constants/types";
 import { useI18n } from "../i18n";
 import { useStore } from "../stores";
 
@@ -22,10 +28,12 @@ interface ToolbarProps {
   renderFps: number;
   theme: ThemeMode;
   spatialMapping: SpatialMappingConfig;
+  timelineOrientation: TimelineOrientation;
   currentFocusYear: number;
   isSpatialAnchorPickMode: boolean;
   onToggleTheme: () => void;
   onShare: () => void;
+  onToggleTimelineOrientation: () => void;
   onToggleSpatialMappingEnabled: () => void;
   onSetSpatialMetersPerYear: (value: number) => void;
   onSetSpatialMapTheme: (value: SpatialMapTheme) => void;
@@ -40,10 +48,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   renderFps,
   theme,
   spatialMapping,
+  timelineOrientation,
   currentFocusYear,
   isSpatialAnchorPickMode,
   onToggleTheme,
   onShare,
+  onToggleTimelineOrientation,
   onToggleSpatialMappingEnabled,
   onSetSpatialMetersPerYear,
   onSetSpatialMapTheme,
@@ -53,7 +63,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onResetSpatialMapping,
 }) => {
   const { t } = useI18n();
-  const isCollapsed = useStore((state) => state.isToolbarCollapsed);
+  // const resolvedTimelineOrientation =
+  //   timelineOrientation === "vertical" ? "vertical" : "horizontal";
+  const isExpanded = useStore((state) => state.isToolbarExpanded);
+  const isCollapsed = !isExpanded;
+
   const toggleToolbarCollapsed = useStore(
     (state) => state.toggleToolbarCollapsed,
   );
@@ -164,6 +178,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Share2 width={15} height={15} />
         </button>
+        {/* <button
+          type="button"
+          onClick={onToggleTimelineOrientation}
+          className="ui-icon-button h-10 w-10 shrink-0"
+          aria-label={t("timelineOrientation")}
+          title={`${t("timelineOrientation")}: ${t(resolvedTimelineOrientation)}`}
+        >
+          {resolvedTimelineOrientation === "horizontal" ? (
+            <ArrowLeftRight width={15} height={15} />
+          ) : (
+            <ArrowDownUp width={15} height={15} />
+          )}
+        </button> */}
         <LanguagePickerButton
           buttonClassName="ui-icon-button h-10 w-10 shrink-0 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-200"
           textClassName="leading-none"

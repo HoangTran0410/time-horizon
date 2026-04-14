@@ -4,6 +4,14 @@ export const SUPPORTED_LANGUAGES = ["vi", "en"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export type LocalizedTextRecord = Record<string, string>;
 export type LocalizedText = string | LocalizedTextRecord;
+export const TIMELINE_ORIENTATIONS = ["horizontal", "vertical"] as const;
+export type TimelineOrientation = (typeof TIMELINE_ORIENTATIONS)[number];
+export const VERTICAL_WHEEL_BEHAVIORS = ["pan", "zoom"] as const;
+export type VerticalWheelBehavior =
+  (typeof VERTICAL_WHEEL_BEHAVIORS)[number];
+export const VERTICAL_TIME_DIRECTIONS = ["up", "down"] as const;
+export type VerticalTimeDirection =
+  (typeof VERTICAL_TIME_DIRECTIONS)[number];
 
 export type EventTime = [
   year: number,

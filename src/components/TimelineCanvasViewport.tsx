@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { MotionValue } from "motion/react";
-import { Event, SupportedLanguage } from "../constants/types";
+import {
+  Event,
+  SupportedLanguage,
+  TimelineOrientation,
+  VerticalTimeDirection,
+} from "../constants/types";
 import { BIG_BANG_YEAR } from "../constants";
 import { resolveThemeMode, ThemeMode } from "../constants/theme";
 import { CANVAS_FONT_PRESETS } from "../constants/typography";
@@ -13,6 +18,7 @@ import {
   getEventTimelineYear,
 } from "../helpers";
 import { getLocalizedEventTitle } from "../helpers/localization";
+import { useI18n } from "../i18n";
 import {
   CollapsedEventGroup,
   ExpandedCollapsedGroup,
@@ -29,6 +35,8 @@ interface TimelineCanvasViewportProps {
   focusPixel: MotionValue<number>;
   focusYear: MotionValue<number>;
   zoom: MotionValue<number>;
+  orientation: TimelineOrientation;
+  verticalTimeDirection: VerticalTimeDirection;
   ticks: TimelineTick[];
   timelineEvents: Event[];
   collapsedGroups: CollapsedEventGroup[];
@@ -86,6 +94,10 @@ const CANVAS_THEME = {
   dark: {
     axis: "#3c4858",
     yearZero: "rgba(148,163,184,0.24)",
+    currentTimeLine: "rgba(52,211,153,0.34)",
+    currentTimeFill: "rgba(11,20,24,0.94)",
+    currentTimeStroke: "rgba(52,211,153,0.48)",
+    currentTimeText: "#6ee7b7",
     tick: "#556274",
     tickHighlighted: "rgba(248,250,252,0.86)",
     tickText: "#8693a6",
@@ -123,6 +135,10 @@ const CANVAS_THEME = {
   light: {
     axis: "#bbb7af",
     yearZero: "rgba(98,109,122,0.16)",
+    currentTimeLine: "rgba(13,148,136,0.28)",
+    currentTimeFill: "rgba(240,253,250,0.96)",
+    currentTimeStroke: "rgba(13,148,136,0.36)",
+    currentTimeText: "#0f766e",
     tick: "#cbc6be",
     tickHighlighted: "rgba(79,89,100,0.58)",
     tickText: "#8f8a81",
@@ -269,6 +285,14 @@ const wrapCanvasText = (
   return visibleLines;
 };
 
+const getCurrentAbsoluteYear = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const start = new Date(year, 0, 1).getTime();
+  const end = new Date(year + 1, 0, 1).getTime();
+  return year + (now.getTime() - start) / (end - start);
+};
+
 export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   theme,
   language,
@@ -278,6 +302,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   focusPixel,
   focusYear,
   zoom,
+  orientation,
+  verticalTimeDirection,
   ticks,
   timelineEvents,
   collapsedGroups,
@@ -297,7 +323,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   onFocusEvent,
   onFocusCollapsedGroup,
 }) => {
+  const { t } = useI18n();
+  const axisDirection =
+    orientation === "vertical" && verticalTimeDirection === "up" ? -1 : 1;
   const canvasTheme = CANVAS_THEME[resolveThemeMode(theme)];
+  const currentTimeLabel = t("rightNow");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const latestRef = useRef({
     ticks: [] as VisibleCanvasTick[],
@@ -427,6 +457,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     focusedEventId,
     rulerEvent,
     eventAccentColors,
+    orientation,
+    verticalTimeDirection,
   ]);
 
   useEffect(() => {
@@ -442,6 +474,9 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     focusedEventId,
     rulerEvent,
     eventAccentColors,
+    orientation,
+    verticalTimeDirection,
+    requestRender,
   ]);
 
   useEffect(() => {
@@ -485,30 +520,60 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     };
   }, [containerRef, isInteractionDisabled, onWheel]);
 
-  const getScreenX = (year: number) =>
-    focusPixel.get() + (year - focusYear.get()) * zoom.get();
+  const getPrimaryScreenPosition = (year: number) =>
+    focusPixel.get() + (year - focusYear.get()) * zoom.get() * axisDirection;
+
+  const getCrossCenter = (width: number, height: number) =>
+    orientation === "horizontal" ? height / 2 : width / 2;
+
+  const toCanvasPoint = (
+    primary: number,
+    cross: number,
+    width: number,
+    height: number,
+  ) => {
+    const crossCenter = getCrossCenter(width, height);
+    return orientation === "horizontal"
+      ? { x: primary, y: crossCenter + cross }
+      : { x: crossCenter + cross, y: primary };
+  };
+
+  const getPrimarySize = (width: number, height: number) =>
+    orientation === "horizontal" ? width : height;
+
+  const getCrossSize = (width: number, height: number) =>
+    orientation === "horizontal" ? height : width;
 
   const getExpandedCollapsedEventPositions = (
     group: ExpandedCollapsedGroup,
     width: number,
-    centerY: number,
+    height: number,
     viewportHeight: number,
   ) => {
     const events = group.eventIds
       .map((eventId) => timelineEvents.find((event) => event.id === eventId))
       .filter((event): event is Event => event !== undefined);
-    const anchorX = getScreenX(group.year);
-    const rowY = centerY + group.side * getCollapsedGroupOffset(viewportHeight);
+    const anchorPrimary = getPrimaryScreenPosition(group.year);
+    const rowCross = group.side * getCollapsedGroupOffset(viewportHeight);
 
     if (events.length === 0) {
       return {
-        anchorX,
-        rowY,
-        events: [] as Array<{ event: Event; x: number; y: number }>,
+        anchorPrimary,
+        rowCross,
+        events: [] as Array<{
+          event: Event;
+          primary: number;
+          cross: number;
+          x: number;
+          y: number;
+        }>,
       };
     }
 
-    const availableWidth = Math.max(200, width - 120);
+    const availablePrimarySpace = Math.max(
+      200,
+      getPrimarySize(width, height) - 120,
+    );
     const spacing =
       events.length <= 1
         ? 0
@@ -516,19 +581,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             EXPANDED_COLLAPSED_MIN_SPACING,
             Math.min(
               EXPANDED_COLLAPSED_MAX_SPACING,
-              availableWidth / (events.length - 1),
+              availablePrimarySpace / (events.length - 1),
             ),
           );
-    const totalWidth = spacing * Math.max(0, events.length - 1);
-    const startX = anchorX - totalWidth / 2;
+    const totalPrimarySpan = spacing * Math.max(0, events.length - 1);
+    const startPrimary = anchorPrimary - totalPrimarySpan / 2;
 
     return {
-      anchorX,
-      rowY,
+      anchorPrimary,
+      rowCross,
       events: events.map((event, index) => ({
         event,
-        x: startX + index * spacing,
-        y: rowY,
+        primary: startPrimary + index * spacing,
+        cross: rowCross,
+        ...toCanvasPoint(startPrimary + index * spacing, rowCross, width, height),
       })),
     };
   };
@@ -541,6 +607,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     return {
       x: clientX - rect.left,
       y: clientY - rect.top,
+      primary:
+        orientation === "horizontal" ? clientX - rect.left : clientY - rect.top,
+      cross:
+        orientation === "horizontal" ? clientY - rect.top : clientX - rect.left,
       width: rect.width,
       height: rect.height,
     };
@@ -554,7 +624,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     if (!pointer) return null;
 
     const { x, y, width, height } = pointer;
-    const centerY = height / 2;
+    const crossSize = getCrossSize(width, height);
     const {
       visibleEvents: currentVisibleEvents,
       collapsedGroups: currentCollapsedGroups,
@@ -566,8 +636,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       const expandedLayout = getExpandedCollapsedEventPositions(
         currentExpandedCollapsedGroup,
         width,
-        centerY,
         height,
+        crossSize,
       );
 
       for (const item of expandedLayout.events) {
@@ -579,7 +649,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       }
 
       if (
-        Math.hypot(x - expandedLayout.anchorX, y - expandedLayout.rowY) <=
+        Math.hypot(
+          x - toCanvasPoint(expandedLayout.anchorPrimary, expandedLayout.rowCross, width, height).x,
+          y - toCanvasPoint(expandedLayout.anchorPrimary, expandedLayout.rowCross, width, height).y,
+        ) <=
         COLLAPSED_RADIUS
       ) {
         return {
@@ -596,8 +669,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     }
 
     for (const group of currentCollapsedGroups) {
-      const groupX = getScreenX(group.year);
-      const groupY = centerY + group.side * getCollapsedGroupOffset(height);
+      const groupPoint = toCanvasPoint(
+        getPrimaryScreenPosition(group.year),
+        group.side * getCollapsedGroupOffset(crossSize),
+        width,
+        height,
+      );
+      const groupX = groupPoint.x;
+      const groupY = groupPoint.y;
       if (Math.hypot(x - groupX, y - groupY) <= COLLAPSED_RADIUS) {
         return { type: "collapsed", group };
       }
@@ -607,21 +686,30 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       const visibleEvent = currentVisibleEvents[index];
       const layout = currentEventLayouts[visibleEvent.event.id];
       if (!layout || layout.opacity.get() < 0.35) continue;
-      const eventX = getScreenX(visibleEvent.year);
-      const eventY = centerY + layout.y.get();
+      const { x: eventX, y: eventY } = toCanvasPoint(
+        getPrimaryScreenPosition(visibleEvent.year),
+        layout.y.get(),
+        width,
+        height,
+      );
       if (Math.hypot(x - eventX, y - eventY) <= EVENT_RADIUS) {
         return { type: "event", event: visibleEvent.event };
       }
     }
 
-    const bigBangX = getScreenX(BIG_BANG_YEAR);
-    if (bigBangX >= 0 && bigBangX <= width) {
-      if (Math.abs(x - bigBangX) <= 24 && Math.abs(y - centerY) <= 28) {
+    const primarySize = getPrimarySize(width, height);
+    const bigBangPrimary = getPrimaryScreenPosition(BIG_BANG_YEAR);
+    const shouldRenderBigBangBadge =
+      axisDirection === 1 ? bigBangPrimary > primarySize : bigBangPrimary < 0;
+    if (bigBangPrimary >= 0 && bigBangPrimary <= primarySize) {
+      const bigBangPoint = toCanvasPoint(bigBangPrimary, 0, width, height);
+      if (Math.abs(x - bigBangPoint.x) <= 24 && Math.abs(y - bigBangPoint.y) <= 28) {
         return { type: "bigbang" };
       }
-    } else {
-      const pinnedX = width - 78;
-      if (Math.abs(x - pinnedX) <= 54 && Math.abs(y - centerY) <= 24) {
+    } else if (shouldRenderBigBangBadge) {
+      const badgePrimary = primarySize - 78;
+      const badgePoint = toCanvasPoint(badgePrimary, 0, width, height);
+      if (Math.abs(x - badgePoint.x) <= 54 && Math.abs(y - badgePoint.y) <= 24) {
         return { type: "bigbang" };
       }
     }
@@ -651,7 +739,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       } = latestRef.current;
       const hoveredTarget = hoveredRef.current;
 
-      const centerY = height / 2;
+      const primarySize = getPrimarySize(width, height);
+      const crossSize = getCrossSize(width, height);
+      const crossCenter = getCrossCenter(width, height);
+      const currentTimeYear = getCurrentAbsoluteYear();
       const snap = (value: number) => Math.round(value * dpr) / dpr;
       const setTextStyle = ({
         font,
@@ -708,33 +799,98 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       ctx.strokeStyle = canvasTheme.axis;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, snap(centerY));
-      ctx.lineTo(width, snap(centerY));
+      if (orientation === "horizontal") {
+        ctx.moveTo(0, snap(crossCenter));
+        ctx.lineTo(width, snap(crossCenter));
+      } else {
+        ctx.moveTo(snap(crossCenter), 0);
+        ctx.lineTo(snap(crossCenter), height);
+      }
       ctx.stroke();
 
-      const yearZeroX = getScreenX(0);
-      if (yearZeroX >= 0 && yearZeroX <= width) {
-        const snappedYearZeroX = snap(yearZeroX);
+      const yearZeroPrimary = getPrimaryScreenPosition(0);
+      if (yearZeroPrimary >= 0 && yearZeroPrimary <= primarySize) {
+        const yearZeroPoint = toCanvasPoint(yearZeroPrimary, 0, width, height);
         ctx.strokeStyle = canvasTheme.yearZero;
         ctx.beginPath();
-        ctx.moveTo(snappedYearZeroX, 0);
-        ctx.lineTo(snappedYearZeroX, height);
+        if (orientation === "horizontal") {
+          ctx.moveTo(snap(yearZeroPoint.x), 0);
+          ctx.lineTo(snap(yearZeroPoint.x), height);
+        } else {
+          ctx.moveTo(0, snap(yearZeroPoint.y));
+          ctx.lineTo(width, snap(yearZeroPoint.y));
+        }
         ctx.stroke();
       }
 
-      for (const { tick, label } of currentTicks) {
-        const x = getScreenX(tick.year);
-        if (x < -120 || x > width + 120) continue;
-        const tickX = snap(x);
-        const tickLabelY = snap(
-          centerY + TICK_LABEL_OFFSET_Y + (tick.isHighlighted ? 5 : 0),
+      const currentTimePrimary = getPrimaryScreenPosition(currentTimeYear);
+      if (currentTimePrimary >= 0 && currentTimePrimary <= primarySize) {
+        const currentTimePoint = toCanvasPoint(currentTimePrimary, 0, width, height);
+        const snappedCurrentTimeX = snap(currentTimePoint.x);
+        const snappedCurrentTimeY = snap(currentTimePoint.y);
+        ctx.strokeStyle = canvasTheme.currentTimeLine;
+        ctx.beginPath();
+        if (orientation === "horizontal") {
+          ctx.moveTo(snappedCurrentTimeX, 0);
+          ctx.lineTo(snappedCurrentTimeX, height);
+        } else {
+          ctx.moveTo(0, snappedCurrentTimeY);
+          ctx.lineTo(width, snappedCurrentTimeY);
+        }
+        ctx.stroke();
+
+        const labelHeight = 24;
+        const labelPaddingX = 10;
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.tickHighlighted,
+          textAlign: "center",
+          textBaseline: "middle",
+        });
+        const labelWidth =
+          ctx.measureText(currentTimeLabel).width + labelPaddingX * 2;
+        ctx.fillStyle = canvasTheme.currentTimeFill;
+        ctx.strokeStyle = canvasTheme.currentTimeStroke;
+        ctx.beginPath();
+        ctx.roundRect(
+          snap(snappedCurrentTimeX - labelWidth / 2),
+          snap(snappedCurrentTimeY - labelHeight / 2),
+          labelWidth,
+          labelHeight,
+          12,
         );
+        ctx.fill();
+        ctx.stroke();
+
+        setTextStyle({
+          font: CANVAS_FONT_PRESETS.tickHighlighted,
+          fillStyle: canvasTheme.currentTimeText,
+          textAlign: "center",
+          textBaseline: "middle",
+        });
+        ctx.fillText(currentTimeLabel, snappedCurrentTimeX, snappedCurrentTimeY);
+      }
+
+      for (const { tick, label } of currentTicks) {
+        const primary = getPrimaryScreenPosition(tick.year);
+        if (primary < -120 || primary > primarySize + 120) continue;
+        const tickPoint = toCanvasPoint(primary, 0, width, height);
         ctx.strokeStyle = tick.isHighlighted
           ? canvasTheme.tickHighlighted
           : canvasTheme.tick;
         ctx.beginPath();
-        ctx.moveTo(tickX, snap(centerY - 6));
-        ctx.lineTo(tickX, snap(centerY + (tick.isHighlighted ? 14 : 9)));
+        if (orientation === "horizontal") {
+          ctx.moveTo(snap(tickPoint.x), snap(crossCenter - 6));
+          ctx.lineTo(
+            snap(tickPoint.x),
+            snap(crossCenter + (tick.isHighlighted ? 14 : 9)),
+          );
+        } else {
+          ctx.moveTo(snap(crossCenter - 6), snap(tickPoint.y));
+          ctx.lineTo(
+            snap(crossCenter + (tick.isHighlighted ? 14 : 9)),
+            snap(tickPoint.y),
+          );
+        }
         ctx.stroke();
 
         setTextStyle({
@@ -747,17 +903,35 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           textAlign: "center",
           textBaseline: "middle",
         });
-        ctx.fillText(label, tickX, tickLabelY);
+        const labelPoint =
+          orientation === "horizontal"
+            ? {
+                x: snap(tickPoint.x),
+                y: snap(
+                  crossCenter + TICK_LABEL_OFFSET_Y + (tick.isHighlighted ? 5 : 0),
+                ),
+              }
+            : {
+                x: snap(
+                  crossCenter + TICK_LABEL_OFFSET_Y + (tick.isHighlighted ? 5 : 0),
+                ),
+                y: snap(tickPoint.y),
+              };
+        ctx.fillText(label, labelPoint.x, labelPoint.y);
       }
 
       for (const group of currentCollapsedGroups) {
         const isExpanded =
           currentExpandedCollapsedGroup?.side === group.side &&
           Math.abs(currentExpandedCollapsedGroup.year - group.year) < 1e-9;
-        const x = getScreenX(group.year);
-        const y = centerY + group.side * getCollapsedGroupOffset(height);
-        const groupX = snap(x);
-        const groupY = snap(y);
+        const groupPoint = toCanvasPoint(
+          getPrimaryScreenPosition(group.year),
+          group.side * getCollapsedGroupOffset(crossSize),
+          width,
+          height,
+        );
+        const groupX = snap(groupPoint.x);
+        const groupY = snap(groupPoint.y);
         const isHovered =
           hoveredTarget.type === "collapsed" && hoveredTarget.id === group.id;
         const radius = isHovered ? 24 : COLLAPSED_RADIUS;
@@ -765,7 +939,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           ? canvasTheme.collapsedLineHover
           : canvasTheme.collapsedLine;
         ctx.beginPath();
-        ctx.moveTo(groupX, snap(centerY));
+        if (orientation === "horizontal") {
+          ctx.moveTo(groupX, snap(crossCenter));
+        } else {
+          ctx.moveTo(snap(crossCenter), groupY);
+        }
         ctx.lineTo(groupX, groupY);
         ctx.stroke();
 
@@ -773,8 +951,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           const expandedLayout = getExpandedCollapsedEventPositions(
             currentExpandedCollapsedGroup,
             width,
-            centerY,
             height,
+            crossSize,
           );
 
           if (expandedLayout.events.length > 0) {
@@ -782,11 +960,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
               ? canvasTheme.collapsedLineHover
               : canvasTheme.collapsedLine;
             ctx.beginPath();
-            ctx.moveTo(snap(expandedLayout.events[0]!.x), groupY);
-            ctx.lineTo(
-              snap(expandedLayout.events[expandedLayout.events.length - 1]!.x),
-              groupY,
-            );
+            const firstPoint = expandedLayout.events[0]!;
+            const lastPoint =
+              expandedLayout.events[expandedLayout.events.length - 1]!;
+            ctx.moveTo(snap(firstPoint.x), snap(firstPoint.y));
+            ctx.lineTo(snap(lastPoint.x), snap(lastPoint.y));
             ctx.stroke();
           }
 
@@ -887,10 +1065,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         const alpha = layout.opacity.get();
         if (alpha <= 0.02) continue;
 
-        const x = getScreenX(year);
-        const y = centerY + layout.y.get();
-        const eventX = snap(x);
-        const eventY = snap(y);
+        const point = toCanvasPoint(
+          getPrimaryScreenPosition(year),
+          layout.y.get(),
+          width,
+          height,
+        );
+        const eventX = snap(point.x);
+        const eventY = snap(point.y);
         const isHovered =
           hoveredTarget.type === "event" && hoveredTarget.id === event.id;
         const isFocused = event.id === currentFocusedEventId;
@@ -912,7 +1094,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
         ctx.strokeStyle = isHighlighted ? activeLineColor : idleLineColor;
         ctx.beginPath();
-        ctx.moveTo(eventX, snap(centerY));
+        if (orientation === "horizontal") {
+          ctx.moveTo(eventX, snap(crossCenter));
+        } else {
+          ctx.moveTo(snap(crossCenter), eventY);
+        }
         ctx.lineTo(eventX, eventY);
         ctx.stroke();
 
@@ -929,7 +1115,12 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         if (event.video) mediaBadges.push("video");
 
         mediaBadges.forEach((badge, index) => {
-          const badgeX = snap(eventX + radius - 4 - MEDIA_BADGE_SIZE / 2);
+          const badgeX = snap(
+            eventX +
+              (orientation === "horizontal"
+                ? radius - 4 - MEDIA_BADGE_SIZE / 2
+                : -radius + 4 + MEDIA_BADGE_SIZE / 2),
+          );
           const badgeY = snap(
             eventY - radius + 3 + index * (MEDIA_BADGE_SIZE + MEDIA_BADGE_GAP),
           );
@@ -990,27 +1181,50 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         });
         const titleLines = getWrappedEventTitle(event);
         const isBelowMarker = layout.y.get() > 0;
-        setTextStyle({
-          textBaseline: isBelowMarker ? "top" : "bottom",
-        });
+        const useStackedLabels =
+          orientation === "horizontal" ||
+          (orientation === "vertical" && width < 640);
+        const stackedLabelsBelowEvent =
+          orientation === "vertical" && width < 640 ? true : isBelowMarker;
 
-        if (isBelowMarker) {
-          const titleTop = eventY + 34;
-          titleLines.forEach((line, index) => {
-            ctx.fillText(
-              line,
-              eventX,
-              snap(titleTop + index * EVENT_TITLE_LINE_HEIGHT),
-            );
+        if (useStackedLabels) {
+          setTextStyle({
+            textBaseline: stackedLabelsBelowEvent ? "top" : "bottom",
           });
+
+          if (stackedLabelsBelowEvent) {
+            const titleTop = eventY + 34;
+            titleLines.forEach((line, index) => {
+              ctx.fillText(
+                line,
+                eventX,
+                snap(titleTop + index * EVENT_TITLE_LINE_HEIGHT),
+              );
+            });
+          } else {
+            const titleBottom = eventY - 34;
+            const firstLineY =
+              titleBottom - (titleLines.length - 1) * EVENT_TITLE_LINE_HEIGHT;
+            titleLines.forEach((line, index) => {
+              ctx.fillText(
+                line,
+                eventX,
+                snap(firstLineY + index * EVENT_TITLE_LINE_HEIGHT),
+              );
+            });
+          }
         } else {
-          const titleBottom = eventY - 34;
+          setTextStyle({
+            textBaseline: "middle",
+            textAlign: isBelowMarker ? "left" : "right",
+          });
+          const titleX = eventX + (isBelowMarker ? 34 : -34);
           const firstLineY =
-            titleBottom - (titleLines.length - 1) * EVENT_TITLE_LINE_HEIGHT;
+            eventY - ((titleLines.length - 1) * EVENT_TITLE_LINE_HEIGHT) / 2;
           titleLines.forEach((line, index) => {
             ctx.fillText(
               line,
-              eventX,
+              snap(titleX),
               snap(firstLineY + index * EVENT_TITLE_LINE_HEIGHT),
             );
           });
@@ -1019,18 +1233,38 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         setTextStyle({
           font: CANVAS_FONT_PRESETS.eventDate,
           fillStyle: isHighlighted ? activeDateColor : canvasTheme.eventDate,
-          textAlign: "center",
+          textAlign:
+            useStackedLabels
+              ? "center"
+              : isBelowMarker
+                ? "left"
+                : "right",
+          textBaseline: useStackedLabels ? ctx.textBaseline : "middle",
         });
-        const dateY = isBelowMarker
-          ? eventY +
-            34 +
-            titleLines.length * EVENT_TITLE_LINE_HEIGHT +
-            EVENT_LABEL_GAP
-          : eventY -
-            34 -
-            titleLines.length * EVENT_TITLE_LINE_HEIGHT -
-            EVENT_LABEL_GAP;
-        ctx.fillText(label, eventX, snap(dateY));
+        if (useStackedLabels) {
+          const dateY = stackedLabelsBelowEvent
+            ? eventY +
+              34 +
+              titleLines.length * EVENT_TITLE_LINE_HEIGHT +
+              EVENT_LABEL_GAP
+            : eventY -
+              34 -
+              titleLines.length * EVENT_TITLE_LINE_HEIGHT -
+              EVENT_LABEL_GAP;
+          ctx.fillText(label, eventX, snap(dateY));
+        } else {
+          const labelX =
+            eventX +
+            (isBelowMarker
+              ? 34
+              : -34);
+          const labelY =
+            eventY +
+            (titleLines.length * EVENT_TITLE_LINE_HEIGHT) / 2 +
+            EVENT_LABEL_GAP +
+            EVENT_TITLE_LINE_HEIGHT / 2;
+          ctx.fillText(label, snap(labelX), snap(labelY));
+        }
 
         ctx.restore();
       }
@@ -1039,11 +1273,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         const originLayout = currentEventLayouts[currentRulerEvent.id];
         if (originLayout && originLayout.opacity.get() > 0.02) {
           const originYear = getEventTimelineYear(currentRulerEvent);
-          const originX = getScreenX(originYear);
-          const originY = centerY + originLayout.y.get();
+          const originPoint = toCanvasPoint(
+            getPrimaryScreenPosition(originYear),
+            originLayout.y.get(),
+            width,
+            height,
+          );
+          const originX = originPoint.x;
+          const originY = originPoint.y;
           let targetX = rulerPointerRef.current.x;
           let targetY = rulerPointerRef.current.y;
-          let targetYear = originYear + (targetX - originX) / zoom.get();
+          let targetYear =
+            originYear +
+            ((orientation === "horizontal" ? targetX - originX : targetY - originY) /
+              zoom.get());
           const rulerHoveredEvent =
             hoveredTarget.type === "event" &&
             hoveredTarget.id !== currentRulerEvent.id
@@ -1056,8 +1299,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             const hoveredLayout = currentEventLayouts[rulerHoveredEvent.event.id];
             if (hoveredLayout && hoveredLayout.opacity.get() > 0.02) {
               targetYear = rulerHoveredEvent.year;
-              targetX = getScreenX(targetYear);
-              targetY = centerY + hoveredLayout.y.get();
+              const hoveredPoint = toCanvasPoint(
+                getPrimaryScreenPosition(targetYear),
+                hoveredLayout.y.get(),
+                width,
+                height,
+              );
+              targetX = hoveredPoint.x;
+              targetY = hoveredPoint.y;
             }
           }
 
@@ -1133,13 +1382,22 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         }
       }
 
-      const bigBangX = getScreenX(BIG_BANG_YEAR);
-      if (bigBangX >= 0 && bigBangX <= width) {
-        const snappedBigBangX = snap(bigBangX);
+      const bigBangPrimary = getPrimaryScreenPosition(BIG_BANG_YEAR);
+      const shouldRenderBigBangBadge =
+        axisDirection === 1 ? bigBangPrimary > primarySize : bigBangPrimary < 0;
+      if (bigBangPrimary >= 0 && bigBangPrimary <= primarySize) {
+        const bigBangPoint = toCanvasPoint(bigBangPrimary, 0, width, height);
+        const snappedBigBangX = snap(bigBangPoint.x);
+        const snappedBigBangY = snap(bigBangPoint.y);
         ctx.strokeStyle = canvasTheme.bigBangLine;
         ctx.beginPath();
-        ctx.moveTo(snappedBigBangX, 0);
-        ctx.lineTo(snappedBigBangX, height);
+        if (orientation === "horizontal") {
+          ctx.moveTo(snappedBigBangX, 0);
+          ctx.lineTo(snappedBigBangX, height);
+        } else {
+          ctx.moveTo(0, snappedBigBangY);
+          ctx.lineTo(width, snappedBigBangY);
+        }
         ctx.stroke();
 
         ctx.fillStyle = canvasTheme.bigBangFill;
@@ -1149,7 +1407,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.beginPath();
         ctx.roundRect(
           snap(snappedBigBangX - labelWidth / 2),
-          snap(centerY - labelHeight / 2),
+          snap(snappedBigBangY - labelHeight / 2),
           labelWidth,
           labelHeight,
           14,
@@ -1162,9 +1420,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           textAlign: "center",
           textBaseline: "middle",
         });
-        ctx.fillText("Big Bang", snappedBigBangX, snap(centerY));
-      } else if (bigBangX > width) {
-        const badgeX = snap(width - 78);
+        ctx.fillText("Big Bang", snappedBigBangX, snappedBigBangY);
+      } else if (shouldRenderBigBangBadge) {
+        const badgePoint = toCanvasPoint(primarySize - 78, 0, width, height);
+        const badgeX = snap(badgePoint.x);
+        const badgeY = snap(badgePoint.y);
         const badgeWidth = 92;
         const badgeHeight = 32;
         ctx.fillStyle = canvasTheme.bigBangFill;
@@ -1172,7 +1432,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.beginPath();
         ctx.roundRect(
           snap(badgeX - badgeWidth / 2),
-          snap(centerY - badgeHeight / 2),
+          snap(badgeY - badgeHeight / 2),
           badgeWidth,
           badgeHeight,
           16,
@@ -1185,7 +1445,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           textAlign: "center",
           textBaseline: "middle",
         });
-        ctx.fillText("Big Bang", badgeX, snap(centerY));
+        ctx.fillText("Big Bang", badgeX, badgeY);
       }
     };
 
@@ -1197,7 +1457,16 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         renderFrameRef.current = null;
       }
     };
-  }, [canvasTheme, containerRef, focusPixel, focusYear, language, zoom]);
+  }, [
+    axisDirection,
+    canvasTheme,
+    containerRef,
+    focusPixel,
+    focusYear,
+    language,
+    orientation,
+    zoom,
+  ]);
 
   useEffect(() => {
     const unsubscribeFocusPixel = focusPixel.on("change", requestRender);

@@ -1,7 +1,23 @@
 import React from "react";
-import { motion, MotionValue } from "motion/react";
-import { ChevronDown } from "lucide-react";
-import { AutoFitRangeTarget, DateJumpTarget } from "../constants/types";
+import { AnimatePresence, motion, MotionValue } from "motion/react";
+import {
+  ArrowDown,
+  ArrowDownUp,
+  ArrowLeftRight,
+  ArrowUp,
+  ChevronDown,
+  Crosshair,
+  Eye,
+  Scan,
+  ZoomIn,
+} from "lucide-react";
+import {
+  AutoFitRangeTarget,
+  DateJumpTarget,
+  TimelineOrientation,
+  VerticalTimeDirection,
+  VerticalWheelBehavior,
+} from "../constants/types";
 import { useI18n } from "../i18n";
 import { NavigationPanelTab, useStore } from "../stores";
 
@@ -17,6 +33,12 @@ interface NavigationPanelProps {
   onZoomDragStart: (e: React.PointerEvent<HTMLDivElement>) => void;
   onZoomDragMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   onZoomDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void;
+  timelineOrientation: TimelineOrientation;
+  onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
+  verticalWheelBehavior: VerticalWheelBehavior;
+  onVerticalWheelBehaviorChange: (behavior: VerticalWheelBehavior) => void;
+  verticalTimeDirection: VerticalTimeDirection;
+  onVerticalTimeDirectionChange: (direction: VerticalTimeDirection) => void;
   onComplete?: () => void;
 }
 
@@ -38,6 +60,12 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   onZoomDragStart,
   onZoomDragMove,
   onZoomDragEnd,
+  timelineOrientation,
+  onTimelineOrientationChange,
+  verticalWheelBehavior,
+  onVerticalWheelBehaviorChange,
+  verticalTimeDirection,
+  onVerticalTimeDirectionChange,
   onComplete,
 }) => {
   const { t } = useI18n();
@@ -56,6 +84,13 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     setJumpError(null);
     setFitError(null);
   }, [isOpen]);
+
+  const verticalSettingsTransition = {
+    initial: { opacity: 0, height: 0, y: -6 },
+    animate: { opacity: 1, height: "auto", y: 0 },
+    exit: { opacity: 0, height: 0, y: -6 },
+    transition: { duration: 0.18, ease: "easeOut" as const },
+  };
 
   const handleJumpSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -131,36 +166,160 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
       data-open={isOpen}
       style={isOpen ? { maxHeight: "min(66vh, 32rem)" } : undefined}
     >
-      <div className="ui-panel mt-0.5 max-h-[min(66vh,32rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[1.45rem] p-3.5 sm:w-[20.75rem]">
+      <div className="ui-panel mt-0.5 max-h-[min(66vh,32rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[1.45rem] p-3.5 sm:w-[22.5rem]">
         <div className="ui-display-title text-[1.5rem] leading-none text-white mb-2">
           {t("navigate")}
         </div>
         <div className="ui-tablist mb-3">
           <button
             type="button"
-            className="ui-tab"
+            className="ui-tab whitespace-nowrap"
+            data-active={activeTab === "view"}
+            onClick={() => setActiveTab("view" as NavigationPanelTab)}
+          >
+            <Eye size={15} className="icon" />
+            {t("viewTab")}
+          </button>
+          <button
+            type="button"
+            className="ui-tab whitespace-nowrap"
             data-active={activeTab === "zoom"}
             onClick={() => setActiveTab("zoom" as NavigationPanelTab)}
           >
+            <ZoomIn size={15} className="icon" />
             {t("zoom")}
           </button>
           <button
             type="button"
-            className="ui-tab"
+            className="ui-tab whitespace-nowrap"
             data-active={activeTab === "jump"}
             onClick={() => setActiveTab("jump" as NavigationPanelTab)}
           >
+            <Crosshair size={15} className="icon" />
             {t("jump")}
           </button>
           <button
             type="button"
-            className="ui-tab"
+            className="ui-tab whitespace-nowrap"
             data-active={activeTab === "fit"}
             onClick={() => setActiveTab("fit" as NavigationPanelTab)}
           >
+            <Scan size={15} className="icon" />
             {t("fit")}
           </button>
         </div>
+        {activeTab === "view" ? (
+          <div className="ui-panel-soft rounded-[1.15rem] p-3">
+            <div className="text-sm font-semibold text-zinc-100">
+              {t("timelineOrientation")}
+            </div>
+            <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
+              {t("timelineOrientationHelp")}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(
+                [
+                  {
+                    ori: "horizontal",
+                    icon: <ArrowLeftRight size={15} className="icon" />,
+                  },
+                  {
+                    ori: "vertical",
+                    icon: <ArrowDownUp size={15} className="icon" />,
+                  },
+                ] as const
+              ).map(({ ori: orientation, icon }) => (
+                <button
+                  key={orientation}
+                  type="button"
+                  className="ui-tab"
+                  data-active={timelineOrientation === orientation}
+                  onClick={() => onTimelineOrientationChange(orientation)}
+                >
+                  {icon} {t(orientation)}
+                </button>
+              ))}
+            </div>
+            <AnimatePresence initial={false}>
+              {timelineOrientation === "vertical" ? (
+                <motion.div
+                  key="vertical-settings"
+                  className="mt-3 overflow-hidden border-t border-zinc-800/80 pt-3"
+                  {...verticalSettingsTransition}
+                >
+                <div className="text-sm font-semibold text-zinc-100">
+                  {t("verticalScrollBehavior")}
+                </div>
+                <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
+                  {t("verticalScrollBehaviorHelp")}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      {
+                        label: "pan",
+                        icon: <ArrowDownUp size={15} className="icon" />,
+                      },
+                      {
+                        label: "zoom",
+                        icon: <ZoomIn size={15} className="icon" />,
+                      },
+                    ] as const
+                  ).map(({ label: behavior, icon }) => (
+                    <button
+                      key={behavior}
+                      type="button"
+                      className="ui-tab"
+                      data-active={verticalWheelBehavior === behavior}
+                      onClick={() => onVerticalWheelBehaviorChange(behavior)}
+                    >
+                      {icon}
+                      {behavior === "pan"
+                        ? t("scrollToPan")
+                        : t("scrollToZoom")}
+                    </button>
+                  ))}
+                </div>
+                  <div className="mt-3 border-t border-zinc-800/80 pt-3">
+                    <div className="text-sm font-semibold text-zinc-100">
+                      {t("verticalTimeDirection")}
+                    </div>
+                    <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
+                      {t("verticalTimeDirectionHelp")}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          {
+                            direction: "up",
+                            icon: <ArrowUp size={15} className="icon" />,
+                            label: t("timeFlowsUp"),
+                          },
+                          {
+                            direction: "down",
+                            icon: <ArrowDown size={15} className="icon" />,
+                            label: t("timeFlowsDown"),
+                          },
+                        ] as const
+                      ).map(({ direction, icon, label }) => (
+                        <button
+                          key={direction}
+                          type="button"
+                          className="ui-tab"
+                          data-active={verticalTimeDirection === direction}
+                          onClick={() => onVerticalTimeDirectionChange(direction)}
+                        >
+                          {icon}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+        ) : null}
         {activeTab === "zoom" ? (
           <div className="ui-panel-soft rounded-[1.15rem] p-3">
             <div className="flex flex-row">

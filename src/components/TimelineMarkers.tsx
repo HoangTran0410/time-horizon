@@ -8,7 +8,7 @@ import {
   animate,
 } from "motion/react";
 import { ThemeMode } from "../constants/theme";
-import { WarpOverlayMode } from "../constants/types";
+import { TimelineOrientation, WarpOverlayMode } from "../constants/types";
 
 const MIN_RING_DIAMETER = 12;
 const RING_FADE_IN_START = 10;
@@ -90,7 +90,8 @@ interface WarpOverlayProps {
   direction: 1 | -1;
   theme: ThemeMode;
   zoom: MotionValue<number>;
-  zoomPivotX: MotionValue<number>;
+  orientation: TimelineOrientation;
+  zoomPivot: MotionValue<number>;
 }
 
 interface ZoomReferenceRingProps {
@@ -169,7 +170,8 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   direction,
   theme,
   zoom,
-  zoomPivotX,
+  orientation,
+  zoomPivot,
 }) => {
   const maxVisibleDiameter = useMemo(() => {
     if (typeof window === "undefined") return 1280;
@@ -178,14 +180,14 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   const [ringIntervals, setRingIntervals] = useState<number[]>(() =>
     getZoomReferenceIntervals(zoom.get(), maxVisibleDiameter),
   );
-  // Smooth pivot: spring-animates to zoomPivotX so rings glide, not snap.
+  // Smooth pivot: spring-animates to zoomPivot so rings glide, not snap.
   // useMotionValueEvent gives us the new value directly (not stale like .get() in useEffect).
-  const pivotX = useMotionValue(zoomPivotX.get());
+  const pivot = useMotionValue(zoomPivot.get());
 
-  useMotionValueEvent(zoomPivotX, "change", (newX: number) => {
+  useMotionValueEvent(zoomPivot, "change", (nextPivot: number) => {
     // Only animate when not in travel mode.
     if (mode === "travel") return;
-    const controls = animate(pivotX, newX, {
+    const controls = animate(pivot, nextPivot, {
       type: "spring",
       stiffness: 350,
       damping: 35,
@@ -225,24 +227,51 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             const delay = (i * 0.041) % 1;
             const short = i % 3 === 0;
             return (
-              <div
-                key={i}
-                className="absolute"
-                style={{
-                  top: `${top}%`,
-                  left: direction === 1 ? (short ? "-20%" : "-40%") : undefined,
-                  right:
-                    direction === -1 ? (short ? "-20%" : "-40%") : undefined,
-                  width: short ? "30%" : "60%",
-                  height: "1px",
-                  background:
-                    theme === "dark"
-                      ? "linear-gradient(90deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.55) 55%, transparent 100%)"
-                      : "linear-gradient(90deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.22) 55%, transparent 100%)",
-                  animation: `warp-streak ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
-                  transform: direction === -1 ? "scaleX(-1)" : undefined,
-                }}
-              />
+                <div
+                  key={i}
+                  className="absolute"
+                  style={
+                    orientation === "horizontal"
+                      ? {
+                          top: `${top}%`,
+                          left:
+                            direction === 1 ? (short ? "-20%" : "-40%") : undefined,
+                          right:
+                            direction === -1
+                              ? short
+                                ? "-20%"
+                                : "-40%"
+                              : undefined,
+                          width: short ? "30%" : "60%",
+                          height: "1px",
+                          background:
+                            theme === "dark"
+                              ? "linear-gradient(90deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.55) 55%, transparent 100%)"
+                              : "linear-gradient(90deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.22) 55%, transparent 100%)",
+                          animation: `warp-streak-x ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
+                          transform: direction === -1 ? "scaleX(-1)" : undefined,
+                        }
+                      : {
+                          left: `${top}%`,
+                          top:
+                            direction === 1 ? (short ? "-20%" : "-40%") : undefined,
+                          bottom:
+                            direction === -1
+                              ? short
+                                ? "-20%"
+                                : "-40%"
+                              : undefined,
+                          width: "1px",
+                          height: short ? "30%" : "60%",
+                          background:
+                            theme === "dark"
+                              ? "linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.55) 55%, transparent 100%)"
+                              : "linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.22) 55%, transparent 100%)",
+                          animation: `warp-streak-y ${0.35 + (i % 5) * 0.05}s linear ${delay}s infinite`,
+                          transform: direction === -1 ? "scaleY(-1)" : undefined,
+                        }
+                  }
+                />
             );
           })}
 
@@ -250,20 +279,32 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
             className="absolute inset-0 flex items-center justify-center"
             style={{
               background:
-                direction === 1
-                  ? theme === "dark"
-                    ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
-                    : "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(15,23,42,0.06) 0%, transparent 70%)"
-                  : theme === "dark"
-                    ? "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
-                    : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(15,23,42,0.06) 0%, transparent 70%)",
+                orientation === "horizontal"
+                  ? direction === 1
+                    ? theme === "dark"
+                      ? "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                      : "radial-gradient(ellipse 60% 40% at 100% 50%, rgba(15,23,42,0.06) 0%, transparent 70%)"
+                    : theme === "dark"
+                      ? "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                      : "radial-gradient(ellipse 60% 40% at 0% 50%, rgba(15,23,42,0.06) 0%, transparent 70%)"
+                  : direction === 1
+                    ? theme === "dark"
+                      ? "radial-gradient(ellipse 40% 60% at 50% 100%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                      : "radial-gradient(ellipse 40% 60% at 50% 100%, rgba(15,23,42,0.06) 0%, transparent 70%)"
+                    : theme === "dark"
+                      ? "radial-gradient(ellipse 40% 60% at 50% 0%, rgba(255,255,255,0.08) 0%, transparent 70%)"
+                      : "radial-gradient(ellipse 40% 60% at 50% 0%, rgba(15,23,42,0.06) 0%, transparent 70%)",
             }}
           />
         </>
       ) : (
         <motion.div
           className="absolute left-0 top-0 h-0 w-0"
-          style={{ x: pivotX, top: "50%" }}
+          style={
+            orientation === "horizontal"
+              ? { x: pivot, top: "50%" }
+              : { left: "50%", y: pivot }
+          }
         >
           <div className="relative">
             {ringIntervals.map((intervalYears, index) => (
@@ -299,11 +340,17 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
       )}
 
       <style>{`
-      @keyframes warp-streak {
+      @keyframes warp-streak-x {
         0%   { transform: translateX(0) scaleX(0.3); opacity: 0; }
         10%  { opacity: 1; }
         90%  { opacity: 1; }
         100% { transform: translateX(${direction === 1 ? "100vw" : "-100vw"}) scaleX(1.5); opacity: 0; }
+      }
+      @keyframes warp-streak-y {
+        0%   { transform: translateY(0) scaleY(0.3); opacity: 0; }
+        10%  { opacity: 1; }
+        90%  { opacity: 1; }
+        100% { transform: translateY(${direction === 1 ? "100vh" : "-100vh"}) scaleY(1.5); opacity: 0; }
       }
     `}</style>
     </div>

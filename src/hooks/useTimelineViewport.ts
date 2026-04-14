@@ -29,6 +29,9 @@ import {
   EventLayoutState,
   TimelineTick,
   WarpOverlayMode,
+  TimelineOrientation,
+  VerticalTimeDirection,
+  VerticalWheelBehavior,
 } from "../constants/types";
 import {
   generateCalendarTimelineTickYears,
@@ -72,6 +75,9 @@ type UseTimelineViewportParams = {
   onSelectEvent: (event: Event | null) => void;
   onViewportChange?: (viewport: { focusYear: number; logZoom: number }) => void;
   setIsRulerActive: (value: boolean) => void;
+  orientation: TimelineOrientation;
+  verticalWheelBehavior: VerticalWheelBehavior;
+  verticalTimeDirection: VerticalTimeDirection;
   /** Optional: deep-link focus year. When provided, viewport boots to this year instead of auto-fit. */
   initialFocusYear?: number | null;
   /** Optional: deep-link log-zoom. When provided, viewport boots to this zoom instead of auto-fit. */
@@ -88,9 +94,14 @@ export const useTimelineViewport = ({
   onSelectEvent,
   onViewportChange,
   setIsRulerActive,
+  orientation,
+  verticalWheelBehavior,
+  verticalTimeDirection,
   initialFocusYear = null,
   initialLogZoom = null,
 }: UseTimelineViewportParams) => {
+  const axisDirection =
+    orientation === "vertical" && verticalTimeDirection === "up" ? -1 : 1;
   const [ticks, setTicks] = useState<TimelineTick[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<CollapsedEventGroup[]>(
     [],
@@ -140,13 +151,17 @@ export const useTimelineViewport = ({
   const collapsedGroupCycleRef = useRef<Record<string, number>>({});
 
   const focusPixel = useMotionValue(
-    typeof window !== "undefined" ? window.innerWidth / 2 : 500,
+    typeof window !== "undefined"
+      ? (orientation === "horizontal"
+          ? window.innerWidth / 2
+          : window.innerHeight / 2)
+      : 500,
   );
   const focusYear = useMotionValue(0);
   const logZoom = useMotionValue(DEFAULT_LOG_ZOOM);
   const zoom = useTransform(logZoom, Math.exp);
   const panX = useTransform(
-    () => focusPixel.get() - focusYear.get() * zoom.get(),
+    () => focusPixel.get() - focusYear.get() * zoom.get() * axisDirection,
   );
 
   const targetLogZoom = useRef(DEFAULT_LOG_ZOOM);
@@ -169,6 +184,9 @@ export const useTimelineViewport = ({
     anchorYear: number;
     lastEventTime: number;
   } | null>(null);
+  const wheelPanResidualRef = useRef(0);
+  const wheelPanAnchorPixelRef = useRef<number | null>(null);
+  const wheelPanFrameRef = useRef<number | null>(null);
   const suppressNextClickRef = useRef(false);
   const dragDistanceRef = useRef(0);
 
@@ -190,7 +208,22 @@ export const useTimelineViewport = ({
     containerRef.current?.clientHeight ??
     (typeof window !== "undefined" ? window.innerHeight : 800);
 
-  const getViewportCenter = () => getViewportWidth() / 2;
+  const getViewportPrimarySize = () =>
+    orientation === "horizontal" ? getViewportWidth() : getViewportHeight();
+
+  const getViewportCrossSize = () =>
+    orientation === "horizontal" ? getViewportHeight() : getViewportWidth();
+
+  const getViewportCenter = () => getViewportPrimarySize() / 2;
+
+  const getPrimaryPixelFromClient = (
+    rect: DOMRect,
+    clientX: number,
+    clientY: number,
+  ) => (orientation === "horizontal" ? clientX - rect.left : clientY - rect.top);
+
+  const getPrimaryPointerValue = (clientX: number, clientY: number) =>
+    orientation === "horizontal" ? clientX : clientY;
 
   const clampLogZoom = (nextLogZoom: number) =>
     Math.max(Math.log(MIN_ZOOM), Math.min(Math.log(MAX_ZOOM), nextLogZoom));
@@ -200,7 +233,7 @@ export const useTimelineViewport = ({
       case 1:
         return delta * 16;
       case 2:
-        return delta * getViewportHeight();
+        return delta * getViewportPrimarySize();
       default:
         return delta;
     }
@@ -234,12 +267,18 @@ export const useTimelineViewport = ({
     anchorPixel = focusPixel.get(),
   ) => {
     focusPixel.set(anchorPixel);
-    focusYear.set((anchorPixel - nextPanX) / currentZoom);
+    focusYear.set((anchorPixel - nextPanX) / (currentZoom * axisDirection));
     return nextPanX;
   };
 
+  const getYearFromPan = (
+    pixel: number,
+    currentPanX = panX.get(),
+    currentZoom = zoom.get(),
+  ) => (pixel - currentPanX) / (currentZoom * axisDirection);
+
   const getCenterYear = (centerPixel = getViewportCenter()) =>
-    (centerPixel - panX.get()) / zoom.get();
+    getYearFromPan(centerPixel);
 
   const animateFocusPixel = (
     target: number,
@@ -289,25 +328,29 @@ export const useTimelineViewport = ({
     const container = containerRef.current;
     if (!container) return null;
 
-    const width = container.clientWidth;
+    const primarySize = getViewportPrimarySize();
     const currentX = panX.get();
     const currentZoom = Math.exp(logZoom.get());
 
-    const startYear = (-width - currentX) / currentZoom;
-    const endYear = (width * 2 - currentX) / currentZoom;
+    const startYearRaw =
+      (-primarySize - currentX) / (currentZoom * axisDirection);
+    const endYearRaw =
+      (primarySize * 2 - currentX) / (currentZoom * axisDirection);
+    const startYear = Math.min(startYearRaw, endYearRaw);
+    const endYear = Math.max(startYearRaw, endYearRaw);
     visibleBoundsRef.current = { startYear, endYear };
     setIsViewportBeforeBigBang((prev) => {
       const nextValue = endYear < BIG_BANG_YEAR;
       return prev === nextValue ? prev : nextValue;
     });
 
-    return { width, currentZoom, startYear, endYear };
+    return { primarySize, currentZoom, startYear, endYear };
   };
 
   const updateLayout = (immediate = false) => {
     const currentZoom = Math.exp(logZoom.get());
     const minDistYears = LAYOUT_MIN_DISTANCE_PX / currentZoom;
-    const layoutLevels = getTimelineLayoutLevels(getViewportHeight());
+    const layoutLevels = getTimelineLayoutLevels(getViewportCrossSize());
     const { startYear, endYear } = visibleBoundsRef.current;
     const margin = (endYear - startYear) * LAYOUT_MARGIN_RATIO;
     const layoutStart = startYear - margin;
@@ -429,18 +472,18 @@ export const useTimelineViewport = ({
   const updateTicks = () => {
     const bounds = updateVisibleBounds();
     if (!bounds) return;
-    const { width, currentZoom, startYear, endYear } = bounds;
+    const { primarySize, currentZoom, startYear, endYear } = bounds;
 
-    const visibleYears = width / currentZoom;
+    const visibleYears = primarySize / currentZoom;
     const roughInterval = getNiceInterval(visibleYears / 10);
     const estimatedWidthPx = getStableTickLabelWidthEstimate(roughInterval);
 
-    const maxTicks = Math.max(2, Math.floor(width / estimatedWidthPx));
+    const maxTicks = Math.max(2, Math.floor(primarySize / estimatedWidthPx));
     const idealInterval = visibleYears / maxTicks;
     const interval = getNiceInterval(idealInterval);
     const targetHighlightedTicks = Math.max(
       2,
-      Math.min(5, Math.round(width / 320)),
+      Math.min(5, Math.round(primarySize / 320)),
     );
     const highlightStep = getTimelineHighlightStep(
       Math.max(interval, visibleYears / targetHighlightedTicks),
@@ -538,7 +581,7 @@ export const useTimelineViewport = ({
     const container = containerRef.current;
     if (!container || events.length === 0) return;
 
-    const width = container.clientWidth;
+    const primarySize = getViewportPrimarySize();
     const years = events.map((event) => getEventTimelineYear(event));
     const minYear = Math.min(...years);
     const maxYear = Math.max(...years);
@@ -549,13 +592,13 @@ export const useTimelineViewport = ({
 
       if (immediate) {
         stopCameraAnimations();
-        focusPixel.set(width / 2);
+        focusPixel.set(primarySize / 2);
         focusYear.set(targetYear);
         targetLogZoom.current = Math.log(targetZoom);
         logZoom.set(targetLogZoom.current);
       } else {
         stopCameraAnimations();
-        animateFocusPixel(width / 2, CAMERA_SPRING);
+        animateFocusPixel(primarySize / 2, CAMERA_SPRING);
         animateFocusYear(targetYear, CAMERA_SPRING);
         targetLogZoom.current = Math.log(targetZoom);
         animateLogZoom(targetLogZoom.current, CAMERA_SPRING);
@@ -566,7 +609,7 @@ export const useTimelineViewport = ({
     const fitZoom = Math.max(
       MIN_ZOOM,
       Math.min(
-        (width * (1 - CAMERA_FIT_PADDING * 2)) / (maxYear - minYear),
+        (primarySize * (1 - CAMERA_FIT_PADDING * 2)) / (maxYear - minYear),
         MAX_ZOOM,
       ),
     );
@@ -575,14 +618,14 @@ export const useTimelineViewport = ({
 
     if (immediate) {
       stopCameraAnimations();
-      focusPixel.set(width / 2);
+      focusPixel.set(primarySize / 2);
       focusYear.set(centerYear);
       targetLogZoom.current = Math.log(fitZoom);
       logZoom.set(targetLogZoom.current);
-    } else if (pixelDist > width * 0.5) {
+    } else if (pixelDist > primarySize * 0.5) {
       stopCameraAnimations();
       const duration = Math.min(1.0, 0.2 + pixelDist / 4000);
-      animateFocusPixel(width / 2, { duration, ease: "easeInOut" });
+      animateFocusPixel(primarySize / 2, { duration, ease: "easeInOut" });
       animateFocusYear(centerYear, { duration, ease: "easeInOut" });
       targetLogZoom.current = Math.log(fitZoom);
       animateLogZoom(targetLogZoom.current, {
@@ -591,7 +634,7 @@ export const useTimelineViewport = ({
       });
     } else {
       stopCameraAnimations();
-      animateFocusPixel(width / 2, CAMERA_SPRING);
+      animateFocusPixel(primarySize / 2, CAMERA_SPRING);
       animateFocusYear(centerYear, CAMERA_SPRING);
       targetLogZoom.current = Math.log(fitZoom);
       animateLogZoom(targetLogZoom.current, CAMERA_SPRING);
@@ -606,30 +649,30 @@ export const useTimelineViewport = ({
     const container = containerRef.current;
     if (!container) return;
 
-    const width = container.clientWidth;
+    const primarySize = getViewportPrimarySize();
     const minYear = Math.min(startYear, endYear);
     const maxYear = Math.max(startYear, endYear);
     const rangeYears = Math.max(maxYear - minYear, 1);
     const fitZoom = Math.max(
       MIN_ZOOM,
-      Math.min((width * (1 - CAMERA_FIT_PADDING * 2)) / rangeYears, MAX_ZOOM),
+      Math.min((primarySize * (1 - CAMERA_FIT_PADDING * 2)) / rangeYears, MAX_ZOOM),
     );
     const centerYear = (minYear + maxYear) / 2;
     const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
 
     if (immediate) {
       stopCameraAnimations();
-      focusPixel.set(width / 2);
+      focusPixel.set(primarySize / 2);
       focusYear.set(centerYear);
       targetLogZoom.current = Math.log(fitZoom);
       logZoom.set(targetLogZoom.current);
       return;
     }
 
-    if (pixelDist > width * 0.5) {
+    if (pixelDist > primarySize * 0.5) {
       stopCameraAnimations();
       const duration = Math.min(1.0, 0.2 + pixelDist / 4000);
-      animateFocusPixel(width / 2, { duration, ease: "easeInOut" });
+      animateFocusPixel(primarySize / 2, { duration, ease: "easeInOut" });
       animateFocusYear(centerYear, { duration, ease: "easeInOut" });
       targetLogZoom.current = Math.log(fitZoom);
       animateLogZoom(targetLogZoom.current, {
@@ -640,7 +683,7 @@ export const useTimelineViewport = ({
     }
 
     stopCameraAnimations();
-    animateFocusPixel(width / 2, CAMERA_SPRING);
+    animateFocusPixel(primarySize / 2, CAMERA_SPRING);
     animateFocusYear(centerYear, CAMERA_SPRING);
     targetLogZoom.current = Math.log(fitZoom);
     animateLogZoom(targetLogZoom.current, CAMERA_SPRING);
@@ -723,9 +766,9 @@ export const useTimelineViewport = ({
       focusedEventIdRef.current = nextEvent.id;
       setExpandedCollapsedGroup(null);
 
-      const width = getViewportWidth();
+      const primarySize = getViewportPrimarySize();
       stopCameraAnimations();
-      animateFocusPixel(width / 2, FOCUS_SPRING);
+      animateFocusPixel(primarySize / 2, FOCUS_SPRING);
       animateFocusYear(group.year, FOCUS_SPRING);
 
       const boostedZoom = Math.max(zoom.get(), MAX_ZOOM);
@@ -746,7 +789,7 @@ export const useTimelineViewport = ({
 
     const container = containerRef.current;
     if (!container) return;
-    const width = container.clientWidth;
+    const primarySize = getViewportPrimarySize();
 
     const eventYear = getEventTimelineYear(event);
     const currentZoom = Math.exp(logZoom.get());
@@ -761,12 +804,13 @@ export const useTimelineViewport = ({
       );
       targetZoom = Math.max(
         MIN_ZOOM,
-        Math.min(width / targetRangeYears, MAX_ZOOM),
+        Math.min(primarySize / targetRangeYears, MAX_ZOOM),
       );
     }
 
     const pixelDist = Math.abs(eventYear - currentYear) * targetZoom;
-    const isLongTravel = pixelDist > width * LONG_TRAVEL_VIEWPORT_MULTIPLIER;
+    const isLongTravel =
+      pixelDist > primarySize * LONG_TRAVEL_VIEWPORT_MULTIPLIER;
 
     stopCameraAnimations();
 
@@ -774,14 +818,19 @@ export const useTimelineViewport = ({
       const duration = Math.min(1.2, 0.3 + pixelDist / 4000);
       setWarpMode("travel");
       setIsWarping(true);
-      setWarpDirection(eventYear > currentYear ? -1 : 1);
+      const travelDirection = eventYear > currentYear ? -1 : 1;
+      setWarpDirection(
+        orientation === "vertical"
+          ? (travelDirection * axisDirection as 1 | -1)
+          : travelDirection,
+      );
 
       const travelOptions = {
         duration,
         ease: "easeInOut",
       } as const;
 
-      animateFocusPixel(width / 2, travelOptions);
+      animateFocusPixel(primarySize / 2, travelOptions);
       animateFocusYear(eventYear, {
         ...travelOptions,
         onComplete: () => {
@@ -803,7 +852,7 @@ export const useTimelineViewport = ({
     // settle together, even when targetZoom ≈ currentZoom.
     targetLogZoom.current = Math.log(targetZoom);
     animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
-    animateFocusPixel(width / 2, FOCUS_SPRING);
+    animateFocusPixel(primarySize / 2, FOCUS_SPRING);
     animateFocusYear(eventYear, FOCUS_SPRING);
   };
 
@@ -821,9 +870,9 @@ export const useTimelineViewport = ({
 
     const container = containerRef.current;
     if (!container) return;
-    const width = container.clientWidth;
+    const primarySize = getViewportPrimarySize();
     stopCameraAnimations();
-    animateFocusPixel(width / 2, FOCUS_SPRING);
+    animateFocusPixel(primarySize / 2, FOCUS_SPRING);
     animateFocusYear(BIG_BANG_YEAR, FOCUS_SPRING);
   };
 
@@ -835,17 +884,32 @@ export const useTimelineViewport = ({
       inertiaFrame.current = null;
     }
 
+    if (!(orientation === "vertical" && verticalWheelBehavior === "pan")) {
+      clearWheelPanFrame();
+      wheelPanResidualRef.current = 0;
+      wheelPanAnchorPixelRef.current = null;
+    }
+
     stopCameraAnimations();
 
     const container = containerRef.current;
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
+    const primaryPointer = getPrimaryPixelFromClient(
+      rect,
+      event.clientX,
+      event.clientY,
+    );
+    const primaryRectSize =
+      orientation === "horizontal" ? rect.width : rect.height;
 
     const currentZoom = zoom.get();
     const normalizedDeltaX = normalizeWheelDelta(event.deltaX, event.deltaMode);
     const normalizedDeltaY = normalizeWheelDelta(event.deltaY, event.deltaMode);
+    const primaryScrollDelta =
+      orientation === "horizontal" ? normalizedDeltaX : normalizedDeltaY;
+    const zoomDelta = normalizedDeltaY;
     const isTrackpadPinch = event.ctrlKey;
 
     if (isTrackpadPinch) {
@@ -859,11 +923,11 @@ export const useTimelineViewport = ({
       if (shouldStartNewWheelPinchGesture) {
         const anchorPixel = Math.max(
           0,
-          Math.min(rect.width, focusPixel.get() || rect.width / 2),
+          Math.min(primaryRectSize, focusPixel.get() || primaryRectSize / 2),
         );
         wheelPinchGestureRef.current = {
           anchorPixel,
-          anchorYear: (anchorPixel - panX.get()) / currentZoom,
+          anchorYear: getYearFromPan(anchorPixel, panX.get(), currentZoom),
           lastEventTime: now,
         };
       } else {
@@ -873,7 +937,7 @@ export const useTimelineViewport = ({
       const wheelPinchGesture = wheelPinchGestureRef.current;
       if (!wheelPinchGesture) return;
       const nextLogZoom = clampLogZoom(
-        targetLogZoom.current - normalizedDeltaY * 0.015,
+        targetLogZoom.current - zoomDelta * 0.015,
       );
 
       focusPixel.set(wheelPinchGesture.anchorPixel);
@@ -885,29 +949,56 @@ export const useTimelineViewport = ({
 
     wheelPinchGestureRef.current = null;
 
-    if (event.deltaMode === 0 && Math.abs(normalizedDeltaX) > 0) {
-      setCameraFromPanX(panX.get() - normalizedDeltaX, currentZoom, mouseX);
+    if (orientation === "vertical" && verticalWheelBehavior === "pan") {
+      if (Math.abs(primaryScrollDelta) > 0) {
+        queueWheelPan(primaryScrollDelta, primaryPointer);
+      }
       return;
     }
 
-    const hasZoomIntent = Math.abs(normalizedDeltaY) > 0;
+    if (orientation === "vertical" && Math.abs(zoomDelta) > 0) {
+      focusPixel.set(primaryPointer);
+      focusYear.set(getYearFromPan(primaryPointer, panX.get(), currentZoom));
+
+      const targetZoom = Math.exp(targetLogZoom.current);
+      const zoomFactor = Math.pow(1.002, Math.abs(zoomDelta));
+      const direction = zoomDelta < 0 ? 1 : -1;
+      let newZoom =
+        direction > 0 ? targetZoom * zoomFactor : targetZoom / zoomFactor;
+      newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
+
+      targetLogZoom.current = Math.log(newZoom);
+      animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
+      return;
+    }
+
+    if (event.deltaMode === 0 && Math.abs(normalizedDeltaX) > 0) {
+      setCameraFromPanX(
+        panX.get() - normalizedDeltaX,
+        currentZoom,
+        primaryPointer,
+      );
+      return;
+    }
+
+    const hasZoomIntent = Math.abs(zoomDelta) > 0;
     const shouldApplyHorizontalPan =
       Math.abs(normalizedDeltaX) > 0 &&
       (!hasZoomIntent ||
-        Math.abs(normalizedDeltaX) > Math.abs(normalizedDeltaY) * 0.6);
+        Math.abs(normalizedDeltaX) > Math.abs(zoomDelta) * 0.6);
     const nextPanX = shouldApplyHorizontalPan
       ? panX.get() - normalizedDeltaX
       : panX.get();
 
-    setCameraFromPanX(nextPanX, currentZoom, mouseX);
+    setCameraFromPanX(nextPanX, currentZoom, primaryPointer);
 
-    if (Math.abs(normalizedDeltaY) > 0) {
-      focusPixel.set(mouseX);
-      focusYear.set((mouseX - nextPanX) / currentZoom);
+    if (Math.abs(zoomDelta) > 0) {
+      focusPixel.set(primaryPointer);
+      focusYear.set(getYearFromPan(primaryPointer, nextPanX, currentZoom));
 
       const targetZoom = Math.exp(targetLogZoom.current);
-      const zoomFactor = Math.pow(1.002, Math.abs(normalizedDeltaY));
-      const direction = normalizedDeltaY < 0 ? 1 : -1;
+      const zoomFactor = Math.pow(1.002, Math.abs(zoomDelta));
+      const direction = zoomDelta < 0 ? 1 : -1;
       let newZoom =
         direction > 0 ? targetZoom * zoomFactor : targetZoom / zoomFactor;
       newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
@@ -921,7 +1012,38 @@ export const useTimelineViewport = ({
     }
   };
 
-  const getYearAtPixel = (pixel: number) => (pixel - panX.get()) / zoom.get();
+  const getYearAtPixel = (pixel: number) => getYearFromPan(pixel);
+
+  const clearWheelPanFrame = () => {
+    if (wheelPanFrameRef.current === null) return;
+    cancelAnimationFrame(wheelPanFrameRef.current);
+    wheelPanFrameRef.current = null;
+  };
+
+  const flushWheelPan = () => {
+    const residual = wheelPanResidualRef.current;
+    const anchorPixel =
+      wheelPanAnchorPixelRef.current ?? focusPixel.get() ?? getViewportCenter();
+    if (Math.abs(residual) <= 0.05) {
+      wheelPanResidualRef.current = 0;
+      wheelPanAnchorPixelRef.current = null;
+      clearWheelPanFrame();
+      return;
+    }
+
+    const step = residual * 0.34;
+    wheelPanResidualRef.current -= step;
+    setCameraFromPanX(panX.get() - step, zoom.get(), anchorPixel);
+
+    wheelPanFrameRef.current = requestAnimationFrame(flushWheelPan);
+  };
+
+  const queueWheelPan = (delta: number, anchorPixel: number) => {
+    wheelPanResidualRef.current += delta;
+    wheelPanAnchorPixelRef.current = anchorPixel;
+    if (wheelPanFrameRef.current !== null) return;
+    wheelPanFrameRef.current = requestAnimationFrame(flushWheelPan);
+  };
 
   const clearInertia = () => {
     if (inertiaFrame.current === null) return;
@@ -949,20 +1071,23 @@ export const useTimelineViewport = ({
   };
 
   const getPinchMetrics = (first: ActivePointer, second: ActivePointer) => ({
-    centerX: (first.clientX + second.clientX) / 2,
+    centerPrimary:
+      orientation === "horizontal"
+        ? (first.clientX + second.clientX) / 2
+        : (first.clientY + second.clientY) / 2,
     distance: Math.hypot(
       first.clientX - second.clientX,
       first.clientY - second.clientY,
     ),
   });
 
-  const startDragAt = (clientX: number) => {
+  const startDragAt = (clientPrimary: number) => {
     isDragging.current = true;
     velocity.current = 0;
     dragDistanceRef.current = 0;
     const now = performance.now();
     lastDragTime.current = now;
-    lastX.current = clientX;
+    lastX.current = clientPrimary;
     pendingDragX.current = null;
     pendingDragTime.current = now;
   };
@@ -980,16 +1105,16 @@ export const useTimelineViewport = ({
     if (!pointers) return;
 
     const [first, second] = pointers;
-    const { centerX, distance } = getPinchMetrics(first, second);
+    const { centerPrimary, distance } = getPinchMetrics(first, second);
     if (distance <= 0) return;
 
     pinchGestureRef.current = {
-      anchorYear: getYearAtPixel(centerX),
+      anchorYear: getYearAtPixel(centerPrimary),
       startDistance: distance,
       startLogZoom: logZoom.get(),
     };
 
-    focusPixel.set(centerX);
+    focusPixel.set(centerPrimary);
     focusYear.set(pinchGestureRef.current.anchorYear);
     suppressNextClickRef.current = true;
   };
@@ -1000,7 +1125,7 @@ export const useTimelineViewport = ({
     if (!pinchGesture || !pointers) return;
 
     const [first, second] = pointers;
-    const { centerX, distance } = getPinchMetrics(first, second);
+    const { centerPrimary, distance } = getPinchMetrics(first, second);
     if (distance <= 0) return;
 
     const nextLogZoom = Math.max(
@@ -1012,7 +1137,7 @@ export const useTimelineViewport = ({
       ),
     );
 
-    focusPixel.set(centerX);
+    focusPixel.set(centerPrimary);
     focusYear.set(pinchGesture.anchorYear);
     targetLogZoom.current = nextLogZoom;
     logZoom.set(nextLogZoom);
@@ -1058,6 +1183,9 @@ export const useTimelineViewport = ({
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
     event.preventDefault();
+    clearWheelPanFrame();
+    wheelPanResidualRef.current = 0;
+    wheelPanAnchorPixelRef.current = null;
     stopCameraAnimations();
     wheelPinchGestureRef.current = null;
     clearInertia();
@@ -1077,7 +1205,7 @@ export const useTimelineViewport = ({
 
     pinchGestureRef.current = null;
     suppressNextClickRef.current = false;
-    startDragAt(event.clientX);
+    startDragAt(getPrimaryPointerValue(event.clientX, event.clientY));
   };
 
   const handlePointerMove = (event: PointerEvent) => {
@@ -1098,7 +1226,7 @@ export const useTimelineViewport = ({
     }
 
     if (!isDragging.current) return;
-    pendingDragX.current = event.clientX;
+    pendingDragX.current = getPrimaryPointerValue(event.clientX, event.clientY);
     pendingDragTime.current = performance.now();
     scheduleDragFrame();
   };
@@ -1126,7 +1254,12 @@ export const useTimelineViewport = ({
         resetDragState();
         const remainingPointer = getFirstActivePointer();
         if (remainingPointer) {
-          startDragAt(remainingPointer.clientX);
+          startDragAt(
+            getPrimaryPointerValue(
+              remainingPointer.clientX,
+              remainingPointer.clientY,
+            ),
+          );
           return;
         }
       }
@@ -1164,7 +1297,10 @@ export const useTimelineViewport = ({
   const flushZoomRangeLabel = (
     currentLogZoom = pendingZoomLabelRef.current,
   ) => {
-    const nextLabel = formatZoomRangeLabel(currentLogZoom, getViewportWidth());
+    const nextLabel = formatZoomRangeLabel(
+      currentLogZoom,
+      getViewportPrimarySize(),
+    );
     startTransition(() => {
       setZoomRangeLabel((prev) => (prev !== nextLabel ? nextLabel : prev));
     });
@@ -1267,6 +1403,9 @@ export const useTimelineViewport = ({
   };
 
   const handleZoomDragStart = (event: PointerEvent<HTMLDivElement>) => {
+    clearWheelPanFrame();
+    wheelPanResidualRef.current = 0;
+    wheelPanAnchorPixelRef.current = null;
     stopCameraAnimations();
     isZoomDragging.current = true;
     zoomTrackRef.current?.setPointerCapture(event.pointerId);
@@ -1295,7 +1434,7 @@ export const useTimelineViewport = ({
     if (!event.target.value || event.target.value === "current") return;
     stopCameraAnimations();
     const rangeInYears = parseFloat(event.target.value);
-    const targetZoom = getViewportWidth() / rangeInYears;
+    const targetZoom = getViewportPrimarySize() / rangeInYears;
     const nextLogZoom = Math.max(
       Math.log(MIN_ZOOM),
       Math.min(Math.log(MAX_ZOOM), Math.log(targetZoom)),
@@ -1312,7 +1451,7 @@ export const useTimelineViewport = ({
 
   const handleJumpToDate = (target: DateJumpTarget) => {
     const targetYear = getAbsoluteYearFromDateJump(target);
-    const width = getViewportWidth();
+    const primarySize = getViewportPrimarySize();
     const currentZoom = Math.exp(logZoom.get());
     const pixelDist = Math.abs(targetYear - focusYear.get()) * currentZoom;
 
@@ -1322,24 +1461,29 @@ export const useTimelineViewport = ({
     // Animate zoom to a reasonable level for the target year so that pan and
     // zoom settle together (keeping all three motion values in sync).
     // Show roughly ±1 year around the target.
-    const jumpZoom = Math.max(MIN_ZOOM, Math.min(width / 2, MAX_ZOOM));
+    const jumpZoom = Math.max(MIN_ZOOM, Math.min(primarySize / 2, MAX_ZOOM));
     targetLogZoom.current = Math.log(jumpZoom);
 
-    if (pixelDist > width * LONG_TRAVEL_VIEWPORT_MULTIPLIER) {
+    if (pixelDist > primarySize * LONG_TRAVEL_VIEWPORT_MULTIPLIER) {
       const duration = Math.min(1.2, 0.3 + pixelDist / 4000);
       const phase1Duration = duration * 0.7;
       const isWarpingLeft = targetYear > focusYear.get();
 
       setWarpMode("travel");
       setIsWarping(true);
-      setWarpDirection(isWarpingLeft ? -1 : 1);
+      const travelDirection = isWarpingLeft ? -1 : 1;
+      setWarpDirection(
+        orientation === "vertical"
+          ? (travelDirection * axisDirection as 1 | -1)
+          : travelDirection,
+      );
 
       const travelOptions = {
         duration: phase1Duration,
         ease: "easeInOut" as const,
       };
       animateFocusPixel(
-        isWarpingLeft ? width * 0.88 : width * 0.12,
+        isWarpingLeft ? primarySize * 0.88 : primarySize * 0.12,
         travelOptions,
       );
       animateFocusYear(targetYear, travelOptions);
@@ -1350,7 +1494,7 @@ export const useTimelineViewport = ({
         duration: duration * 0.3,
         ease: "easeInOut" as const,
       };
-      animateFocusPixel(width / 2, {
+      animateFocusPixel(primarySize / 2, {
         ...phase2Options,
         onComplete: () => setIsWarping(false),
       });
@@ -1358,13 +1502,16 @@ export const useTimelineViewport = ({
     }
 
     animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
-    animateFocusPixel(width / 2, FOCUS_SPRING);
+    animateFocusPixel(primarySize / 2, FOCUS_SPRING);
     animateFocusYear(targetYear, FOCUS_SPRING);
   };
 
   const handleMinimapSeek = (targetYear: number) => {
     clearInertia();
     clearDragFrame();
+    clearWheelPanFrame();
+    wheelPanResidualRef.current = 0;
+    wheelPanAnchorPixelRef.current = null;
     resetDragState();
     pinchGestureRef.current = null;
     wheelPinchGestureRef.current = null;
@@ -1477,9 +1624,9 @@ export const useTimelineViewport = ({
 
     if (initialFocusYear !== null && initialLogZoom !== null) {
       // Deep-link: restore exact viewport from URL params
-      const width = getViewportWidth();
+      const primarySize = getViewportPrimarySize();
       stopCameraAnimations();
-      focusPixel.set(width / 2);
+      focusPixel.set(primarySize / 2);
       focusYear.set(initialFocusYear);
       targetLogZoom.current = initialLogZoom;
       logZoom.set(initialLogZoom);
@@ -1508,6 +1655,25 @@ export const useTimelineViewport = ({
     updateVisibleBounds();
     updateLayout();
   }, [selectedEventId]);
+
+  useEffect(() => {
+    if (!hasBootstrappedRef.current) return;
+    clearWheelPanFrame();
+    wheelPanResidualRef.current = 0;
+    wheelPanAnchorPixelRef.current = null;
+    stopCameraAnimations();
+    focusPixel.set(getViewportCenter());
+    updateVisibleBounds();
+    updateTicks();
+    updateLayout(true);
+    scheduleViewportPersistence();
+  }, [orientation, verticalTimeDirection]);
+
+  useEffect(() => {
+    clearWheelPanFrame();
+    wheelPanResidualRef.current = 0;
+    wheelPanAnchorPixelRef.current = null;
+  }, [verticalWheelBehavior]);
 
   useEffect(() => {
     let frameId = 0;
@@ -1549,6 +1715,9 @@ export const useTimelineViewport = ({
       }
       if (inertiaFrame.current !== null) {
         cancelAnimationFrame(inertiaFrame.current);
+      }
+      if (wheelPanFrameRef.current !== null) {
+        cancelAnimationFrame(wheelPanFrameRef.current);
       }
       if (zoomTickTimeoutRef.current !== null) {
         window.clearTimeout(zoomTickTimeoutRef.current);

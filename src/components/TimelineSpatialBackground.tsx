@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MotionValue, useMotionValueEvent } from "motion/react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
-import type { SpatialMappingConfig } from "../constants/types";
+import type {
+  SpatialMappingConfig,
+  TimelineOrientation,
+  VerticalTimeDirection,
+} from "../constants/types";
 import {
   getOpenFreeMapStyleUrl,
   getMetersPerYearForMapZoom,
@@ -59,15 +64,21 @@ const addGeneratedStyleImage = (map: MapLibreMap, id: string) => {
   const size = Number(rawSize);
   if (!Number.isFinite(size) || size <= 0) return;
 
-  map.addImage(id, createGeneratedCircleIcon(kind as "circle" | "circle-stroked", size));
+  map.addImage(
+    id,
+    createGeneratedCircleIcon(kind as "circle" | "circle-stroked", size),
+  );
 };
 
 interface TimelineSpatialBackgroundProps {
   focusPixel: MotionValue<number>;
   focusYear: MotionValue<number>;
   zoom: MotionValue<number>;
+  orientation: TimelineOrientation;
+  verticalTimeDirection: VerticalTimeDirection;
   mapping: SpatialMappingConfig;
   isAnchorPickMode: boolean;
+  onStartPickMode: () => void;
   onCancelPick: () => void;
   onPickAnchor: (
     year: number,
@@ -83,11 +94,16 @@ export const TimelineSpatialBackground: React.FC<
   focusPixel,
   focusYear,
   zoom,
+  orientation,
+  verticalTimeDirection,
   mapping,
   isAnchorPickMode,
+  onStartPickMode,
   onCancelPick,
   onPickAnchor,
 }) => {
+  const axisDirection =
+    orientation === "vertical" && verticalTimeDirection === "up" ? -1 : 1;
   const { t } = useI18n();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -98,18 +114,27 @@ export const TimelineSpatialBackground: React.FC<
   const [isMapHiddenForZoom, setIsMapHiddenForZoom] = useState(false);
   const [isZoomClamped, setIsZoomClamped] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [isMapHiddenActionDismissed, setIsMapHiddenActionDismissed] =
+    useState(false);
+  const showMapHiddenAction =
+    mapping.enabled &&
+    isMapHiddenForZoom &&
+    !isAnchorPickMode &&
+    !isMapHiddenActionDismissed;
 
   const getCenterYear = () => {
-    const viewportWidth =
-      mapContainerRef.current?.clientWidth ?? window.innerWidth;
-    const centerPixel = viewportWidth / 2;
-    return focusYear.get() + (centerPixel - focusPixel.get()) / zoom.get();
+    const primarySize =
+      orientation === "horizontal"
+        ? (mapContainerRef.current?.clientWidth ?? window.innerWidth)
+        : (mapContainerRef.current?.clientHeight ?? window.innerHeight);
+    const centerPixel = primarySize / 2;
+    return (
+      focusYear.get() +
+      (centerPixel - focusPixel.get()) / (zoom.get() * axisDirection)
+    );
   };
 
-  const applyInteractionMode = (
-    map: MapLibreMap,
-    isInteractive: boolean,
-  ) => {
+  const applyInteractionMode = (map: MapLibreMap, isInteractive: boolean) => {
     if (isInteractive) {
       map.dragPan.enable();
       map.scrollZoom.enable();
@@ -188,6 +213,15 @@ export const TimelineSpatialBackground: React.FC<
   }, [isAnchorPickMode]);
 
   useEffect(() => {
+    if (isAnchorPickMode) {
+      setIsMapHiddenActionDismissed(true);
+      return;
+    }
+
+    setIsMapHiddenActionDismissed(false);
+  }, [isAnchorPickMode]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -207,7 +241,14 @@ export const TimelineSpatialBackground: React.FC<
     }
 
     implicitAnchorYearRef.current = null;
-  }, [focusYear, isAnchorPickMode, mapping.anchorYear, mapping.enabled]);
+  }, [
+    axisDirection,
+    focusYear,
+    isAnchorPickMode,
+    mapping.anchorYear,
+    mapping.enabled,
+    orientation,
+  ]);
 
   const syncCamera = () => {
     syncFrameRef.current = null;
@@ -303,102 +344,124 @@ export const TimelineSpatialBackground: React.FC<
   };
 
   return (
-    <div
-      className={[
-        "absolute inset-0 overflow-hidden",
-        isAnchorPickMode
-          ? "z-20 pointer-events-auto"
-          : "z-0 pointer-events-none",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      aria-hidden={!isAnchorPickMode}
-    >
+    <>
       <div
-        ref={mapContainerRef}
-        className="absolute inset-0 h-full w-full transition-opacity duration-200"
-        style={{
-          opacity: isMapVisible ? mapping.mapOpacity : 0,
-        }}
-        data-spatial-map-container="true"
-        onWheel={(event) => {
-          if (isAnchorPickMode) {
-            event.stopPropagation();
-          }
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-slate-950/8 transition-opacity duration-200"
-        style={{
-          opacity: isMapVisible && !mapError ? mapping.mapOpacity : 0,
-        }}
-        data-spatial-map-overlay="scrim"
-      />
-      {mapping.enabled ? (
+        className={[
+          "absolute inset-0 overflow-hidden",
+          isAnchorPickMode
+            ? "z-20 pointer-events-auto"
+            : "z-0 pointer-events-none",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        aria-hidden={!isAnchorPickMode}
+      >
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-950/18 via-slate-950/6 to-transparent transition-opacity duration-200"
+          ref={mapContainerRef}
+          className="absolute inset-0 h-full w-full transition-opacity duration-200"
+          style={{
+            opacity: isMapVisible ? mapping.mapOpacity : 0,
+          }}
+          data-spatial-map-container="true"
+          onWheel={(event) => {
+            if (isAnchorPickMode) {
+              event.stopPropagation();
+            }
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-slate-950/8 transition-opacity duration-200"
           style={{
             opacity: isMapVisible && !mapError ? mapping.mapOpacity : 0,
           }}
-          data-spatial-map-overlay="gradient"
+          data-spatial-map-overlay="scrim"
         />
-      ) : null}
-      {isAnchorPickMode ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="pointer-events-none relative flex h-10 w-10 items-center justify-center">
-            <div className="absolute h-px w-10 bg-amber-200/85" />
-            <div className="absolute h-10 w-px bg-amber-200/85" />
-            <div className="absolute h-3 w-3 rounded-full border border-amber-100 bg-amber-300/30 shadow-[0_0_24px_rgba(252,211,77,0.42)]" />
+        {mapping.enabled ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-950/18 via-slate-950/6 to-transparent transition-opacity duration-200"
+            style={{
+              opacity: isMapVisible && !mapError ? mapping.mapOpacity : 0,
+            }}
+            data-spatial-map-overlay="gradient"
+          />
+        ) : null}
+        {isAnchorPickMode ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="pointer-events-none relative flex h-10 w-10 items-center justify-center">
+              <div className="absolute h-px w-10 bg-amber-200/85" />
+              <div className="absolute h-10 w-px bg-amber-200/85" />
+              <div className="absolute h-3 w-3 rounded-full border border-amber-100 bg-amber-300/30 shadow-[0_0_24px_rgba(252,211,77,0.42)]" />
+            </div>
+            <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full border border-amber-200/25 bg-slate-950/88 px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-lg backdrop-blur-sm">
+              {t("positionMapAnchor")}
+            </div>
+            <div className="pointer-events-auto absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
+              <button
+                type="button"
+                onClick={onCancelPick}
+                className="ui-button ui-button-secondary min-w-[8.5rem] justify-center"
+              >
+                {t("cancelPickMode")}
+              </button>
+              <button
+                type="button"
+                onClick={confirmCenterPick}
+                className="ui-button ui-button-primary min-w-[8.5rem] justify-center"
+              >
+                {t("applyMapView")}
+              </button>
+            </div>
           </div>
-          <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full border border-amber-200/25 bg-slate-950/88 px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-lg backdrop-blur-sm">
-            {t("positionMapAnchor")}
+        ) : null}
+        {mapping.enabled && !isReady && !mapError ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+            <div className="rounded-full border border-slate-200/10 bg-slate-950/82 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-200/70">
+              Loading map…
+            </div>
           </div>
-          <div className="pointer-events-auto absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
+        ) : null}
+        {mapping.enabled && mapError ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
+            <div className="rounded-2xl border border-rose-300/20 bg-slate-950/88 px-4 py-3 text-center text-[0.72rem] leading-5 text-rose-100 shadow-lg">
+              {mapError}
+            </div>
+          </div>
+        ) : null}
+        {/* {mapping.enabled && isZoomClamped ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+            <div className="rounded-full border border-slate-200/10 bg-slate-950/82 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-200/70">
+              {t("mapScaleClamped")}
+            </div>
+          </div>
+        ) : null} */}
+      </div>
+      {showMapHiddenAction && typeof document !== "undefined"
+        ? createPortal(
             <button
               type="button"
-              onClick={onCancelPick}
-              className="ui-button ui-button-secondary min-w-[8.5rem] justify-center"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onMouseDown={(event) => {
+                event.stopPropagation();
+              }}
+              onTouchStart={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsMapHiddenActionDismissed(true);
+                onStartPickMode();
+              }}
+              className="ui-button ui-button-compact ui-button-secondary fixed bottom-5 left-1/2 z-[220] -translate-x-1/2 px-3.5 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] hover:translate-x-[-50%] hover:translate-y-0"
+              title={t("pickCurrentTimeOnMap")}
+              aria-label={t("pickCurrentTimeOnMap")}
             >
-              {t("cancelPickMode")}
-            </button>
-            <button
-              type="button"
-              onClick={confirmCenterPick}
-              className="ui-button ui-button-primary min-w-[8.5rem] justify-center"
-            >
-              {t("applyMapView")}
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {mapping.enabled && !isReady && !mapError ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
-          <div className="rounded-full border border-slate-200/10 bg-slate-950/82 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-200/70">
-            Loading map…
-          </div>
-        </div>
-      ) : null}
-      {mapping.enabled && mapError ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
-          <div className="rounded-2xl border border-rose-300/20 bg-slate-950/88 px-4 py-3 text-center text-[0.72rem] leading-5 text-rose-100 shadow-lg">
-            {mapError}
-          </div>
-        </div>
-      ) : null}
-      {mapping.enabled && isMapHiddenForZoom && !isAnchorPickMode ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
-          <div className="rounded-full border border-slate-200/10 bg-slate-950/82 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-200/70">
-            {t("mapHiddenAtCurrentZoom")}
-          </div>
-        </div>
-      ) : null}
-      {mapping.enabled && isZoomClamped ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
-          <div className="rounded-full border border-slate-200/10 bg-slate-950/82 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-200/70">
-            {t("mapScaleClamped")}
-          </div>
-        </div>
-      ) : null}
-    </div>
+              {t("mapHiddenAtCurrentZoom")}
+            </button>,
+            document.body,
+          )
+        : null}
+    </>
   );
 };
