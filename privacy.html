@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — Time Horizon</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: #09090b;
+        color: #e4e4e7;
+        font-family: 'Manrope', system-ui, sans-serif;
+        font-size: 15px;
+        line-height: 1.75;
+        padding: 3rem 1.5rem 6rem;
+        min-height: 100vh;
+      }
+      .container { max-width: 680px; margin: 0 auto; }
+      h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; letter-spacing: -0.03em; }
+      h2 { font-size: 1.15rem; font-weight: 700; color: #fff; margin: 2.5rem 0 0.75rem; }
+      h3 { font-size: 0.95rem; font-weight: 700; color: #d4d4d8; margin: 1.5rem 0 0.5rem; }
+      p { color: #a1a1aa; margin-bottom: 0.75rem; }
+      a { color: #34d399; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      ul, ol { padding-left: 1.5rem; margin-bottom: 0.75rem; color: #a1a1aa; }
+      li { margin-bottom: 0.25rem; }
+      hr { border: none; border-top: 1px solid #27272a; margin: 2rem 0; }
+      .kicker { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #34d399; margin-bottom: 0.5rem; }
+      .updated { font-size: 0.78rem; color: #52525b; margin-bottom: 2rem; }
+      table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.88rem; }
+      th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #27272a; color: #a1a1aa; font-weight: 600; }
+      td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1c1c1e; color: #d4d4d8; }
+      code { font-family: 'IBM Plex Mono', monospace; font-size: 0.85em; background: #18181b; border: 1px solid #27272a; padding: 0.1em 0.4em; border-radius: 4px; color: #d4d4d8; }
+      strong { font-weight: 700; color: #e4e4e7; }
+      .summary-table td:first-child { color: #a1a1aa; width: 40%; }
+      .summary-table td:last-child { color: #d4d4d8; }
+      .back { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: #52525b; text-decoration: none; margin-bottom: 2rem; transition: color 0.15s; }
+      .back:hover { color: #a1a1aa; text-decoration: none; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="container">
+      <a href="/" class="back">← Back to Time Horizon</a>
+      <div class="kicker">Legal</div>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: April 15, 2026</p>
+
+      <h2>Overview</h2>
+      <p><strong>Time Horizon</strong> ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our web application (the "Service").</p>
+
+      <hr />
+
+      <h2>Data We Collect</h2>
+
+      <h3>1. Local Data (Stored in Your Browser)</h3>
+      <p>Time Horizon stores the following data locally on your device using your browser's local storage:</p>
+      <ul>
+        <li><strong>Custom collections and events</strong> you create</li>
+        <li><strong>App preferences</strong> (theme, language, sync settings)</li>
+        <li><strong>Viewport state</strong> (timeline position, zoom level)</li>
+        <li><strong>Search history</strong> (temporary, in memory)</li>
+        <li><strong>UI state</strong> (open panels, selected items)</li>
+      </ul>
+      <p>This data is <strong>never transmitted to our servers</strong> unless you explicitly opt into Google Drive sync.</p>
+
+      <h3>2. Google Drive Sync (Optional, Opt-In)</h3>
+      <p>When you enable Google Drive sync, Time Horizon stores a copy of your collections and preferences in a dedicated folder in <strong>your own Google Drive</strong> account. Specifically:</p>
+      <ul>
+        <li><strong>Folder name:</strong> <code>time-horizon/</code></li>
+        <li><strong>Contents:</strong> <code>manifest.json</code> — sync metadata; <code>collections/</code> — individual collection JSON files</li>
+      </ul>
+      <p><strong>We do not receive, view, or store your Google Drive data.</strong> The sync uses Google Drive as a user-controlled storage backend. You can disconnect and delete this data at any time from your Google Drive account.</p>
+
+      <h3>3. Automatically Collected Data</h3>
+      <p>When you use the Service, we automatically collect:</p>
+      <ul>
+        <li><strong>Basic analytics</strong> — page views, feature usage, approximate zoom ranges. No personally identifiable information is collected.</li>
+        <li><strong>Error logs</strong> — anonymized error messages and stack traces for crash reporting.</li>
+        <li><strong>Referrer/URL parameters</strong> — when you open a shared timeline URL (e.g., <code>?c=...</code> or <code>?t=...</code>), we read those params to render the correct view. These are processed client-side only and are not stored.</li>
+      </ul>
+
+      <hr />
+
+      <h2>Cookies and Storage</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Purpose</th><th>Duration</th></tr></thead>
+        <tbody>
+          <tr><td><code>localStorage</code></td><td>App state, collections, preferences</td><td>Persistent until cleared</td></tr>
+          <tr><td><code>sessionStorage</code></td><td>Transient UI state (search, panels)</td><td>Cleared on tab close</td></tr>
+          <tr><td>Third-party cookies</td><td>None</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <p>We do not use tracking cookies, advertising cookies, or cross-site tracking.</p>
+
+      <hr />
+
+      <h2>Third-Party Services</h2>
+
+      <h3>Google OAuth / Google Drive</h3>
+      <p>When you connect Google Drive sync, you interact with Google's OAuth 2.0 flow. This is governed by <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google's Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">Terms of Service</a>. We do not share your data with Google beyond the OAuth consent screen.</p>
+
+      <h3>Vercel (Hosting)</h3>
+      <p>The Service is hosted on <a href="https://vercel.com" target="_blank" rel="noreferrer">Vercel</a>. Vercel may collect standard server logs including your IP address, requested URLs, and browser headers. This is governed by <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noreferrer">Vercel's Privacy Policy</a>.</p>
+
+      <hr />
+
+      <h2>Data Sharing</h2>
+      <p>We <strong>do not sell, trade, or rent</strong> your personal data. We do not share your data with any third party except:</p>
+      <ol>
+        <li><strong>Google</strong> — as part of the optional OAuth sync flow (your data goes to <strong>your</strong> Google Drive, not ours)</li>
+        <li><strong>Vercel</strong> — standard server infrastructure hosting</li>
+        <li><strong>Legal obligations</strong> — if required by law, court order, or to protect rights</li>
+      </ol>
+
+      <hr />
+
+      <h2>Data Retention</h2>
+      <ul>
+        <li><strong>Local data:</strong> Retained until you clear browser data or manually reset the app.</li>
+        <li><strong>Google Drive data:</strong> Retained as long as you keep the <code>time-horizon/</code> folder in your Google Drive. You can delete it at any time.</li>
+        <li><strong>Analytics data:</strong> Aggregated and anonymized; individual sessions are not retained beyond 90 days.</li>
+      </ul>
+
+      <hr />
+
+      <h2>Your Rights</h2>
+      <p>Depending on your jurisdiction, you may have the right to:</p>
+      <ul>
+        <li><strong>Access</strong> your stored data (export your collections as JSON from the app)</li>
+        <li><strong>Delete</strong> your data — clear browser data or disconnect Google Drive sync</li>
+        <li><strong>Object</strong> to analytics collection (use an ad/tracker blocker)</li>
+        <li><strong>Port</strong> your data — collections are plain JSON, exportable at any time</li>
+      </ul>
+      <p>To disconnect Google Drive sync: open the <strong>Control Center</strong> → <strong>Sync Settings</strong> → <strong>Disconnect Google Drive</strong>. Optionally, delete the <code>time-horizon/</code> folder from your Google Drive.</p>
+
+      <hr />
+
+      <h2>Data Security</h2>
+      <ul>
+        <li>All data stored in Google Drive is under your Google account's existing security (2FA, Google account password).</li>
+        <li>Local data lives in your browser's sandbox, protected by your device's filesystem permissions.</li>
+        <li>We use HTTPS for all connections (enforced by Vercel CDN).</li>
+        <li>No encryption is applied to the Google Drive files beyond Google's at-rest encryption — anyone with access to your Google Drive can read the sync files.</li>
+      </ul>
+
+      <hr />
+
+      <h2>Children's Privacy</h2>
+      <p>The Service is not directed at children under the age of 13. We do not knowingly collect data from children. If you believe a child has provided us with personal data, please contact us so we can delete it.</p>
+
+      <hr />
+
+      <h2>International Data Transfers</h2>
+      <p>If you are accessing the Service from outside your country, note that your data may be transferred to and processed in countries with different privacy laws. By using the Service, you consent to such transfers to the extent applicable.</p>
+
+      <hr />
+
+      <h2>Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last updated" date. For significant changes, we will notify users via the GitHub repository or a prominent notice on the website.</p>
+      <p><strong>If you continue to use the Service after changes take effect, you agree to the revised policy.</strong></p>
+
+      <hr />
+
+      <h2>Contact</h2>
+      <p>If you have any questions about this Privacy Policy, please reach out:</p>
+      <ul>
+        <li><a href="https://github.com/hoangTran0410/time-horizon/issues" target="_blank" rel="noreferrer">GitHub Issues</a></li>
+        <li>Email: hoangtran0410 (at) gmail.com</li>
+      </ul>
+
+      <hr />
+
+      <h2>Summary</h2>
+      <table class="summary-table">
+        <tbody>
+          <tr><td>Data collected</td><td>Your timeline data (collections, events) stored locally or in your own Google Drive</td></tr>
+          <tr><td>Third-party sharing</td><td>None, except Google OAuth for sync</td></tr>
+          <tr><td>Analytics</td><td>Aggregated, anonymized only</td></tr>
+          <tr><td>Sale of data</td><td>Never</td></tr>
+          <tr><td>Children's data</td><td>Not collected</td></tr>
+          <tr><td>You control</td><td>Everything — local storage + Google Drive sync are both disconnectable/deletable</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>
