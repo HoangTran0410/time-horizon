@@ -792,9 +792,30 @@ const hashString = (value: string): string => {
   return (hash >>> 0).toString(36);
 };
 
+const normalizeEventUidCandidate = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const createPersistentEventUid = (
+  signature: string,
+  occurrence: number,
+  collectionId?: string,
+): string => {
+  const namespace = collectionId ? slugifyCollectionId(collectionId) : "event";
+  const suffix = hashString(`eventUid:${namespace}:${signature}`);
+  return occurrence > 1
+    ? `${namespace}-eu-${suffix}-${occurrence}`
+    : `${namespace}-eu-${suffix}`;
+};
+
 const normalizeStoredEventPayload = (
   event: StoredEvent | Event | ImportedEvent,
 ): StoredEvent => ({
+  ...(normalizeEventUidCandidate(event.eventUid)
+    ? { eventUid: normalizeEventUidCandidate(event.eventUid) ?? undefined }
+    : {}),
   title: normalizeLocalizedText(event.title) ?? "",
   description: normalizeLocalizedText(event.description) ?? "",
   time: normalizeEventTimeParts(event.time),
@@ -846,15 +867,24 @@ export const assignRuntimeEventIds = (
   },
 ): Event[] => {
   const previousIdsBySignature = new Map<string, string[]>();
+  const previousEventUidsBySignature = new Map<string, string[]>();
 
   options?.previousEvents?.forEach((event) => {
     const signature = getStoredEventSignature(event);
     const queue = previousIdsBySignature.get(signature) ?? [];
     queue.push(event.id);
     previousIdsBySignature.set(signature, queue);
+
+    const eventUid = normalizeEventUidCandidate(event.eventUid);
+    if (eventUid) {
+      const uidQueue = previousEventUidsBySignature.get(signature) ?? [];
+      uidQueue.push(eventUid);
+      previousEventUidsBySignature.set(signature, uidQueue);
+    }
   });
 
   const occurrenceCounts = new Map<string, number>();
+  const seenEventUids = new Set<string>();
 
   return events.map((event) => {
     const normalized = normalizeStoredEventPayload(event);
@@ -863,6 +893,25 @@ export const assignRuntimeEventIds = (
     occurrenceCounts.set(signature, nextOccurrence);
 
     const preservedId = previousIdsBySignature.get(signature)?.shift();
+    const explicitEventUid = normalizeEventUidCandidate(event.eventUid);
+    const preservedEventUid =
+      explicitEventUid ??
+      previousEventUidsBySignature.get(signature)?.shift() ??
+      createPersistentEventUid(
+        signature,
+        nextOccurrence,
+        options?.collectionId,
+      );
+
+    let nextEventUid = preservedEventUid;
+    if (seenEventUids.has(nextEventUid)) {
+      nextEventUid = createPersistentEventUid(
+        `${signature}:${nextOccurrence}:${seenEventUids.size}`,
+        1,
+        options?.collectionId,
+      );
+    }
+    seenEventUids.add(nextEventUid);
 
     return {
       id:
@@ -873,11 +922,15 @@ export const assignRuntimeEventIds = (
           options?.collectionId,
         ),
       ...normalized,
+      eventUid: nextEventUid,
     };
   });
 };
 
 export const stripRuntimeEventId = (event: Event): StoredEvent => ({
+  ...(normalizeEventUidCandidate(event.eventUid)
+    ? { eventUid: normalizeEventUidCandidate(event.eventUid) ?? undefined }
+    : {}),
   title: event.title,
   description: event.description,
   time: [...normalizeEventTimeParts(event.time)] as Event["time"],
@@ -895,6 +948,10 @@ export const stripRuntimeEventIds = (events: Event[]): StoredEvent[] =>
 
 export const createNewTimelineEvent = (): Event => ({
   id:
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  eventUid:
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`,

@@ -36,6 +36,7 @@ interface SidebarProps {
   collections: EventCollectionMeta[];
   syncableCollectionIds: string[];
   editableCollectionIds: string[];
+  onOpenSyncPanel: () => void;
   /** For passing to Timeline (app-level concern, not sidebar UI state) */
   onBackToLanding: () => void;
   /** External file import — requires user interaction in this component */
@@ -60,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collections,
   syncableCollectionIds,
   editableCollectionIds,
+  onOpenSyncPanel,
   onBackToLanding,
   onImportCollections,
   onEditEvent,
@@ -78,6 +80,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const downloadingCollectionIds = useStore((s) => s.downloadingCollectionIds);
   const collectionColorPreferences = useStore(
     (s) => s.collectionColorPreferences,
+  );
+  const syncConnectionStatus = useStore((s) => s.syncConnectionStatus);
+  const syncStatusMessage = useStore((s) => s.syncStatusMessage);
+  const syncPreferences = useStore((s) => s.syncPreferences);
+  const deletedCollectionSyncTombstones = useStore(
+    (s) => s.deletedCollectionSyncTombstones,
   );
 
   // Derive from store data (no prop needed)
@@ -107,6 +115,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         .map(([id]) => id),
     [collectionLibrary],
   );
+  const hasPendingSyncableChanges = useMemo(
+    () =>
+      syncPreferences.onboardingCompleted &&
+      (Object.keys(deletedCollectionSyncTombstones).length > 0 ||
+        Object.values(collectionLibrary).some(
+          (collection) => collection.sync?.dirty,
+        )),
+    [
+      collectionLibrary,
+      deletedCollectionSyncTombstones,
+      syncPreferences.onboardingCompleted,
+    ],
+  );
+  const syncChipClassName =
+    syncConnectionStatus === "error"
+      ? "border-rose-500/30 bg-rose-500/10 text-rose-100"
+      : hasPendingSyncableChanges
+        ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+        : syncConnectionStatus === "connected"
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+          : "border-zinc-700/80 bg-zinc-900/80 text-zinc-200";
+  const syncSummaryLabel =
+    syncStatusMessage ??
+    (syncConnectionStatus === "error"
+      ? t("syncError")
+      : hasPendingSyncableChanges
+        ? t("pendingSyncChanges")
+        : syncConnectionStatus === "connected"
+          ? t("syncConnected")
+          : t("syncDisconnected"));
 
   // Store actions
   const downloadCollection = useStore((s) => s.downloadCollection);
@@ -442,7 +480,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          <div className="ui-panel-soft mb-6 rounded-[1.5rem] p-3.5">
+          <div className="ui-panel-soft mb-4 rounded-[1.5rem] p-3.5">
             {/* <div className="mb-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
                 Library
@@ -506,6 +544,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
             ) : null}
+          </div>
+
+          <div className="ui-panel-soft mb-6 rounded-[1.5rem] p-3.5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div className="ui-kicker text-emerald-300">
+                  {t("syncSettings")}
+                </div>
+                <div className="mt-1 text-[1rem] font-semibold text-white">
+                  {t("googleDriveSync")}
+                </div>
+              </div>
+              <span
+                className={`rounded-full border px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.16em] ${syncChipClassName}`}
+              >
+                {syncConnectionStatus === "connected"
+                  ? t("syncConnected")
+                  : syncConnectionStatus === "error"
+                    ? t("syncError")
+                    : t("syncDisconnected")}
+              </span>
+            </div>
+            <div className="rounded-[1rem] border border-zinc-800/80 bg-zinc-950/70 px-3 py-2.5 text-[0.78rem] leading-6 text-zinc-400">
+              {syncSummaryLabel}
+            </div>
+            <button
+              onClick={onOpenSyncPanel}
+              className="ui-button mt-3 w-full justify-center rounded-[1.1rem] px-4 py-3"
+            >
+              <RefreshCw size={16} />
+              <span>{t("openSyncPanel")}</span>
+            </button>
           </div>
 
           <div className="mb-8">
@@ -974,7 +1044,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {browsedCollection ? (
         <div
-          className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4"
+          className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
           onClick={handleCloseSidebarSearch}
           onPointerDown={(event) => event.stopPropagation()}
           onWheel={(event) => event.stopPropagation()}

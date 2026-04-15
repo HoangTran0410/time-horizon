@@ -1,110 +1,51 @@
-import React, { useEffect, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Github,
-  Globe2,
-  ArrowDownUp,
-  ArrowLeftRight,
-  Maximize2,
-  Minimize2,
-  MoonStar,
-  SunMedium,
-  Share2,
-} from "lucide-react";
-import { ThemeMode } from "../constants/theme";
-import { LanguagePickerButton } from "./LanguagePickerButton";
-import { SpatialSettingsPanel } from "./SpatialSettingsPanel";
-import type {
-  SpatialMapTheme,
-  SpatialMappingConfig,
-  TimelineOrientation,
-} from "../constants/types";
+import React, { useMemo } from "react";
+import { Settings2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../stores";
+import { hasPendingSyncableChanges as hasPendingSyncableChangesForSync } from "../sync";
+import { getSyncStatusPresentation } from "./syncStatus";
 
 interface ToolbarProps {
   logicFps: number;
   renderFps: number;
-  theme: ThemeMode;
-  spatialMapping: SpatialMappingConfig;
-  timelineOrientation: TimelineOrientation;
-  currentFocusYear: number;
-  isSpatialAnchorPickMode: boolean;
-  onToggleTheme: () => void;
-  onShare: () => void;
-  onToggleTimelineOrientation: () => void;
-  onToggleSpatialMappingEnabled: () => void;
-  onSetSpatialMetersPerYear: (value: number) => void;
-  onSetSpatialMapTheme: (value: SpatialMapTheme) => void;
-  onSetSpatialMapOpacity: (value: number) => void;
-  onStartSpatialAnchorPickMode: () => void;
-  onStopSpatialAnchorPickMode: () => void;
-  onResetSpatialMapping: () => void;
+  onOpenControlCenter: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   logicFps,
   renderFps,
-  theme,
-  spatialMapping,
-  timelineOrientation,
-  currentFocusYear,
-  isSpatialAnchorPickMode,
-  onToggleTheme,
-  onShare,
-  onToggleTimelineOrientation,
-  onToggleSpatialMappingEnabled,
-  onSetSpatialMetersPerYear,
-  onSetSpatialMapTheme,
-  onSetSpatialMapOpacity,
-  onStartSpatialAnchorPickMode,
-  onStopSpatialAnchorPickMode,
-  onResetSpatialMapping,
+  onOpenControlCenter,
 }) => {
   const { t } = useI18n();
-  // const resolvedTimelineOrientation =
-  //   timelineOrientation === "vertical" ? "vertical" : "horizontal";
-  const isExpanded = useStore((state) => state.isToolbarExpanded);
-  const isCollapsed = !isExpanded;
-
-  const toggleToolbarCollapsed = useStore(
-    (state) => state.toggleToolbarCollapsed,
+  const syncPreferences = useStore((s) => s.syncPreferences);
+  const syncConnectionStatus = useStore((s) => s.syncConnectionStatus);
+  const collectionLibrary = useStore((s) => s.collectionLibrary);
+  const collectionColorPreferences = useStore(
+    (s) => s.collectionColorPreferences,
   );
-  const [isSpatialPanelOpen, setIsSpatialPanelOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return document.fullscreenElement !== null;
-  });
+  const deletedCollectionSyncTombstones = useStore(
+    (s) => s.deletedCollectionSyncTombstones,
+  );
+  const hasPendingSyncableChanges = useMemo(
+    () =>
+      hasPendingSyncableChangesForSync({
+        collectionLibrary,
+        collectionColorPreferences,
+        deletedCollectionSyncTombstones,
+        syncPreferences,
+      }),
+    [
+      collectionColorPreferences,
+      collectionLibrary,
+      deletedCollectionSyncTombstones,
+      syncPreferences,
+    ],
+  );
 
-  const supportsFullscreen = (() => {
-    if (typeof document === "undefined") return false;
-    return typeof document.documentElement.requestFullscreen === "function";
-  })();
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement !== null);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
-
-  const handleToggleFullscreen = async () => {
-    if (!supportsFullscreen) return;
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    await document.documentElement.requestFullscreen();
-  };
+  const syncIndicatorClassName = getSyncStatusPresentation({
+    hasPendingSyncableChanges,
+    syncConnectionStatus,
+  }).indicatorClassName;
 
   return (
     <div
@@ -112,131 +53,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <div
-        className={`-my-1 flex flex-wrap items-center justify-end gap-1 overflow-hidden py-1 transition-[max-width,opacity,transform] duration-300 ease-out ${
-          isCollapsed
-            ? "pointer-events-none max-w-0 translate-x-3 opacity-0"
-            : "max-w-[calc(100vw-4.5rem)] translate-x-0 opacity-100 sm:max-w-none"
-        }`}
-        aria-hidden={isCollapsed}
-      >
+      <div className="flex items-center gap-1">
         <div className="ui-badge shrink-0 font-mono text-[0.72rem]">
           {logicFps}|{renderFps}
         </div>
         <button
           type="button"
-          onClick={() => setIsSpatialPanelOpen(true)}
-          className="ui-icon-button h-10 w-10 shrink-0"
-          aria-label={t("spaceTimeMapping")}
-          title={t("spaceTimeMapping")}
+          onClick={onOpenControlCenter}
+          className="ui-icon-button relative h-10 w-10 shrink-0"
+          aria-label={t("openControlCenter")}
+          title={t("openControlCenter")}
         >
-          <Globe2
-            width={15}
-            height={15}
-            className={spatialMapping.enabled ? "text-emerald-300" : undefined}
+          <Settings2 width={15} height={15} />
+          <span
+            className={`absolute right-2 top-2 h-2.5 w-2.5 rounded-full ${syncIndicatorClassName}`}
           />
         </button>
-        <SpatialSettingsPanel
-          isOpen={isSpatialPanelOpen}
-          mapping={spatialMapping}
-          isAnchorPickMode={isSpatialAnchorPickMode}
-          currentFocusYear={currentFocusYear}
-          onToggleEnabled={onToggleSpatialMappingEnabled}
-          onSetMetersPerYear={onSetSpatialMetersPerYear}
-          onSetMapTheme={onSetSpatialMapTheme}
-          onSetMapOpacity={onSetSpatialMapOpacity}
-          onStartPickMode={onStartSpatialAnchorPickMode}
-          onStopPickMode={onStopSpatialAnchorPickMode}
-          onReset={onResetSpatialMapping}
-          onClose={() => setIsSpatialPanelOpen(false)}
-        />
-        {supportsFullscreen ? (
-          <button
-            type="button"
-            onClick={() => {
-              void handleToggleFullscreen();
-            }}
-            className="ui-icon-button h-10 w-10 shrink-0"
-            aria-label={
-              isFullscreen ? t("exitFullscreen") : t("enterFullscreen")
-            }
-            title={isFullscreen ? t("exitFullscreen") : t("enterFullscreen")}
-          >
-            {isFullscreen ? (
-              <Minimize2 width={15} height={15} />
-            ) : (
-              <Maximize2 width={15} height={15} />
-            )}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onShare}
-          className="ui-icon-button h-10 w-10 shrink-0"
-          aria-label={t("shareTimeline")}
-          title={t("shareTimeline")}
-        >
-          <Share2 width={15} height={15} />
-        </button>
-        {/* <button
-          type="button"
-          onClick={onToggleTimelineOrientation}
-          className="ui-icon-button h-10 w-10 shrink-0"
-          aria-label={t("timelineOrientation")}
-          title={`${t("timelineOrientation")}: ${t(resolvedTimelineOrientation)}`}
-        >
-          {resolvedTimelineOrientation === "horizontal" ? (
-            <ArrowLeftRight width={15} height={15} />
-          ) : (
-            <ArrowDownUp width={15} height={15} />
-          )}
-        </button> */}
-        <LanguagePickerButton
-          buttonClassName="ui-icon-button h-10 w-10 shrink-0 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-200"
-          textClassName="leading-none"
-        />
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          className="ui-icon-button h-10 w-10 shrink-0"
-          aria-label={
-            theme === "dark" ? t("switchToLightTheme") : t("switchToDarkTheme")
-          }
-          title={
-            theme === "dark" ? t("switchToLightTheme") : t("switchToDarkTheme")
-          }
-        >
-          {theme === "dark" ? (
-            <SunMedium width={15} height={15} />
-          ) : (
-            <MoonStar width={15} height={15} />
-          )}
-        </button>
-        <a
-          href="https://github.com/hoangTran0410/time-horizon"
-          target="_blank"
-          rel="noreferrer"
-          className="ui-icon-button h-10 w-10 shrink-0"
-          aria-label={t("viewOnGithub")}
-          title={t("viewOnGithub")}
-        >
-          <Github width={15} height={15} />
-        </a>
       </div>
-      <button
-        type="button"
-        onClick={toggleToolbarCollapsed}
-        className="ui-icon-button h-10 w-10 shrink-0"
-        aria-label={isCollapsed ? t("expandToolbar") : t("collapseToolbar")}
-        aria-expanded={!isCollapsed}
-        title={isCollapsed ? t("expandToolbar") : t("collapseToolbar")}
-      >
-        {isCollapsed ? (
-          <ChevronLeft width={15} height={15} />
-        ) : (
-          <ChevronRight width={15} height={15} />
-        )}
-      </button>
     </div>
   );
 };

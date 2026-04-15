@@ -24,6 +24,8 @@ export type EventTime = [
 
 export interface Event {
   id: string;
+  /** Durable stored identity used by sync and conflict handling. */
+  eventUid?: string;
   title: LocalizedText;
   description: LocalizedText;
   link?: string;
@@ -48,6 +50,46 @@ export interface Event {
 
 export type StoredEvent = Omit<Event, "id">;
 export type ImportedEvent = StoredEvent & { id?: string };
+
+export type CollectionOrigin = "custom" | "catalog" | "catalog-fork";
+
+export interface CollectionCloudMetadata {
+  fileId?: string;
+  revision?: string;
+  contentHash?: string;
+  lastSyncedAt?: string;
+}
+
+export type SyncScope =
+  | "custom-collections"
+  | "catalog-metadata"
+  | "collection-colors";
+
+export type SyncConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
+
+export interface SyncPreferences {
+  onboardingCompleted: boolean;
+  enabledScopes: SyncScope[];
+  autosyncEnabled: boolean;
+  lastSuccessfulSyncAt?: string | null;
+}
+
+export interface CollectionSyncState {
+  dirty: boolean;
+  dirtyReason?: "content" | "metadata" | "color" | "delete";
+  lastLocalChangeAt?: string;
+  eventUidMigrationComplete?: boolean;
+}
+
+export interface DeletedCollectionSyncTombstone {
+  deletedAt: string;
+  origin: CollectionOrigin;
+  sourceCatalogId?: string;
+}
 
 export interface TimelineState {
   zoom: number; // Pixels per year
@@ -74,6 +116,10 @@ export interface EventCollectionMeta {
 export interface StoredTimelineCollection {
   events: Event[];
   meta?: EventCollectionMeta | null;
+  origin?: CollectionOrigin;
+  sourceCatalogId?: string;
+  cloud?: CollectionCloudMetadata | null;
+  sync?: CollectionSyncState | null;
   isLocal?: boolean;
 }
 

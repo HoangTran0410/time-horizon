@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Copy, Check, X, Layers, MapPin, Link, Locate } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useI18n } from "../i18n";
+import { createPortal } from "react-dom";
 
 /** ─── Props ─────────────────────────────────────────────────────────── */
 
@@ -141,11 +142,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       ? Math.round(focusYear).toString()
       : Math.round(focusYear).toLocaleString();
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       <motion.div
         key="share-overlay"
-        className="ui-modal-overlay bg-black/80 fixed inset-0 z-100 flex items-center justify-center p-4"
+        className="ui-modal-overlay bg-black/80 fixed inset-0 z-[100] flex items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -291,6 +296,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };

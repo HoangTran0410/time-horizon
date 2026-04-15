@@ -16,11 +16,13 @@ const dialogTransition = {
 interface LanguagePickerButtonProps {
   buttonClassName: string;
   textClassName?: string;
+  showLabel?: boolean;
 }
 
 export const LanguagePickerButton: React.FC<LanguagePickerButtonProps> = ({
   buttonClassName,
   textClassName = "",
+  showLabel = false,
 }) => {
   const { language, t } = useI18n();
   const setCurrentLanguage = useStore((state) => state.setCurrentLanguage);
@@ -144,10 +146,10 @@ export const LanguagePickerButton: React.FC<LanguagePickerButtonProps> = ({
         aria-label={t("language")}
         title={t("language")}
       >
-        <span className="">
-          {/* {currentOption.shortLabel} */}
+        <span className={textClassName}>
           <Languages size={15} />
         </span>
+        {showLabel ? <span>{t("languageShort")}</span> : null}
       </button>
       {modal ? createPortal(modal, document.body) : null}
     </>

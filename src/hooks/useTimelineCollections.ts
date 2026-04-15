@@ -51,14 +51,19 @@ export const useTimelineCollections = () => {
    * IDs of catalog/syncable collections (from metadata).
    */
   const catalogCollectionIds = useMemo(
-    () => new Set(syncableIds),
-    [syncableIds],
+    () =>
+      new Set(
+        syncableIds.filter(
+          (collectionId) => collectionLibrary[collectionId]?.origin !== "catalog-fork",
+        ),
+      ),
+    [collectionLibrary, syncableIds],
   );
 
   const localCollectionIds = useMemo(
     () =>
       Object.entries(collectionLibrary).flatMap(([collectionId, collection]) =>
-        collection.isLocal ? [collectionId] : [],
+        collection.origin !== "catalog" ? [collectionId] : [],
       ),
     [collectionLibrary],
   );

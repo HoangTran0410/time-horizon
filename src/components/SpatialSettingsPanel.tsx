@@ -9,10 +9,6 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type {
-  SpatialMapTheme,
-  SpatialMappingConfig,
-} from "../constants/types";
 import {
   DEFAULT_SPATIAL_METERS_PER_YEAR,
   DEFAULT_SPATIAL_MAP_OPACITY,
@@ -21,37 +17,33 @@ import {
   sanitizeSpatialMapOpacity,
 } from "../helpers";
 import { useI18n } from "../i18n";
+import { useStore } from "../stores";
 
 interface SpatialSettingsPanelProps {
   isOpen: boolean;
-  mapping: SpatialMappingConfig;
-  isAnchorPickMode: boolean;
   currentFocusYear: number;
-  onToggleEnabled: () => void;
-  onSetMetersPerYear: (value: number) => void;
-  onSetMapTheme: (value: SpatialMapTheme) => void;
-  onSetMapOpacity: (value: number) => void;
-  onStartPickMode: () => void;
-  onStopPickMode: () => void;
-  onReset: () => void;
   onClose: () => void;
 }
 
 export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
   isOpen,
-  mapping,
-  isAnchorPickMode,
   currentFocusYear,
-  onToggleEnabled,
-  onSetMetersPerYear,
-  onSetMapTheme,
-  onSetMapOpacity,
-  onStartPickMode,
-  onStopPickMode,
-  onReset,
   onClose,
 }) => {
   const { t } = useI18n();
+  const mapping = useStore((s) => s.spatialMapping);
+  const isAnchorPickMode = useStore((s) => s.isSpatialAnchorPickMode);
+  const setSpatialMapping = useStore((s) => s.setSpatialMapping);
+  const resetSpatialMapping = useStore((s) => s.resetSpatialMapping);
+  const toggleSpatialMappingEnabled = useStore(
+    (s) => s.toggleSpatialMappingEnabled,
+  );
+  const startSpatialAnchorPickMode = useStore(
+    (s) => s.startSpatialAnchorPickMode,
+  );
+  const stopSpatialAnchorPickMode = useStore(
+    (s) => s.stopSpatialAnchorPickMode,
+  );
   const [metersInput, setMetersInput] = useState(
     String(mapping.metersPerYear ?? DEFAULT_SPATIAL_METERS_PER_YEAR),
   );
@@ -122,7 +114,12 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={onToggleEnabled}
+                onClick={() => {
+                  if (mapping.enabled && isAnchorPickMode) {
+                    stopSpatialAnchorPickMode();
+                  }
+                  toggleSpatialMappingEnabled();
+                }}
                 className={`flex w-full items-center justify-between rounded-[1.1rem] border px-4 py-3 text-left transition ${
                   mapping.enabled
                     ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-100"
@@ -154,7 +151,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => onSetMapTheme("dark")}
+                    onClick={() => setSpatialMapping({ mapTheme: "dark" })}
                     className={`flex items-center justify-center gap-2 rounded-[0.95rem] border px-3 py-2.5 text-sm font-semibold transition ${
                       mapping.mapTheme === "dark"
                         ? "border-emerald-400/45 bg-emerald-500/12 text-emerald-100"
@@ -166,7 +163,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onSetMapTheme("light")}
+                    onClick={() => setSpatialMapping({ mapTheme: "light" })}
                     className={`flex items-center justify-center gap-2 rounded-[0.95rem] border px-3 py-2.5 text-sm font-semibold transition ${
                       mapping.mapTheme === "light"
                         ? "border-emerald-400/45 bg-emerald-500/12 text-emerald-100"
@@ -199,7 +196,9 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
                         ),
                       );
                       setOpacityInput(nextValue);
-                      onSetMapOpacity(Number(nextValue) / 100);
+                      setSpatialMapping({
+                        mapOpacity: Number(nextValue) / 100,
+                      });
                     }}
                     className="h-2 w-full cursor-pointer accent-emerald-400"
                   />
@@ -223,7 +222,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
                     onBlur={() => {
                       const nextValue = sanitizeMetersPerYear(Number(metersInput));
                       setMetersInput(String(nextValue));
-                      onSetMetersPerYear(nextValue);
+                      setSpatialMapping({ metersPerYear: nextValue });
                     }}
                     className="ui-field"
                   />
@@ -265,9 +264,10 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
                   type="button"
                   onClick={() => {
                     if (isAnchorPickMode) {
-                      onStopPickMode();
+                      stopSpatialAnchorPickMode();
                     } else {
-                      onStartPickMode();
+                      setSpatialMapping({ enabled: true });
+                      startSpatialAnchorPickMode();
                     }
                     onClose();
                   }}
@@ -284,7 +284,7 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={onReset}
+                  onClick={resetSpatialMapping}
                   className="ui-button ui-button-secondary justify-center"
                 >
                   <RotateCcw width={14} height={14} />

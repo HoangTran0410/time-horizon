@@ -5,6 +5,9 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { ThemeMode, getInitialTheme } from "../constants/theme";
 import type {
+  CollectionSyncState,
+  CollectionOrigin,
+  DeletedCollectionSyncTombstone,
   Event,
   EventCollectionMeta,
   ImportedEvent,
@@ -14,6 +17,9 @@ import type {
   StoredTimelineCollection,
   CollectionCreationInput,
   SupportedLanguage,
+  SyncConnectionStatus,
+  SyncPreferences,
+  SyncScope,
   TimelineOrientation,
   VerticalWheelBehavior,
   VerticalTimeDirection,
@@ -35,6 +41,7 @@ import {
   getSearchableLocalizedText,
   normalizeLocalizedText,
 } from "../helpers/localization";
+import type { SyncProjectionRemoteState } from "../sync";
 
 export const createLocalCollectionId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -79,6 +86,10 @@ type TimelineStoreState = {
   catalogMeta: Record<string, EventCollectionMeta>;
   /** Downloaded collection data */
   collectionLibrary: Record<string, StoredTimelineCollection>;
+  deletedCollectionSyncTombstones: Record<string, DeletedCollectionSyncTombstone>;
+  syncPreferences: SyncPreferences;
+  syncConnectionStatus: SyncConnectionStatus;
+  syncStatusMessage: string | null;
   visibleCollectionIds: string[];
   downloadingCollectionIds: string[];
   collectionColorPreferences: Record<string, string>;
@@ -121,6 +132,25 @@ type TimelineStoreState = {
     catalogMeta: Record<string, EventCollectionMeta>,
     syncableIds: string[],
   ) => void;
+  setSyncConnectionStatus: (
+    status: SyncConnectionStatus,
+    message?: string | null,
+  ) => void;
+  completeSyncOnboarding: (enabledScopes?: SyncScope[]) => void;
+  setSyncScopes: (enabledScopes: SyncScope[]) => void;
+  setAutosyncEnabled: (value: boolean) => void;
+  setLastSuccessfulSyncAt: (value: string | null) => void;
+  markSyncSuccess: (payload: {
+    syncedAt: string;
+    syncedCollections?: Array<{
+      id: string;
+      fileId?: string;
+      revision?: string;
+      contentHash?: string;
+    }>;
+    clearedDeletedCollectionIds?: string[];
+  }) => void;
+  restoreSyncSnapshot: (payload: SyncProjectionRemoteState) => void;
   /** Download a catalog collection by ID */
   downloadCollection: (collectionId: string) => Promise<boolean>;
   /** Re-sync / re-download a catalog collection by ID */
@@ -147,6 +177,9 @@ type TimelineStoreState = {
   ) => void;
   setCollectionColor: (collectionId: string, color: string) => void;
   resetCollectionColor: (collectionId: string) => void;
+  duplicateCollectionsForConflictResolution: (
+    collectionIds: string[],
+  ) => string[];
   focusEvent: (eventId: string) => void;
   previewEvent: (eventId: string) => void;
   clearFocusedEvent: () => void;
@@ -243,6 +276,8 @@ type TimelinePersistedState = Pick<
   | "timeRangeEndInput"
   | "showOnlyResultsOnTimeline"
   | "collectionLibrary"
+  | "deletedCollectionSyncTombstones"
+  | "syncPreferences"
   | "visibleCollectionIds"
   | "collectionColorPreferences"
   | "selectedEventId"
@@ -330,6 +365,262 @@ const sanitizeVerticalTimeDirection = (
 ): VerticalTimeDirection | undefined =>
   value === "up" || value === "down" ? value : undefined;
 
+const DEFAULT_SYNC_SCOPES: SyncScope[] = ["custom-collections"];
+
+const isSyncScope = (value: unknown): value is SyncScope =>
+  value === "custom-collections" ||
+  value === "catalog-metadata" ||
+  value === "collection-colors";
+
+const isSyncConnectionStatus = (
+  value: unknown,
+): value is SyncConnectionStatus =>
+  value === "disconnected" ||
+  value === "connecting" ||
+  value === "connected" ||
+  value === "error";
+
+const createInitialSyncPreferences = (): SyncPreferences => ({
+  onboardingCompleted: false,
+  enabledScopes: [...DEFAULT_SYNC_SCOPES],
+  autosyncEnabled: false,
+  lastSuccessfulSyncAt: null,
+});
+
+const sanitizeSyncPreferences = (value: unknown): SyncPreferences => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return createInitialSyncPreferences();
+  }
+
+  const candidate = value as Partial<SyncPreferences>;
+  const enabledScopes = Array.isArray(candidate.enabledScopes)
+    ? candidate.enabledScopes.filter(isSyncScope)
+    : [...DEFAULT_SYNC_SCOPES];
+
+  return {
+    onboardingCompleted: candidate.onboardingCompleted === true,
+    enabledScopes: enabledScopes.length > 0 ? enabledScopes : [...DEFAULT_SYNC_SCOPES],
+    autosyncEnabled: candidate.autosyncEnabled === true,
+    lastSuccessfulSyncAt:
+      typeof candidate.lastSuccessfulSyncAt === "string" &&
+      candidate.lastSuccessfulSyncAt.trim().length > 0
+        ? candidate.lastSuccessfulSyncAt.trim()
+        : null,
+  };
+};
+
+const isCollectionOrigin = (value: unknown): value is CollectionOrigin =>
+  value === "custom" || value === "catalog" || value === "catalog-fork";
+
+const isLocalCollectionOrigin = (origin: CollectionOrigin): boolean =>
+  origin !== "catalog";
+
+const sanitizeSourceCatalogId = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+
+const sanitizeCollectionCloudMetadata = (
+  value: unknown,
+): StoredTimelineCollection["cloud"] => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const candidate = value as NonNullable<StoredTimelineCollection["cloud"]>;
+
+  const normalized = {
+    fileId:
+      typeof candidate.fileId === "string" && candidate.fileId.trim().length > 0
+        ? candidate.fileId.trim()
+        : undefined,
+    revision:
+      typeof candidate.revision === "string" &&
+      candidate.revision.trim().length > 0
+        ? candidate.revision.trim()
+        : undefined,
+    contentHash:
+      typeof candidate.contentHash === "string" &&
+      candidate.contentHash.trim().length > 0
+        ? candidate.contentHash.trim()
+        : undefined,
+    lastSyncedAt:
+      typeof candidate.lastSyncedAt === "string" &&
+      candidate.lastSyncedAt.trim().length > 0
+        ? candidate.lastSyncedAt.trim()
+        : undefined,
+  };
+
+  return Object.values(normalized).some(Boolean) ? normalized : null;
+};
+
+const collectionHasDurableEventUids = (
+  collection: Pick<StoredTimelineCollection, "events">,
+): boolean => collection.events.every((event) => isNonEmptyString(event.eventUid));
+
+const createCollectionSyncState = (
+  collection: Pick<StoredTimelineCollection, "events">,
+  previous?: CollectionSyncState | null,
+  overrides: Partial<CollectionSyncState> = {},
+): CollectionSyncState => ({
+  dirty: previous?.dirty ?? false,
+  dirtyReason: previous?.dirtyReason,
+  lastLocalChangeAt: previous?.lastLocalChangeAt,
+  eventUidMigrationComplete: collectionHasDurableEventUids(collection),
+  ...overrides,
+});
+
+const sanitizeCollectionSyncState = (
+  value: unknown,
+  collection: Pick<StoredTimelineCollection, "events">,
+): CollectionSyncState => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return createCollectionSyncState(collection);
+  }
+
+  const candidate = value as Partial<CollectionSyncState>;
+  return createCollectionSyncState(collection, null, {
+    dirty: candidate.dirty === true,
+    dirtyReason:
+      candidate.dirtyReason === "content" ||
+      candidate.dirtyReason === "metadata" ||
+      candidate.dirtyReason === "color" ||
+      candidate.dirtyReason === "delete"
+        ? candidate.dirtyReason
+        : undefined,
+    lastLocalChangeAt:
+      typeof candidate.lastLocalChangeAt === "string" &&
+      candidate.lastLocalChangeAt.trim().length > 0
+        ? candidate.lastLocalChangeAt.trim()
+        : undefined,
+  });
+};
+
+const sanitizeDeletedCollectionSyncTombstones = (
+  value: unknown,
+): Record<string, DeletedCollectionSyncTombstone> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([collectionId, tombstoneValue]) => {
+      if (
+        !tombstoneValue ||
+        typeof tombstoneValue !== "object" ||
+        Array.isArray(tombstoneValue)
+      ) {
+        return [];
+      }
+
+      const candidate = tombstoneValue as Partial<DeletedCollectionSyncTombstone>;
+      if (!isCollectionOrigin(candidate.origin)) {
+        return [];
+      }
+
+      const deletedAt =
+        typeof candidate.deletedAt === "string" && candidate.deletedAt.trim().length > 0
+          ? candidate.deletedAt.trim()
+          : null;
+
+      if (!deletedAt) {
+        return [];
+      }
+
+      return [
+        [
+          collectionId,
+          {
+            deletedAt,
+            origin: candidate.origin,
+            ...(sanitizeSourceCatalogId(candidate.sourceCatalogId)
+              ? { sourceCatalogId: sanitizeSourceCatalogId(candidate.sourceCatalogId) }
+              : {}),
+          },
+        ] as const,
+      ];
+    }),
+  ) as Record<string, DeletedCollectionSyncTombstone>;
+};
+
+const markCollectionSyncStateDirty = (
+  collection: StoredTimelineCollection,
+  reason: CollectionSyncState["dirtyReason"],
+  changedAt: string,
+): void => {
+  collection.sync = createCollectionSyncState(collection, collection.sync, {
+    dirty: true,
+    dirtyReason: reason,
+    lastLocalChangeAt: changedAt,
+  });
+};
+
+const deriveCollectionOrigin = (
+  candidate: Partial<StoredTimelineCollection>,
+  collectionId: string,
+  meta?: EventCollectionMeta | null,
+): CollectionOrigin => {
+  if (isCollectionOrigin(candidate.origin)) {
+    return candidate.origin;
+  }
+
+  const sourceCatalogId = sanitizeSourceCatalogId(candidate.sourceCatalogId);
+  if (sourceCatalogId && sourceCatalogId !== collectionId) {
+    return "catalog-fork";
+  }
+
+  if (candidate.isLocal === true) {
+    return "custom";
+  }
+
+  if (meta?.dataUrl) {
+    return "catalog";
+  }
+
+  return "catalog";
+};
+
+const createCollectionRecord = (
+  collectionId: string,
+  options: {
+    events?: Event[];
+    meta?: EventCollectionMeta | null;
+    origin?: CollectionOrigin;
+    sourceCatalogId?: string;
+    cloud?: StoredTimelineCollection["cloud"];
+    sync?: StoredTimelineCollection["sync"];
+  } = {},
+): StoredTimelineCollection => {
+  const origin = options.origin ?? "custom";
+  const sourceCatalogId =
+    origin === "catalog-fork" ? options.sourceCatalogId ?? collectionId : undefined;
+
+  return {
+    events: options.events ?? [],
+    ...(options.meta ? { meta: options.meta } : {}),
+    origin,
+    ...(sourceCatalogId ? { sourceCatalogId } : {}),
+    ...(options.cloud ? { cloud: options.cloud } : {}),
+    sync: createCollectionSyncState(
+      { events: options.events ?? [] },
+      options.sync ?? null,
+    ),
+    isLocal: isLocalCollectionOrigin(origin),
+  };
+};
+
+const promoteCollectionToFork = (
+  collectionId: string,
+  collection: StoredTimelineCollection,
+): void => {
+  if (collection.origin === "catalog") {
+    collection.origin = "catalog-fork";
+    collection.sourceCatalogId ??= collectionId;
+  } else if (!isCollectionOrigin(collection.origin)) {
+    collection.origin = collection.isLocal ? "custom" : "catalog-fork";
+  }
+
+  collection.isLocal = isLocalCollectionOrigin(collection.origin);
+};
+
 const buildCollectionLibrary = (
   collectionEventsById: Record<string, Event[]>,
   customCollections: EventCollectionMeta[] = [],
@@ -338,18 +629,19 @@ const buildCollectionLibrary = (
     Object.fromEntries(
       Object.entries(collectionEventsById).map(([collectionId, events]) => [
         collectionId,
-        {
+        createCollectionRecord(collectionId, {
           events: sanitizeImportedEvents(events, { collectionId }),
-        },
+          origin: "catalog",
+        }),
       ]),
     );
 
   customCollections.forEach((collection) => {
-    nextCollectionLibrary[collection.id] = {
+    nextCollectionLibrary[collection.id] = createCollectionRecord(collection.id, {
       events: nextCollectionLibrary[collection.id]?.events ?? [],
       meta: collection,
-      isLocal: true,
-    };
+      origin: "custom",
+    });
   });
 
   return nextCollectionLibrary;
@@ -371,16 +663,22 @@ const mergeCollectionLibraries = (
 
       return [
         collectionId,
-        {
+        createCollectionRecord(collectionId, {
           events: overrideCollection?.events ?? baseCollection?.events ?? [],
-          ...(baseCollection?.meta || overrideCollection?.meta
-            ? {
-                meta: overrideCollection?.meta ?? baseCollection?.meta ?? null,
-              }
-            : {}),
-          isLocal:
-            overrideCollection?.isLocal ?? baseCollection?.isLocal ?? false,
-        },
+          meta: overrideCollection?.meta ?? baseCollection?.meta ?? null,
+          origin:
+            overrideCollection?.origin ??
+            baseCollection?.origin ??
+            deriveCollectionOrigin(
+              overrideCollection ?? baseCollection ?? {},
+              collectionId,
+              overrideCollection?.meta ?? baseCollection?.meta ?? null,
+            ),
+          sourceCatalogId:
+            overrideCollection?.sourceCatalogId ?? baseCollection?.sourceCatalogId,
+          cloud: overrideCollection?.cloud ?? baseCollection?.cloud ?? null,
+          sync: overrideCollection?.sync ?? baseCollection?.sync ?? null,
+        }),
       ] as const;
     }),
   ) as Record<string, StoredTimelineCollection>;
@@ -407,15 +705,25 @@ const sanitizeCollectionLibrary = (value: unknown) => {
         sanitizeCustomCollections(candidate.meta ? [candidate.meta] : [], {
           allowBuiltInIds: true,
         })[0] ?? null;
+      const origin = deriveCollectionOrigin(candidate, collectionId, meta);
+      const sourceCatalogId =
+        origin === "catalog-fork"
+          ? sanitizeSourceCatalogId(candidate.sourceCatalogId) ?? collectionId
+          : undefined;
+      const cloud = sanitizeCollectionCloudMetadata(candidate.cloud);
+      const sync = sanitizeCollectionSyncState(candidate.sync, { events });
 
       return [
         [
           collectionId,
-          {
+          createCollectionRecord(collectionId, {
             events,
             ...(meta ? { meta: { ...meta, id: collectionId } } : {}),
-            isLocal: candidate.isLocal === true,
-          },
+            origin,
+            sourceCatalogId,
+            cloud,
+            sync,
+          }),
         ] as const,
       ];
     }),
@@ -679,6 +987,13 @@ const sanitizePersistedTimelineState = (
         ? candidate.showOnlyResultsOnTimeline
         : undefined,
     collectionLibrary,
+    deletedCollectionSyncTombstones: sanitizeDeletedCollectionSyncTombstones(
+      (candidate as { deletedCollectionSyncTombstones?: unknown })
+        .deletedCollectionSyncTombstones,
+    ),
+    syncPreferences: sanitizeSyncPreferences(
+      (candidate as { syncPreferences?: unknown }).syncPreferences,
+    ),
     visibleCollectionIds: sanitizeVisibleCollectionIds(
       candidate.visibleCollectionIds,
       collectionLibrary,
@@ -1275,6 +1590,10 @@ export const useStore = create<TimelineStoreState>()(
           syncableIds: [],
           catalogMeta: {},
           collectionLibrary: {},
+          deletedCollectionSyncTombstones: {},
+          syncPreferences: createInitialSyncPreferences(),
+          syncConnectionStatus: "disconnected",
+          syncStatusMessage: null,
           visibleCollectionIds: [],
           downloadingCollectionIds: [],
           collectionColorPreferences: {},
@@ -1356,6 +1675,179 @@ export const useStore = create<TimelineStoreState>()(
                 state.syncableIds = syncableIds;
               }),
             ),
+          setSyncConnectionStatus: (syncConnectionStatus, syncStatusMessage = null) =>
+            set({
+              syncConnectionStatus,
+              syncStatusMessage,
+            }),
+          completeSyncOnboarding: (enabledScopes = DEFAULT_SYNC_SCOPES) =>
+            set(
+              produce((state) => {
+                state.syncPreferences.onboardingCompleted = true;
+                state.syncPreferences.enabledScopes = enabledScopes.filter(
+                  isSyncScope,
+                );
+                if (state.syncPreferences.enabledScopes.length === 0) {
+                  state.syncPreferences.enabledScopes = [...DEFAULT_SYNC_SCOPES];
+                }
+              }),
+            ),
+          setSyncScopes: (enabledScopes) =>
+            set(
+              produce((state) => {
+                state.syncPreferences.enabledScopes = enabledScopes.filter(
+                  isSyncScope,
+                );
+                if (state.syncPreferences.enabledScopes.length === 0) {
+                  state.syncPreferences.enabledScopes = [...DEFAULT_SYNC_SCOPES];
+                }
+              }),
+            ),
+          setAutosyncEnabled: (value) =>
+            set(
+              produce((state) => {
+                state.syncPreferences.autosyncEnabled = value;
+              }),
+            ),
+          setLastSuccessfulSyncAt: (value) =>
+            set(
+              produce((state) => {
+                state.syncPreferences.lastSuccessfulSyncAt = value;
+              }),
+            ),
+          markSyncSuccess: ({
+            syncedAt,
+            syncedCollections,
+            clearedDeletedCollectionIds,
+          }) =>
+            set(
+              produce((state) => {
+                const collectionIds =
+                  syncedCollections?.map((collection) => collection.id) ??
+                  Object.keys(state.collectionLibrary);
+                collectionIds.forEach((collectionId) => {
+                  const collection = state.collectionLibrary[collectionId];
+                  if (!collection) return;
+                  const syncedCollection = syncedCollections?.find(
+                    (item) => item.id === collectionId,
+                  );
+                  collection.sync = createCollectionSyncState(
+                    collection,
+                    collection.sync,
+                    {
+                      dirty: false,
+                      dirtyReason: undefined,
+                      lastLocalChangeAt: collection.sync?.lastLocalChangeAt,
+                    },
+                  );
+                  collection.cloud = {
+                    ...(collection.cloud ?? {}),
+                    ...(syncedCollection?.fileId
+                      ? { fileId: syncedCollection.fileId }
+                      : {}),
+                    ...(syncedCollection?.revision
+                      ? { revision: syncedCollection.revision }
+                      : {}),
+                    ...(syncedCollection?.contentHash
+                      ? { contentHash: syncedCollection.contentHash }
+                      : {}),
+                    lastSyncedAt: syncedAt,
+                  };
+                });
+
+                const deletedIds =
+                  clearedDeletedCollectionIds ??
+                  Object.keys(state.deletedCollectionSyncTombstones);
+                deletedIds.forEach((collectionId) => {
+                  delete state.deletedCollectionSyncTombstones[collectionId];
+                });
+
+                state.syncPreferences.lastSuccessfulSyncAt = syncedAt;
+                state.syncStatusMessage = null;
+                if (state.syncConnectionStatus !== "error") {
+                  state.syncConnectionStatus = "connected";
+                }
+              }),
+            ),
+          restoreSyncSnapshot: (payload) =>
+            set(
+              produce((state) => {
+                const restoredVisibleCollectionIds = new Set(
+                  state.visibleCollectionIds,
+                );
+
+                payload.deletedCollections.forEach((deletedCollection) => {
+                  delete state.collectionLibrary[deletedCollection.id];
+                  delete state.collectionColorPreferences[deletedCollection.id];
+                  restoredVisibleCollectionIds.delete(deletedCollection.id);
+                  state.deletedCollectionSyncTombstones[deletedCollection.id] = {
+                    deletedAt: deletedCollection.deletedAt,
+                    origin: deletedCollection.origin,
+                    ...(deletedCollection.sourceCatalogId
+                      ? { sourceCatalogId: deletedCollection.sourceCatalogId }
+                      : {}),
+                  };
+                });
+
+                payload.collections.forEach((remoteCollection) => {
+                  const nextCollection = createCollectionRecord(
+                    remoteCollection.id,
+                    {
+                      events: sanitizeImportedEvents(remoteCollection.events ?? [], {
+                        collectionId: remoteCollection.id,
+                        previousEvents:
+                          state.collectionLibrary[remoteCollection.id]?.events,
+                      }),
+                      meta:
+                        remoteCollection.meta && remoteCollection.meta.id
+                          ? remoteCollection.meta
+                          : remoteCollection.meta
+                            ? {
+                                ...remoteCollection.meta,
+                                id: remoteCollection.id,
+                              }
+                            : null,
+                      origin: remoteCollection.origin,
+                      sourceCatalogId: remoteCollection.sourceCatalogId,
+                      sync: {
+                        dirty: false,
+                        dirtyReason: undefined,
+                        eventUidMigrationComplete: true,
+                      },
+                    },
+                  );
+
+                  nextCollection.cloud = {
+                    ...(nextCollection.cloud ?? {}),
+                    lastSyncedAt:
+                      payload.preferences.lastSuccessfulSyncAt ??
+                      payload.generatedAt,
+                  };
+
+                  state.collectionLibrary[remoteCollection.id] = nextCollection;
+                  delete state.deletedCollectionSyncTombstones[remoteCollection.id];
+
+                  if (remoteCollection.colorPreference) {
+                    state.collectionColorPreferences[remoteCollection.id] =
+                      remoteCollection.colorPreference;
+                  }
+
+                  restoredVisibleCollectionIds.add(remoteCollection.id);
+                });
+
+                state.visibleCollectionIds = Array.from(restoredVisibleCollectionIds);
+                state.syncPreferences = {
+                  ...state.syncPreferences,
+                  ...payload.preferences,
+                  onboardingCompleted: true,
+                  lastSuccessfulSyncAt:
+                    payload.preferences.lastSuccessfulSyncAt ??
+                    payload.generatedAt,
+                };
+                state.syncStatusMessage = null;
+                state.syncConnectionStatus = "connected";
+              }),
+            ),
           downloadCollection: async (collectionId) => {
             const catalogMeta = get().catalogMeta;
             const catalogEntry = catalogMeta[collectionId];
@@ -1385,11 +1877,16 @@ export const useStore = create<TimelineStoreState>()(
               );
               set(
                 produce((state) => {
-                  state.collectionLibrary[collectionId] = {
-                    ...state.collectionLibrary[collectionId],
-                    events: loadedEvents,
-                    meta: catalogEntry,
-                  };
+                  state.collectionLibrary[collectionId] = createCollectionRecord(
+                    collectionId,
+                    {
+                      ...state.collectionLibrary[collectionId],
+                      events: loadedEvents,
+                      meta: catalogEntry,
+                      origin: "catalog",
+                    },
+                  );
+                  delete state.deletedCollectionSyncTombstones[collectionId];
                   if (!state.visibleCollectionIds.includes(collectionId)) {
                     state.visibleCollectionIds.push(collectionId);
                   }
@@ -1414,6 +1911,9 @@ export const useStore = create<TimelineStoreState>()(
             const catalogMeta = get().catalogMeta;
             const catalogEntry = catalogMeta[collectionId];
             if (!catalogEntry?.dataUrl) return;
+            if (get().collectionLibrary[collectionId]?.origin !== "catalog") {
+              return;
+            }
 
             if (get().downloadingCollectionIds.includes(collectionId)) {
               return;
@@ -1434,10 +1934,16 @@ export const useStore = create<TimelineStoreState>()(
               );
               set(
                 produce((state) => {
-                  state.collectionLibrary[collectionId] = {
-                    ...state.collectionLibrary[collectionId],
-                    events: loadedEvents,
-                  };
+                  state.collectionLibrary[collectionId] = createCollectionRecord(
+                    collectionId,
+                    {
+                      ...state.collectionLibrary[collectionId],
+                      events: loadedEvents,
+                      meta: state.collectionLibrary[collectionId]?.meta ?? catalogEntry,
+                      origin: "catalog",
+                    },
+                  );
+                  delete state.deletedCollectionSyncTombstones[collectionId];
                 }),
               );
             } catch (error) {
@@ -1557,15 +2063,22 @@ export const useStore = create<TimelineStoreState>()(
 
             set(
               produce((state) => {
+                const changedAt = new Date().toISOString();
                 const init = createInitialTimelineSearchState();
                 Object.assign(state, init);
                 collectionWrites.forEach(
                   ({ id, events, meta, colorPref, visible }) => {
-                    state.collectionLibrary[id] = {
+                    state.collectionLibrary[id] = createCollectionRecord(id, {
                       events,
                       meta,
-                      isLocal: true,
-                    };
+                      origin: "custom",
+                    });
+                    markCollectionSyncStateDirty(
+                      state.collectionLibrary[id],
+                      "content",
+                      changedAt,
+                    );
+                    delete state.deletedCollectionSyncTombstones[id];
                     if (colorPref)
                       state.collectionColorPreferences[id] = colorPref;
                     if (visible && !state.visibleCollectionIds.includes(id)) {
@@ -1581,6 +2094,16 @@ export const useStore = create<TimelineStoreState>()(
           deleteCollection: (collectionId) =>
             set(
               produce((state) => {
+                const existingCollection = state.collectionLibrary[collectionId];
+                if (existingCollection) {
+                  state.deletedCollectionSyncTombstones[collectionId] = {
+                    deletedAt: new Date().toISOString(),
+                    origin: existingCollection.origin ?? "custom",
+                    ...(existingCollection.sourceCatalogId
+                      ? { sourceCatalogId: existingCollection.sourceCatalogId }
+                      : {}),
+                  };
+                }
                 const selectedInCollection =
                   state.selectedEventId !== null &&
                   findEventCollectionIdInState(state, state.selectedEventId) ===
@@ -1622,6 +2145,7 @@ export const useStore = create<TimelineStoreState>()(
                 const ownerCollection =
                   state.collectionLibrary[ownerCollectionId];
                 if (!ownerCollection) return;
+                promoteCollectionToFork(ownerCollectionId, ownerCollection);
                 const idx = ownerCollection.events.findIndex(
                   (event) => event.id === updatedEvent.id,
                 );
@@ -1634,6 +2158,12 @@ export const useStore = create<TimelineStoreState>()(
                   nextEvents,
                   ownerCollection.events,
                 );
+                markCollectionSyncStateDirty(
+                  ownerCollection,
+                  "content",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[ownerCollectionId];
 
                 const nextEventId = ownerCollection.events[idx]?.id ?? null;
                 if (state.selectedEventId === updatedEvent.id) {
@@ -1648,17 +2178,26 @@ export const useStore = create<TimelineStoreState>()(
             set(
               produce((state) => {
                 if (!state.collectionLibrary[targetCollectionId]) {
-                  state.collectionLibrary[targetCollectionId] = {
-                    events: [],
-                  };
+                  state.collectionLibrary[targetCollectionId] =
+                    createCollectionRecord(targetCollectionId, {
+                      events: [],
+                      origin: "custom",
+                    });
                 }
                 const ownerCollection =
                   state.collectionLibrary[targetCollectionId];
+                promoteCollectionToFork(targetCollectionId, ownerCollection);
                 ownerCollection.events = rematerializeCollectionEvents(
                   targetCollectionId,
                   [...ownerCollection.events, newEvent],
                   ownerCollection.events,
                 );
+                markCollectionSyncStateDirty(
+                  ownerCollection,
+                  "content",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[targetCollectionId];
                 if (!state.visibleCollectionIds.includes(targetCollectionId)) {
                   state.visibleCollectionIds.push(targetCollectionId);
                 }
@@ -1668,15 +2207,26 @@ export const useStore = create<TimelineStoreState>()(
             set(
               produce((state) => {
                 if (!state.collectionLibrary[targetCollectionId]) {
-                  state.collectionLibrary[targetCollectionId] = { events: [] };
+                  state.collectionLibrary[targetCollectionId] =
+                    createCollectionRecord(targetCollectionId, {
+                      events: [],
+                      origin: "custom",
+                    });
                 }
                 const ownerCollection =
                   state.collectionLibrary[targetCollectionId];
+                promoteCollectionToFork(targetCollectionId, ownerCollection);
                 ownerCollection.events = rematerializeCollectionEvents(
                   targetCollectionId,
                   [...ownerCollection.events, ...newEvents],
                   ownerCollection.events,
                 );
+                markCollectionSyncStateDirty(
+                  ownerCollection,
+                  "content",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[targetCollectionId];
                 if (!state.visibleCollectionIds.includes(targetCollectionId)) {
                   state.visibleCollectionIds.push(targetCollectionId);
                 }
@@ -1686,16 +2236,27 @@ export const useStore = create<TimelineStoreState>()(
             set(
               produce((state) => {
                 if (!state.collectionLibrary[targetCollectionId]) {
-                  state.collectionLibrary[targetCollectionId] = { events: [] };
+                  state.collectionLibrary[targetCollectionId] =
+                    createCollectionRecord(targetCollectionId, {
+                      events: [],
+                      origin: "custom",
+                    });
                 }
 
                 const ownerCollection =
                   state.collectionLibrary[targetCollectionId];
+                promoteCollectionToFork(targetCollectionId, ownerCollection);
                 ownerCollection.events = rematerializeCollectionEvents(
                   targetCollectionId,
                   events,
                   ownerCollection.events,
                 );
+                markCollectionSyncStateDirty(
+                  ownerCollection,
+                  "content",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[targetCollectionId];
 
                 if (!state.visibleCollectionIds.includes(targetCollectionId)) {
                   state.visibleCollectionIds.push(targetCollectionId);
@@ -1736,6 +2297,7 @@ export const useStore = create<TimelineStoreState>()(
                 const ownerCollection =
                   state.collectionLibrary[ownerCollectionId];
                 if (!ownerCollection) return;
+                promoteCollectionToFork(ownerCollectionId, ownerCollection);
                 const nextEvents = ownerCollection.events.filter(
                   (event) => event.id !== eventId,
                 );
@@ -1744,6 +2306,12 @@ export const useStore = create<TimelineStoreState>()(
                   nextEvents,
                   ownerCollection.events,
                 );
+                markCollectionSyncStateDirty(
+                  ownerCollection,
+                  "content",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[ownerCollectionId];
                 if (state.selectedEventId === eventId) {
                   state.selectedEventId = null;
                   state.isRulerActive = false;
@@ -1767,11 +2335,18 @@ export const useStore = create<TimelineStoreState>()(
 
             set(
               produce((state) => {
-                state.collectionLibrary[nextCollection.id] = {
-                  events: [],
-                  meta: nextCollection,
-                  isLocal: true,
-                };
+                state.collectionLibrary[nextCollection.id] =
+                  createCollectionRecord(nextCollection.id, {
+                    events: [],
+                    meta: nextCollection,
+                    origin: "custom",
+                  });
+                markCollectionSyncStateDirty(
+                  state.collectionLibrary[nextCollection.id],
+                  "content",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[nextCollection.id];
                 if (!state.visibleCollectionIds.includes(nextCollection.id)) {
                   state.visibleCollectionIds.push(nextCollection.id);
                 }
@@ -1787,30 +2362,118 @@ export const useStore = create<TimelineStoreState>()(
                   state.collectionLibrary[collectionId];
                 const baseCollection = existingCollection?.meta;
                 if (!existingCollection || !baseCollection) return;
-                state.collectionLibrary[collectionId] = {
-                  ...existingCollection,
-                  isLocal: true,
-                  meta: {
-                    ...baseCollection,
-                    emoji: collection.emoji.trim() || baseCollection.emoji,
-                    name: collection.name.trim() || baseCollection.name,
-                    description: collection.description.trim(),
-                  },
-                };
+                promoteCollectionToFork(collectionId, existingCollection);
+                state.collectionLibrary[collectionId] =
+                  createCollectionRecord(collectionId, {
+                    ...existingCollection,
+                    meta: {
+                      ...baseCollection,
+                      emoji: collection.emoji.trim() || baseCollection.emoji,
+                      name: collection.name.trim() || baseCollection.name,
+                      description: collection.description.trim(),
+                    },
+                  });
+                markCollectionSyncStateDirty(
+                  state.collectionLibrary[collectionId],
+                  "metadata",
+                  new Date().toISOString(),
+                );
+                delete state.deletedCollectionSyncTombstones[collectionId];
               }),
             ),
           setCollectionColor: (collectionId, color) =>
             set(
               produce((state) => {
                 state.collectionColorPreferences[collectionId] = color;
+                const collection = state.collectionLibrary[collectionId];
+                if (collection) {
+                  markCollectionSyncStateDirty(
+                    collection,
+                    "color",
+                    new Date().toISOString(),
+                  );
+                  delete state.deletedCollectionSyncTombstones[collectionId];
+                }
               }),
             ),
           resetCollectionColor: (collectionId) =>
             set(
               produce((state) => {
                 delete state.collectionColorPreferences[collectionId];
+                const collection = state.collectionLibrary[collectionId];
+                if (collection) {
+                  markCollectionSyncStateDirty(
+                    collection,
+                    "color",
+                    new Date().toISOString(),
+                  );
+                  delete state.deletedCollectionSyncTombstones[collectionId];
+                }
               }),
             ),
+          duplicateCollectionsForConflictResolution: (collectionIds) => {
+            const duplicatedIds: string[] = [];
+
+            set(
+              produce((state) => {
+                const existingIds = new Set(Object.keys(state.collectionLibrary));
+                const changedAt = new Date().toISOString();
+
+                collectionIds.forEach((collectionId) => {
+                  const existingCollection = state.collectionLibrary[collectionId];
+                  if (!existingCollection) return;
+
+                  const baseMeta = existingCollection.meta ?? {
+                    id: collectionId,
+                    name: collectionId,
+                    emoji: "🗂️",
+                    description: "",
+                    author: "You",
+                    createdAt: createLocalDateStamp(),
+                  };
+
+                  const duplicatedName = `${baseMeta.name} (local copy)`;
+                  const nextId = createUniqueCollectionId(
+                    duplicatedName,
+                    existingIds,
+                  );
+
+                  state.collectionLibrary[nextId] = createCollectionRecord(nextId, {
+                    events: rematerializeCollectionEvents(
+                      nextId,
+                      existingCollection.events,
+                    ),
+                    meta: {
+                      ...baseMeta,
+                      id: nextId,
+                      name: duplicatedName,
+                      dataUrl: undefined,
+                    },
+                    origin: "custom",
+                  });
+
+                  if (state.collectionColorPreferences[collectionId]) {
+                    state.collectionColorPreferences[nextId] =
+                      state.collectionColorPreferences[collectionId];
+                  }
+
+                  markCollectionSyncStateDirty(
+                    state.collectionLibrary[nextId],
+                    "content",
+                    changedAt,
+                  );
+
+                  if (state.visibleCollectionIds.includes(collectionId)) {
+                    state.visibleCollectionIds.push(nextId);
+                  }
+
+                  duplicatedIds.push(nextId);
+                });
+              }),
+            );
+
+            return duplicatedIds;
+          },
           focusEvent: (eventId) =>
             set({
               selectedEventId: eventId,
@@ -1954,7 +2617,7 @@ export const useStore = create<TimelineStoreState>()(
           cleanupLegacyCollectionStorage();
           state?.setHasHydrated(true);
         },
-        partialize: (state) => ({
+          partialize: (state) => ({
           theme: state.theme,
           currentLanguage: state.currentLanguage,
           searchQuery: state.searchQuery,
@@ -1974,6 +2637,8 @@ export const useStore = create<TimelineStoreState>()(
               ],
             ),
           ),
+          deletedCollectionSyncTombstones: state.deletedCollectionSyncTombstones,
+          syncPreferences: state.syncPreferences,
           visibleCollectionIds: state.visibleCollectionIds,
           collectionColorPreferences: state.collectionColorPreferences,
           selectedEventId: state.selectedEventId,

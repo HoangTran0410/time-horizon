@@ -2,6 +2,7 @@ import React, {
   Suspense,
   useDeferredValue,
   useEffect,
+  useEffectEvent,
   lazy,
   useMemo,
   useRef,
@@ -15,10 +16,17 @@ import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
 import { Controller } from "./Controller";
 import { ConfirmDialog, type ConfirmDialogOptions } from "./ConfirmDialog";
+import {
+  SyncConflictDialog,
+  type SyncConflictDialogConflict,
+} from "./SyncConflictDialog";
 import { ShareModal } from "./ShareModal";
 import { ImportEventsDialog } from "./ImportEventsDialog";
 import { EventInfoPanel } from "./EventInfoPanel";
 import { Toolbar } from "./Toolbar";
+import { ControlCenterPanel } from "./ControlCenterPanel";
+import { SpatialSettingsPanel } from "./SpatialSettingsPanel";
+import { SyncPanel } from "./SyncPanel";
 import { TimelineGuidanceOverlay } from "./TimelineGuidanceOverlay";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
 import { WarpOverlay } from "./TimelineMarkers";
@@ -35,6 +43,18 @@ import { useI18n } from "../i18n";
 import { useTimelineCollections } from "../hooks/useTimelineCollections";
 import { useTimelineShareUrl } from "../hooks/useTimelineShareUrl";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
+import {
+  buildSyncProjectionSnapshot,
+  detectSyncConflicts,
+  hasPendingSyncableChanges as hasPendingSyncableChangesForSync,
+} from "../sync";
+import {
+  loadSyncProjectionFromGoogleDrive,
+  loadGoogleDriveWorkspaceSummary,
+  requestGoogleDriveAccessToken,
+  revokeGoogleDriveAccessToken,
+  syncProjectionToGoogleDrive,
+} from "../sync/googleDrive";
 import {
   filterTimelineSearchEvents,
   findEventByIdInCollections,
@@ -84,6 +104,20 @@ export const Timeline = ({
   const [editingCollection, setEditingCollection] =
     useState<EventCollectionMeta | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isSpatialSettingsPanelOpen, setIsSpatialSettingsPanelOpen] =
+    useState(false);
+  const [isSyncPanelOpen, setIsSyncPanelOpen] = useState(false);
+  const [isSyncBusy, setIsSyncBusy] = useState(false);
+  const [syncAccessToken, setSyncAccessToken] = useState<string | null>(null);
+  const [syncConflictDialog, setSyncConflictDialog] = useState<{
+    mode: "sync" | "restore";
+    conflicts: SyncConflictDialogConflict[];
+    remoteSnapshot: Awaited<
+      ReturnType<typeof loadSyncProjectionFromGoogleDrive>
+    >["remoteState"];
+  } | null>(null);
+
   // Store state — individual selectors avoid useShallow overhead
   const selectedEventId = useStore((s) => s.selectedEventId);
   const isRulerActive = useStore((s) => s.isRulerActive);
@@ -99,23 +133,24 @@ export const Timeline = ({
   const verticalTimeDirection = useStore((s) => s.verticalTimeDirection);
   const spatialMapping = useStore((s) => s.spatialMapping);
   const isSpatialAnchorPickMode = useStore((s) => s.isSpatialAnchorPickMode);
+  const syncPreferences = useStore((s) => s.syncPreferences);
+  const syncConnectionStatus = useStore((s) => s.syncConnectionStatus);
+  const collectionLibrary = useStore((s) => s.collectionLibrary);
+  const collectionColorPreferences = useStore(
+    (s) => s.collectionColorPreferences,
+  );
+  const deletedCollectionSyncTombstones = useStore(
+    (s) => s.deletedCollectionSyncTombstones,
+  );
   const focusEvent = useStore((s) => s.focusEvent);
   const previewEvent = useStore((s) => s.previewEvent);
   const clearFocusedEvent = useStore((s) => s.clearFocusedEvent);
   const reopenMobileInfoPanel = useStore((s) => s.reopenMobileInfoPanel);
   const setSavedViewport = useStore((s) => s.setSavedViewport);
   const setTimelineOrientation = useStore((s) => s.setTimelineOrientation);
-  const setVerticalWheelBehavior = useStore(
-    (s) => s.setVerticalWheelBehavior,
-  );
-  const setVerticalTimeDirection = useStore(
-    (s) => s.setVerticalTimeDirection,
-  );
+  const setVerticalWheelBehavior = useStore((s) => s.setVerticalWheelBehavior);
+  const setVerticalTimeDirection = useStore((s) => s.setVerticalTimeDirection);
   const setSpatialMapping = useStore((s) => s.setSpatialMapping);
-  const resetSpatialMapping = useStore((s) => s.resetSpatialMapping);
-  const toggleSpatialMappingEnabled = useStore(
-    (s) => s.toggleSpatialMappingEnabled,
-  );
   const startSpatialAnchorPickMode = useStore(
     (s) => s.startSpatialAnchorPickMode,
   );
@@ -161,6 +196,14 @@ export const Timeline = ({
 
   // Store actions — call directly, no need to route through hook
   const addVisibleCollection = useStore((s) => s.addVisibleCollection);
+  const setSyncConnectionStatus = useStore((s) => s.setSyncConnectionStatus);
+  const completeSyncOnboarding = useStore((s) => s.completeSyncOnboarding);
+  const setAutosyncEnabled = useStore((s) => s.setAutosyncEnabled);
+  const markSyncSuccess = useStore((s) => s.markSyncSuccess);
+  const restoreSyncSnapshot = useStore((s) => s.restoreSyncSnapshot);
+  const duplicateCollectionsForConflictResolution = useStore(
+    (s) => s.duplicateCollectionsForConflictResolution,
+  );
   const downloadCollection = useStore((s) => s.downloadCollection);
   const syncCollection = useStore((s) => s.syncCollection);
   const setCollectionVisibility = useStore((s) => s.setCollectionVisibility);
@@ -213,6 +256,296 @@ export const Timeline = ({
     sharedOrientation !== null ||
     sharedSpatialMapping !== null;
   const effectiveTimelineOrientation = timelineOrientation;
+  const googleClientId =
+    (
+      import.meta as ImportMeta & {
+        env?: Record<string, string | undefined>;
+      }
+    ).env?.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
+  const hasGoogleClientId = googleClientId.length > 0;
+  const hasPendingSyncableChanges = useMemo(
+    () =>
+      hasPendingSyncableChangesForSync({
+        collectionLibrary,
+        collectionColorPreferences,
+        deletedCollectionSyncTombstones,
+        syncPreferences,
+      }),
+    [
+      collectionColorPreferences,
+      collectionLibrary,
+      deletedCollectionSyncTombstones,
+      syncPreferences,
+    ],
+  );
+
+  const resolveSyncAccessToken = async (
+    prompt: string,
+    onboardingOptions?: {
+      enabledScopes: Parameters<typeof completeSyncOnboarding>[0];
+      autosyncEnabled: boolean;
+    },
+  ) => {
+    if (!hasGoogleClientId) {
+      throw new Error(t("syncNotConfiguredHelp"));
+    }
+
+    setSyncConnectionStatus("connecting", null);
+    const accessToken = await requestGoogleDriveAccessToken({
+      clientId: googleClientId,
+      prompt,
+    });
+    setSyncAccessToken(accessToken);
+    if (onboardingOptions) {
+      completeSyncOnboarding(onboardingOptions.enabledScopes);
+      setAutosyncEnabled(onboardingOptions.autosyncEnabled);
+    }
+    const workspaceSummary = await loadGoogleDriveWorkspaceSummary({
+      accessToken,
+    });
+    setSyncConnectionStatus(
+      "connected",
+      workspaceSummary.recoveredManifest
+        ? t("syncManifestRecovered", {
+            collections: workspaceSummary.manifestCollectionCount,
+          })
+        : workspaceSummary.hasManifest
+          ? t("syncRemoteSummary", {
+              collections: workspaceSummary.manifestCollectionCount,
+              deleted: workspaceSummary.deletedCollectionCount,
+            })
+          : t("syncRemoteEmpty"),
+    );
+    return accessToken;
+  };
+
+  const handleConnectSync = async (options: {
+    enabledScopes: Parameters<typeof completeSyncOnboarding>[0];
+    autosyncEnabled: boolean;
+  }) => {
+    setIsSyncBusy(true);
+    try {
+      await resolveSyncAccessToken("consent", options);
+    } catch (error) {
+      setSyncConnectionStatus(
+        "error",
+        error instanceof Error ? error.message : t("syncError"),
+      );
+    } finally {
+      setIsSyncBusy(false);
+    }
+  };
+
+  const handleDisconnectSync = async () => {
+    setIsSyncBusy(true);
+    try {
+      if (syncAccessToken) {
+        await revokeGoogleDriveAccessToken(syncAccessToken);
+      }
+      setSyncAccessToken(null);
+      setSyncConnectionStatus("disconnected", null);
+    } catch (error) {
+      setSyncConnectionStatus(
+        "error",
+        error instanceof Error ? error.message : t("syncError"),
+      );
+    } finally {
+      setIsSyncBusy(false);
+    }
+  };
+
+  const executeManualSync = async (
+    source: "manual" | "autosync" = "manual",
+    options?: {
+      ignoreConflicts?: boolean;
+      remoteSnapshotOverride?: Awaited<
+        ReturnType<typeof loadSyncProjectionFromGoogleDrive>
+      >["remoteState"];
+    },
+  ) => {
+    setIsSyncBusy(true);
+
+    try {
+      const accessToken =
+        syncAccessToken ??
+        (await resolveSyncAccessToken(source === "manual" ? "consent" : ""));
+      const remoteStateResult = options?.remoteSnapshotOverride
+        ? {
+            remoteState: options.remoteSnapshotOverride,
+            recoveredManifest: false,
+          }
+        : await loadSyncProjectionFromGoogleDrive({
+            accessToken,
+          });
+      if (remoteStateResult.remoteState) {
+        const conflicts = detectSyncConflicts({
+          collectionLibrary,
+          deletedCollectionSyncTombstones,
+          syncPreferences,
+          collectionColorPreferences,
+          remoteState: remoteStateResult.remoteState,
+        });
+
+        if (conflicts.length > 0 && !options?.ignoreConflicts) {
+          if (source === "manual") {
+            setSyncConflictDialog({
+              mode: "sync",
+              conflicts: conflicts.map((conflict) => ({
+                id: conflict.id,
+                name:
+                  collectionLibrary[conflict.id]?.meta?.name ??
+                  remoteStateResult.remoteState?.collections.find(
+                    (collection) => collection.id === conflict.id,
+                  )?.meta?.name ??
+                  conflict.id,
+              })),
+              remoteSnapshot: remoteStateResult.remoteState,
+            });
+            return;
+          }
+          setSyncConnectionStatus(
+            "error",
+            t("syncConflictsDetected", {
+              count: conflicts.length,
+            }),
+          );
+          return;
+        }
+      }
+      const snapshot = buildSyncProjectionSnapshot({
+        collectionLibrary,
+        deletedCollectionSyncTombstones,
+        syncPreferences,
+        collectionColorPreferences,
+      });
+      const result = await syncProjectionToGoogleDrive({
+        accessToken,
+        snapshot,
+      });
+
+      markSyncSuccess({
+        syncedAt: result.syncedAt,
+        syncedCollections: result.syncedCollections,
+        clearedDeletedCollectionIds: result.clearedDeletedCollectionIds,
+      });
+      setSyncConnectionStatus(
+        "connected",
+        t("syncRunCompleted", {
+          time: new Date(result.syncedAt).toLocaleTimeString(
+            language === "vi" ? "vi-VN" : "en-US",
+          ),
+          uploaded: result.syncedCollections.length,
+          skipped: result.skippedCollections.length,
+        }),
+      );
+    } catch (error) {
+      setSyncConnectionStatus(
+        "error",
+        error instanceof Error ? error.message : t("syncError"),
+      );
+    } finally {
+      setIsSyncBusy(false);
+    }
+  };
+
+  const applyRemoteRestoreSnapshot = (
+    remoteSnapshot: NonNullable<
+      Awaited<
+        ReturnType<typeof loadSyncProjectionFromGoogleDrive>
+      >["remoteState"]
+    >,
+  ) => {
+    restoreSyncSnapshot(remoteSnapshot);
+    setSyncConnectionStatus(
+      "connected",
+      t("syncRestoreCompleted", {
+        collections: remoteSnapshot.collections.length,
+        deleted: remoteSnapshot.deletedCollections.length,
+      }),
+    );
+  };
+
+  const handleRestoreFromDrive = async () => {
+    setIsSyncBusy(true);
+
+    try {
+      const accessToken =
+        syncAccessToken ?? (await resolveSyncAccessToken("consent"));
+      const remoteStateResult = await loadSyncProjectionFromGoogleDrive({
+        accessToken,
+      });
+      const remoteSnapshot = remoteStateResult.remoteState;
+
+      if (!remoteSnapshot) {
+        setSyncConnectionStatus("connected", t("syncRemoteEmpty"));
+        return;
+      }
+      const conflicts = detectSyncConflicts({
+        collectionLibrary,
+        deletedCollectionSyncTombstones,
+        syncPreferences,
+        collectionColorPreferences,
+        remoteState: remoteSnapshot,
+      });
+
+      if (conflicts.length > 0) {
+        const conflictingNames = conflicts
+          .map(
+            (conflict) =>
+              collectionLibrary[conflict.id]?.meta?.name ??
+              remoteSnapshot.collections.find(
+                (collection) => collection.id === conflict.id,
+              )?.meta?.name ??
+              conflict.id,
+          )
+          .slice(0, 3)
+          .join(", ");
+
+        setSyncConflictDialog({
+          mode: "restore",
+          conflicts: conflicts.map((conflict) => ({
+            id: conflict.id,
+            name:
+              collectionLibrary[conflict.id]?.meta?.name ??
+              remoteSnapshot.collections.find(
+                (collection) => collection.id === conflict.id,
+              )?.meta?.name ??
+              conflict.id,
+          })),
+          remoteSnapshot,
+        });
+        setSyncConnectionStatus(
+          "error",
+          t("restoreConflictsDescription", {
+            count: conflicts.length,
+            names: conflictingNames,
+          }),
+        );
+        return;
+      }
+
+      applyRemoteRestoreSnapshot(remoteSnapshot);
+      if (remoteStateResult.recoveredManifest) {
+        setSyncConnectionStatus(
+          "connected",
+          t("syncManifestRecovered", {
+            collections: remoteSnapshot.collections.length,
+          }),
+        );
+      }
+    } catch (error) {
+      setSyncConnectionStatus(
+        "error",
+        error instanceof Error ? error.message : t("syncError"),
+      );
+    } finally {
+      setIsSyncBusy(false);
+    }
+  };
+
+  const runAutosync = useEffectEvent(() => {
+    void executeManualSync("autosync");
+  });
 
   useEffect(() => {
     if (sharedOrientation && sharedOrientation !== timelineOrientation) {
@@ -919,6 +1252,53 @@ export const Timeline = ({
     setSpatialMapping(sharedSpatialMapping);
   }, [setSpatialMapping, sharedSpatialMapping]);
 
+  useEffect(() => {
+    if (
+      !syncPreferences.onboardingCompleted ||
+      !syncPreferences.autosyncEnabled ||
+      !syncPreferences.lastSuccessfulSyncAt ||
+      !syncAccessToken ||
+      syncConnectionStatus !== "connected" ||
+      !hasPendingSyncableChanges ||
+      isSyncBusy
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      runAutosync();
+    }, 30000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    hasPendingSyncableChanges,
+    isSyncBusy,
+    runAutosync,
+    syncAccessToken,
+    syncConnectionStatus,
+    syncPreferences.autosyncEnabled,
+    syncPreferences.lastSuccessfulSyncAt,
+    syncPreferences.onboardingCompleted,
+  ]);
+
+  useEffect(() => {
+    if (!hasPendingSyncableChanges) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasPendingSyncableChanges]);
+
   return (
     <>
       {isDraggingFile && (
@@ -958,6 +1338,7 @@ export const Timeline = ({
           collections={collections}
           syncableCollectionIds={Array.from(catalogCollectionIds)}
           editableCollectionIds={editableCollectionIds}
+          onOpenSyncPanel={() => setIsSyncPanelOpen(true)}
           onEditEvent={(event) => {
             openEventEditor(event.id);
           }}
@@ -1091,41 +1472,71 @@ export const Timeline = ({
         <Toolbar
           logicFps={logicFps}
           renderFps={renderFps}
+          onOpenControlCenter={() => setIsSettingsPanelOpen(true)}
+        />
+        <ControlCenterPanel
+          isOpen={isSettingsPanelOpen}
           theme={theme}
-          spatialMapping={spatialMapping}
-          timelineOrientation={effectiveTimelineOrientation}
-          currentFocusYear={focusYear.get()}
-          isSpatialAnchorPickMode={isSpatialAnchorPickMode}
-          onToggleTheme={onToggleTheme}
+          onOpenSyncPanel={() => setIsSyncPanelOpen(true)}
           onShare={() => setShareModalOpen(true)}
-          onToggleTimelineOrientation={() =>
-            setTimelineOrientation(
-              effectiveTimelineOrientation === "horizontal"
-                ? "vertical"
-                : "horizontal",
-            )
-          }
-          onToggleSpatialMappingEnabled={() => {
-            if (spatialMapping.enabled && isSpatialAnchorPickMode) {
-              stopSpatialAnchorPickMode();
+          onToggleTheme={onToggleTheme}
+          onOpenSpatialPanel={() => setIsSpatialSettingsPanelOpen(true)}
+          onClose={() => setIsSettingsPanelOpen(false)}
+        />
+        <SpatialSettingsPanel
+          isOpen={isSpatialSettingsPanelOpen}
+          currentFocusYear={focusYear.get()}
+          onClose={() => setIsSpatialSettingsPanelOpen(false)}
+        />
+        <SyncPanel
+          isOpen={isSyncPanelOpen}
+          isBusy={isSyncBusy}
+          onConnect={handleConnectSync}
+          onDisconnect={handleDisconnectSync}
+          onManualSync={() => executeManualSync("manual")}
+          onRestoreFromDrive={handleRestoreFromDrive}
+          onClose={() => setIsSyncPanelOpen(false)}
+        />
+
+        <SyncConflictDialog
+          isOpen={Boolean(syncConflictDialog)}
+          mode={syncConflictDialog?.mode ?? "sync"}
+          conflicts={syncConflictDialog?.conflicts ?? []}
+          onKeepLocal={() => {
+            const dialog = syncConflictDialog;
+            setSyncConflictDialog(null);
+            if (!dialog) return;
+            if (dialog.mode === "sync") {
+              void executeManualSync("manual", {
+                ignoreConflicts: true,
+                remoteSnapshotOverride: dialog.remoteSnapshot,
+              });
+              return;
             }
-            toggleSpatialMappingEnabled();
+            setSyncConnectionStatus("connected", t("keptLocalConflicts"));
           }}
-          onSetSpatialMetersPerYear={(value) =>
-            setSpatialMapping({ metersPerYear: value })
-          }
-          onSetSpatialMapTheme={(value) =>
-            setSpatialMapping({ mapTheme: value })
-          }
-          onSetSpatialMapOpacity={(value) =>
-            setSpatialMapping({ mapOpacity: value })
-          }
-          onStartSpatialAnchorPickMode={() => {
-            setSpatialMapping({ enabled: true });
-            startSpatialAnchorPickMode();
+          onKeepRemote={() => {
+            const dialog = syncConflictDialog;
+            setSyncConflictDialog(null);
+            if (!dialog?.remoteSnapshot) return;
+            applyRemoteRestoreSnapshot(dialog.remoteSnapshot);
           }}
-          onStopSpatialAnchorPickMode={stopSpatialAnchorPickMode}
-          onResetSpatialMapping={resetSpatialMapping}
+          onDuplicateAndRestore={() => {
+            const dialog = syncConflictDialog;
+            setSyncConflictDialog(null);
+            if (!dialog?.remoteSnapshot) return;
+            const duplicatedIds = duplicateCollectionsForConflictResolution(
+              dialog.conflicts.map((conflict) => conflict.id),
+            );
+            applyRemoteRestoreSnapshot(dialog.remoteSnapshot);
+            setSyncConnectionStatus(
+              "connected",
+              t("duplicatedLocalConflicts", {
+                count: duplicatedIds.length,
+              }),
+            );
+          }}
+          onCancel={() => setSyncConflictDialog(null)}
         />
 
         <Controller
