@@ -90,6 +90,9 @@ type TimelineStoreState = {
   syncPreferences: SyncPreferences;
   syncConnectionStatus: SyncConnectionStatus;
   syncStatusMessage: string | null;
+  syncAccessToken: string | null;
+  syncAccessTokenExpiry: number | null;
+  nextAutosyncAt: number | null; // Unix ms timestamp when autosync will trigger, null if not scheduled
   visibleCollectionIds: string[];
   downloadingCollectionIds: string[];
   collectionColorPreferences: Record<string, string>;
@@ -136,6 +139,8 @@ type TimelineStoreState = {
     status: SyncConnectionStatus,
     message?: string | null,
   ) => void;
+  setSyncAccessToken: (token: string | null) => void;
+  setNextAutosyncAt: (timestamp: number | null) => void;
   completeSyncOnboarding: (enabledScopes?: SyncScope[]) => void;
   setSyncScopes: (enabledScopes: SyncScope[]) => void;
   setAutosyncEnabled: (value: boolean) => void;
@@ -278,6 +283,10 @@ type TimelinePersistedState = Pick<
   | "collectionLibrary"
   | "deletedCollectionSyncTombstones"
   | "syncPreferences"
+  | "syncConnectionStatus"
+  | "syncAccessToken"
+  | "syncAccessTokenExpiry"
+  | "nextAutosyncAt"
   | "visibleCollectionIds"
   | "collectionColorPreferences"
   | "selectedEventId"
@@ -365,7 +374,11 @@ const sanitizeVerticalTimeDirection = (
 ): VerticalTimeDirection | undefined =>
   value === "up" || value === "down" ? value : undefined;
 
-const DEFAULT_SYNC_SCOPES: SyncScope[] = ["custom-collections"];
+const DEFAULT_SYNC_SCOPES: SyncScope[] = [
+  "custom-collections",
+  "catalog-metadata",
+  "collection-colors",
+];
 
 const isSyncScope = (value: unknown): value is SyncScope =>
   value === "custom-collections" ||
@@ -386,6 +399,20 @@ const createInitialSyncPreferences = (): SyncPreferences => ({
   autosyncEnabled: false,
   lastSuccessfulSyncAt: null,
 });
+
+const sanitizeSyncConnectionStatus = (
+  value: unknown,
+): SyncConnectionStatus => {
+  if (
+    value === "connected" ||
+    value === "connecting" ||
+    value === "disconnected" ||
+    value === "error"
+  ) {
+    return value;
+  }
+  return "disconnected";
+};
 
 const sanitizeSyncPreferences = (value: unknown): SyncPreferences => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -994,6 +1021,19 @@ const sanitizePersistedTimelineState = (
     syncPreferences: sanitizeSyncPreferences(
       (candidate as { syncPreferences?: unknown }).syncPreferences,
     ),
+    syncConnectionStatus: sanitizeSyncConnectionStatus(
+      (candidate as { syncConnectionStatus?: unknown }).syncConnectionStatus,
+    ),
+    syncAccessToken:
+      typeof candidate.syncAccessToken === "string" &&
+      candidate.syncAccessToken.trim().length > 0
+        ? candidate.syncAccessToken.trim()
+        : null,
+    syncAccessTokenExpiry:
+      typeof candidate.syncAccessTokenExpiry === "number" &&
+      Number.isFinite(candidate.syncAccessTokenExpiry)
+        ? candidate.syncAccessTokenExpiry
+        : null,
     visibleCollectionIds: sanitizeVisibleCollectionIds(
       candidate.visibleCollectionIds,
       collectionLibrary,
@@ -1594,6 +1634,9 @@ export const useStore = create<TimelineStoreState>()(
           syncPreferences: createInitialSyncPreferences(),
           syncConnectionStatus: "disconnected",
           syncStatusMessage: null,
+          syncAccessToken: null,
+          syncAccessTokenExpiry: null,
+          nextAutosyncAt: null,
           visibleCollectionIds: [],
           downloadingCollectionIds: [],
           collectionColorPreferences: {},
@@ -1679,6 +1722,15 @@ export const useStore = create<TimelineStoreState>()(
             set({
               syncConnectionStatus,
               syncStatusMessage,
+            }),
+          setSyncAccessToken: (token) =>
+            set({
+              syncAccessToken: token,
+              syncAccessTokenExpiry: token ? Date.now() : null,
+            }),
+          setNextAutosyncAt: (timestamp) =>
+            set({
+              nextAutosyncAt: timestamp,
             }),
           completeSyncOnboarding: (enabledScopes = DEFAULT_SYNC_SCOPES) =>
             set(
@@ -2612,6 +2664,15 @@ export const useStore = create<TimelineStoreState>()(
         merge: (persistedState, currentState) => ({
           ...currentState,
           ...sanitizePersistedTimelineState(persistedState),
+          // Always reset connection status on reload — auth token may be stale.
+          // Force onboarding to incomplete so the Connect button shows instead of
+          // sync/restore buttons until user re-authenticates successfully.
+          syncConnectionStatus: "disconnected",
+          syncStatusMessage: null,
+          syncPreferences: {
+            ...currentState.syncPreferences,
+            onboardingCompleted: false,
+          },
         }),
         onRehydrateStorage: () => (state) => {
           cleanupLegacyCollectionStorage();
@@ -2639,6 +2700,10 @@ export const useStore = create<TimelineStoreState>()(
           ),
           deletedCollectionSyncTombstones: state.deletedCollectionSyncTombstones,
           syncPreferences: state.syncPreferences,
+          syncConnectionStatus: state.syncConnectionStatus,
+          syncAccessToken: state.syncAccessToken,
+          syncAccessTokenExpiry: state.syncAccessTokenExpiry,
+          nextAutosyncAt: state.nextAutosyncAt,
           visibleCollectionIds: state.visibleCollectionIds,
           collectionColorPreferences: state.collectionColorPreferences,
           selectedEventId: state.selectedEventId,

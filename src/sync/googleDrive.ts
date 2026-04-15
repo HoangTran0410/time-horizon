@@ -308,7 +308,7 @@ const readDriveJsonFile = async <T>(
 
 const createDefaultRemotePreferences = (): SyncProjectionSnapshot["preferences"] => ({
   onboardingCompleted: true,
-  enabledScopes: ["custom-collections"],
+  enabledScopes: ["custom-collections", "catalog-metadata", "collection-colors"],
   autosyncEnabled: false,
   lastSuccessfulSyncAt: null,
 });
@@ -576,6 +576,45 @@ export const requestGoogleDriveAccessToken = async (options: {
 }): Promise<string> => {
   await loadGoogleIdentityServices();
 
+  const promptValue = options.prompt ?? "consent";
+
+  // Try silent auth first if prompt is not forced to "consent"
+  if (promptValue !== "consent") {
+    try {
+      const silentToken = await new Promise<string>((resolve, reject) => {
+        const tokenClient = window.google?.accounts.oauth2.initTokenClient({
+          client_id: options.clientId,
+          scope: GOOGLE_DRIVE_SCOPE,
+          callback: (response) => {
+            if (response.access_token) {
+              resolve(response.access_token);
+            } else {
+              reject(
+                new Error(
+                  response.error_description ?? response.error ?? "Silent auth failed",
+                ),
+              );
+            }
+          },
+          error_callback: (error) => {
+            reject(
+              new Error(
+                error.type === "popup_closed"
+                  ? "popup_closed"
+                  : "Silent auth error",
+              ),
+            );
+          },
+        });
+        tokenClient?.requestAccessToken({ prompt: "none" });
+      });
+      return silentToken;
+    } catch {
+      // Silent auth failed — fall through to interactive
+    }
+  }
+
+  // Interactive auth (shows Google consent popup)
   return new Promise<string>((resolve, reject) => {
     const tokenClient = window.google?.accounts.oauth2.initTokenClient({
       client_id: options.clientId,
@@ -605,9 +644,7 @@ export const requestGoogleDriveAccessToken = async (options: {
       },
     });
 
-    tokenClient?.requestAccessToken({
-      prompt: options.prompt ?? "consent",
-    });
+    tokenClient?.requestAccessToken({ prompt: promptValue });
   });
 };
 

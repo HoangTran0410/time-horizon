@@ -1,6 +1,6 @@
 import React from "react";
 import { AnimatePresence, motion, MotionValue } from "motion/react";
-import { Compass, FileText, Search } from "lucide-react";
+import { Compass, FileText, Plus, Search } from "lucide-react";
 import {
   Event,
   AutoFitRangeTarget,
@@ -38,6 +38,7 @@ interface ControllerProps {
   onDeleteSelectedEvent: () => void;
   onToggleSelectedEventRuler: () => void;
   onCloseSelectedEvent: () => void;
+  onStartAddEvent: () => void;
   zoomTrackRef: React.RefObject<HTMLDivElement | null>;
   zoomThumbY: MotionValue<number>;
   onZoomDragStart: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -74,6 +75,7 @@ export const Controller: React.FC<ControllerProps> = ({
   onDeleteSelectedEvent,
   onToggleSelectedEventRuler,
   onCloseSelectedEvent,
+  onStartAddEvent,
   zoomTrackRef,
   zoomThumbY,
   onZoomDragStart,
@@ -162,6 +164,15 @@ export const Controller: React.FC<ControllerProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div className="flex flex-row items-center gap-2 rounded-[1.6rem] md:flex-col md:items-end">
+        <PanelToggleButton
+          isOpen={false}
+          onClick={() => onStartAddEvent()}
+          openLabel={t("quickAddEvent")}
+          closeLabel={t("quickAddEvent")}
+        >
+          <Plus width={16} height={16} />
+        </PanelToggleButton>
+
         <PanelToggleButton
           isOpen={activePanel === "navigate"}
           onClick={() => togglePanel("navigate")}

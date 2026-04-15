@@ -1,5 +1,10 @@
 export const BIG_BANG_YEAR = -13.8e9;
 
+export const GOOGLE_CLIENT_ID =
+  "18522689439-iqf64i30ho7o8u439pdslegvvhceiip9.apps.googleusercontent.com";
+
+export const AUTOSYNC_DELAY_SECONDS = 30;
+
 export const TICK_OVERSCAN_INTERVALS = 2;
 export const COLLECTION_CACHE_KEY = "time-horizon:collection-cache:v2";
 export const COLLECTION_COLOR_PREFERENCES_KEY =

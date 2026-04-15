@@ -11,6 +11,7 @@ import React, {
 import { FileText, FolderOpen, Plus } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
 import { Event, EventCollectionMeta, StoredEvent } from "../constants/types";
+import { GOOGLE_CLIENT_ID, AUTOSYNC_DELAY_SECONDS } from "../constants";
 import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
@@ -109,7 +110,9 @@ export const Timeline = ({
     useState(false);
   const [isSyncPanelOpen, setIsSyncPanelOpen] = useState(false);
   const [isSyncBusy, setIsSyncBusy] = useState(false);
-  const [syncAccessToken, setSyncAccessToken] = useState<string | null>(null);
+  const [syncProgressStep, setSyncProgressStep] = useState<string | null>(null);
+  const syncAccessToken = useStore((s) => s.syncAccessToken);
+  const setSyncAccessToken = useStore((s) => s.setSyncAccessToken);
   const [syncConflictDialog, setSyncConflictDialog] = useState<{
     mode: "sync" | "restore";
     conflicts: SyncConflictDialogConflict[];
@@ -197,6 +200,7 @@ export const Timeline = ({
   // Store actions — call directly, no need to route through hook
   const addVisibleCollection = useStore((s) => s.addVisibleCollection);
   const setSyncConnectionStatus = useStore((s) => s.setSyncConnectionStatus);
+  const setNextAutosyncAt = useStore((s) => s.setNextAutosyncAt);
   const completeSyncOnboarding = useStore((s) => s.completeSyncOnboarding);
   const setAutosyncEnabled = useStore((s) => s.setAutosyncEnabled);
   const markSyncSuccess = useStore((s) => s.markSyncSuccess);
@@ -256,13 +260,8 @@ export const Timeline = ({
     sharedOrientation !== null ||
     sharedSpatialMapping !== null;
   const effectiveTimelineOrientation = timelineOrientation;
-  const googleClientId =
-    (
-      import.meta as ImportMeta & {
-        env?: Record<string, string | undefined>;
-      }
-    ).env?.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
-  const hasGoogleClientId = googleClientId.length > 0;
+  const hasGoogleClientId = GOOGLE_CLIENT_ID.trim().length > 0;
+  const googleClientId = GOOGLE_CLIENT_ID.trim();
   const hasPendingSyncableChanges = useMemo(
     () =>
       hasPendingSyncableChangesForSync({
@@ -282,7 +281,6 @@ export const Timeline = ({
   const resolveSyncAccessToken = async (
     prompt: string,
     onboardingOptions?: {
-      enabledScopes: Parameters<typeof completeSyncOnboarding>[0];
       autosyncEnabled: boolean;
     },
   ) => {
@@ -297,7 +295,7 @@ export const Timeline = ({
     });
     setSyncAccessToken(accessToken);
     if (onboardingOptions) {
-      completeSyncOnboarding(onboardingOptions.enabledScopes);
+      completeSyncOnboarding();
       setAutosyncEnabled(onboardingOptions.autosyncEnabled);
     }
     const workspaceSummary = await loadGoogleDriveWorkspaceSummary({
@@ -320,7 +318,6 @@ export const Timeline = ({
   };
 
   const handleConnectSync = async (options: {
-    enabledScopes: Parameters<typeof completeSyncOnboarding>[0];
     autosyncEnabled: boolean;
   }) => {
     setIsSyncBusy(true);
@@ -333,6 +330,7 @@ export const Timeline = ({
       );
     } finally {
       setIsSyncBusy(false);
+      setSyncProgressStep(null);
     }
   };
 
@@ -344,6 +342,15 @@ export const Timeline = ({
       }
       setSyncAccessToken(null);
       setSyncConnectionStatus("disconnected", null);
+      // Reset onboarding so the Connect button shows instead of sync/restore buttons
+      useStore.setState((s) => ({
+        syncPreferences: {
+          ...s.syncPreferences,
+          onboardingCompleted: false,
+          autosyncEnabled: false,
+          lastSuccessfulSyncAt: null,
+        },
+      }));
     } catch (error) {
       setSyncConnectionStatus(
         "error",
@@ -351,6 +358,7 @@ export const Timeline = ({
       );
     } finally {
       setIsSyncBusy(false);
+      setSyncProgressStep(null);
     }
   };
 
@@ -364,6 +372,7 @@ export const Timeline = ({
     },
   ) => {
     setIsSyncBusy(true);
+    setSyncProgressStep(t("syncStepLoading"));
 
     try {
       const accessToken =
@@ -401,6 +410,7 @@ export const Timeline = ({
               })),
               remoteSnapshot: remoteStateResult.remoteState,
             });
+            setSyncProgressStep(null);
             return;
           }
           setSyncConnectionStatus(
@@ -409,6 +419,7 @@ export const Timeline = ({
               count: conflicts.length,
             }),
           );
+          setSyncProgressStep(null);
           return;
         }
       }
@@ -418,6 +429,7 @@ export const Timeline = ({
         syncPreferences,
         collectionColorPreferences,
       });
+      setSyncProgressStep(t("syncStepUploading"));
       const result = await syncProjectionToGoogleDrive({
         accessToken,
         snapshot,
@@ -439,12 +451,23 @@ export const Timeline = ({
         }),
       );
     } catch (error) {
+      const isAuthError =
+        error instanceof Error &&
+        (error.message.includes("authentication") ||
+          error.message.includes("credential") ||
+          error.message.includes("401") ||
+          error.message.includes("invalid authentication"));
       setSyncConnectionStatus(
         "error",
-        error instanceof Error ? error.message : t("syncError"),
+        isAuthError
+          ? t("syncAuthExpired")
+          : error instanceof Error
+            ? error.message
+            : t("syncError"),
       );
     } finally {
       setIsSyncBusy(false);
+      setSyncProgressStep(null);
     }
   };
 
@@ -467,6 +490,7 @@ export const Timeline = ({
 
   const handleRestoreFromDrive = async () => {
     setIsSyncBusy(true);
+    setSyncProgressStep(t("syncStepRestoring"));
 
     try {
       const accessToken =
@@ -478,6 +502,7 @@ export const Timeline = ({
 
       if (!remoteSnapshot) {
         setSyncConnectionStatus("connected", t("syncRemoteEmpty"));
+        setSyncProgressStep(null);
         return;
       }
       const conflicts = detectSyncConflicts({
@@ -521,6 +546,7 @@ export const Timeline = ({
             names: conflictingNames,
           }),
         );
+        setSyncProgressStep(null);
         return;
       }
 
@@ -534,12 +560,23 @@ export const Timeline = ({
         );
       }
     } catch (error) {
+      const isAuthError =
+        error instanceof Error &&
+        (error.message.includes("authentication") ||
+          error.message.includes("credential") ||
+          error.message.includes("401") ||
+          error.message.includes("invalid authentication"));
       setSyncConnectionStatus(
         "error",
-        error instanceof Error ? error.message : t("syncError"),
+        isAuthError
+          ? t("syncAuthExpired")
+          : error instanceof Error
+            ? error.message
+            : t("syncError"),
       );
     } finally {
       setIsSyncBusy(false);
+      setSyncProgressStep(null);
     }
   };
 
@@ -1262,12 +1299,18 @@ export const Timeline = ({
       !hasPendingSyncableChanges ||
       isSyncBusy
     ) {
+      setNextAutosyncAt(null);
       return;
     }
 
+    const delayMs = AUTOSYNC_DELAY_SECONDS * 1000;
+    const triggerAt = Date.now() + delayMs;
+    setNextAutosyncAt(triggerAt);
+
     const timeoutId = window.setTimeout(() => {
+      setNextAutosyncAt(null);
       runAutosync();
-    }, 30000);
+    }, delayMs);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -1276,6 +1319,7 @@ export const Timeline = ({
     hasPendingSyncableChanges,
     isSyncBusy,
     runAutosync,
+    setNextAutosyncAt,
     syncAccessToken,
     syncConnectionStatus,
     syncPreferences.autosyncEnabled,
@@ -1491,6 +1535,7 @@ export const Timeline = ({
         <SyncPanel
           isOpen={isSyncPanelOpen}
           isBusy={isSyncBusy}
+          progressStep={syncProgressStep}
           onConnect={handleConnectSync}
           onDisconnect={handleDisconnectSync}
           onManualSync={() => executeManualSync("manual")}
@@ -1514,12 +1559,14 @@ export const Timeline = ({
               return;
             }
             setSyncConnectionStatus("connected", t("keptLocalConflicts"));
+            setSyncProgressStep(null);
           }}
           onKeepRemote={() => {
             const dialog = syncConflictDialog;
             setSyncConflictDialog(null);
             if (!dialog?.remoteSnapshot) return;
             applyRemoteRestoreSnapshot(dialog.remoteSnapshot);
+            setSyncProgressStep(null);
           }}
           onDuplicateAndRestore={() => {
             const dialog = syncConflictDialog;
@@ -1535,8 +1582,12 @@ export const Timeline = ({
                 count: duplicatedIds.length,
               }),
             );
+            setSyncProgressStep(null);
           }}
-          onCancel={() => setSyncConflictDialog(null)}
+          onCancel={() => {
+            setSyncConflictDialog(null);
+            setSyncProgressStep(null);
+          }}
         />
 
         <Controller
@@ -1576,6 +1627,7 @@ export const Timeline = ({
             setIsRulerActive(!isRulerActive);
           }}
           onCloseSelectedEvent={clearFocusedEventFromViewport}
+          onStartAddEvent={() => handleStartAddEvent()}
           zoomTrackRef={zoomTrackRef}
           zoomThumbY={zoomThumbY}
           onZoomDragStart={handleZoomDragStart}

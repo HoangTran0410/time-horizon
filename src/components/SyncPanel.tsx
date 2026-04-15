@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { Clock, RefreshCw } from "lucide-react";
 import {
   AlertCircle,
   CheckCircle2,
   Cloud,
   Link2Off,
-  RefreshCw,
+  Trash2,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { SyncScope } from "../constants/types";
+import { GOOGLE_CLIENT_ID } from "../constants";
 import { useI18n } from "../i18n";
 import { useStore } from "../stores";
 import { hasPendingSyncableChanges as hasPendingSyncableChangesForSync } from "../sync";
@@ -17,8 +18,8 @@ import { hasPendingSyncableChanges as hasPendingSyncableChangesForSync } from ".
 interface SyncPanelProps {
   isOpen: boolean;
   isBusy: boolean;
+  progressStep: string | null;
   onConnect: (options: {
-    enabledScopes: SyncScope[];
     autosyncEnabled: boolean;
   }) => Promise<void> | void;
   onDisconnect: () => Promise<void> | void;
@@ -27,15 +28,10 @@ interface SyncPanelProps {
   onClose: () => void;
 }
 
-const SCOPE_OPTIONS: SyncScope[] = [
-  "custom-collections",
-  "catalog-metadata",
-  "collection-colors",
-];
-
 export const SyncPanel: React.FC<SyncPanelProps> = ({
   isOpen,
   isBusy,
+  progressStep,
   onConnect,
   onDisconnect,
   onManualSync,
@@ -53,23 +49,31 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
   const deletedCollectionSyncTombstones = useStore(
     (s) => s.deletedCollectionSyncTombstones,
   );
-  const setSyncScopes = useStore((s) => s.setSyncScopes);
+  const nextAutosyncAt = useStore((s) => s.nextAutosyncAt);
   const setAutosyncEnabled = useStore((s) => s.setAutosyncEnabled);
-  const [draftScopes, setDraftScopes] = useState<SyncScope[]>(
-    syncPreferences.enabledScopes,
-  );
   const [draftAutosyncEnabled, setDraftAutosyncEnabled] = useState(
     syncPreferences.autosyncEnabled,
   );
+  const [autosyncCountdown, setAutosyncCountdown] = useState<number | null>(null);
 
-  const hasGoogleClientId =
-    (
-      import.meta as ImportMeta & {
-        env?: Record<string, string | undefined>;
-      }
-    ).env?.VITE_GOOGLE_CLIENT_ID?.trim().length
-      ? true
-      : false;
+  // Update countdown every second when autosync is scheduled
+  useEffect(() => {
+    if (!nextAutosyncAt) {
+      setAutosyncCountdown(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((nextAutosyncAt - Date.now()) / 1000));
+      setAutosyncCountdown(remaining);
+    };
+
+    updateCountdown();
+    const intervalId = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [nextAutosyncAt]);
+
+  const hasGoogleClientId = GOOGLE_CLIENT_ID.trim().length > 0;
   const hasPendingSyncableChanges = useMemo(
     () =>
       hasPendingSyncableChangesForSync({
@@ -88,13 +92,8 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    setDraftScopes(syncPreferences.enabledScopes);
     setDraftAutosyncEnabled(syncPreferences.autosyncEnabled);
-  }, [
-    isOpen,
-    syncPreferences.autosyncEnabled,
-    syncPreferences.enabledScopes,
-  ]);
+  }, [isOpen, syncPreferences.autosyncEnabled]);
 
   const statusTone = useMemo(() => {
     if (syncConnectionStatus === "error") {
@@ -109,7 +108,7 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
       return "border-amber-500/30 bg-amber-500/10 text-amber-100";
     }
 
-    return "border-zinc-700/80 bg-zinc-900/70 text-zinc-200";
+    return "border-amber-500/30 bg-amber-500/10 text-amber-100";
   }, [syncConnectionStatus]);
 
   const statusLabel =
@@ -126,14 +125,6 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
         language === "vi" ? "vi-VN" : "en-US",
       )
     : t("neverSynced");
-
-  const toggleDraftScope = (scope: SyncScope) => {
-    setDraftScopes((current) =>
-      current.includes(scope)
-        ? current.filter((item) => item !== scope)
-        : [...current, scope],
-    );
-  };
 
   if (typeof document === "undefined") {
     return null;
@@ -195,6 +186,14 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
                           ? t("pendingSyncChanges")
                           : t("noPendingSyncChanges"))}
                     </div>
+                    {autosyncCountdown !== null ? (
+                      <div className="mt-1 flex items-center gap-1.5 text-[0.78rem] text-emerald-400/80">
+                        <Clock width={12} height={12} className="shrink-0" />
+                        <span>
+                          {t("autosyncCountdown", { seconds: autosyncCountdown })}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -207,56 +206,6 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
                   </div>
                 </div>
               ) : null}
-
-              <div className="rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-4 py-3">
-                <div className="mb-2 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                  {t("syncScopes")}
-                </div>
-                <div className="space-y-2">
-                  {SCOPE_OPTIONS.map((scope) => {
-                    const checked = syncPreferences.onboardingCompleted
-                      ? syncPreferences.enabledScopes.includes(scope)
-                      : draftScopes.includes(scope);
-
-                    return (
-                      <label
-                        key={scope}
-                        className="flex cursor-pointer items-start gap-3 rounded-[0.95rem] border border-zinc-800 bg-zinc-900/70 px-3 py-2.5"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            if (syncPreferences.onboardingCompleted) {
-                              const nextScopes = syncPreferences.enabledScopes.includes(
-                                scope,
-                              )
-                                ? syncPreferences.enabledScopes.filter(
-                                    (item) => item !== scope,
-                                  )
-                                : [...syncPreferences.enabledScopes, scope];
-                              setSyncScopes(nextScopes);
-                              return;
-                            }
-
-                            toggleDraftScope(scope);
-                          }}
-                          className="mt-0.5 h-4 w-4 accent-emerald-400"
-                        />
-                        <div className="text-sm font-semibold text-zinc-100">
-                          {t(
-                            scope === "custom-collections"
-                              ? "customCollectionsScope"
-                              : scope === "catalog-metadata"
-                                ? "catalogMetadataScope"
-                                : "collectionColorsScope",
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
 
               <div className="rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-4 py-3">
                 <label className="flex items-start gap-3">
@@ -294,21 +243,24 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
                 <div className="mt-2 text-sm text-zinc-100">{lastSyncedLabel}</div>
               </div>
 
+              {progressStep ? (
+                <div className="flex items-center gap-2 rounded-[1.1rem] border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5">
+                  <RefreshCw width={14} height={14} className="animate-spin text-emerald-400" />
+                  <span className="text-sm text-emerald-200">{progressStep}</span>
+                </div>
+              ) : null}
+
               <div className="grid gap-2">
                 {!syncPreferences.onboardingCompleted ? (
                   <button
                     type="button"
                     onClick={() =>
                       void onConnect({
-                        enabledScopes:
-                          draftScopes.length > 0
-                            ? draftScopes
-                            : ["custom-collections"],
                         autosyncEnabled: draftAutosyncEnabled,
                       })
                     }
                     disabled={isBusy || !hasGoogleClientId}
-                    className="ui-button w-full justify-center rounded-[1rem] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="ui-button ui-button w-full justify-center rounded-[1rem] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Cloud width={15} height={15} />
                     <span>{t("connectGoogleDrive")}</span>
@@ -319,11 +271,11 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
                       type="button"
                       onClick={() => void onManualSync()}
                       disabled={isBusy || !hasGoogleClientId}
-                      className="ui-button w-full justify-center rounded-[1rem] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="ui-button ui-button ui-button-secondary w-full justify-center rounded-[1rem] px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RefreshCw
-                        width={15}
-                        height={15}
+                        width={14}
+                        height={14}
                         className={isBusy ? "animate-spin" : undefined}
                       />
                       <span>{t("manualSync")}</span>
@@ -332,7 +284,7 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
                       type="button"
                       onClick={() => void onRestoreFromDrive()}
                       disabled={isBusy || !hasGoogleClientId}
-                      className="ui-button ui-button-secondary w-full justify-center rounded-[1rem] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="ui-button ui-button ui-button-secondary w-full justify-center rounded-[1rem] px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Cloud width={15} height={15} />
                       <span>{t("restoreFromDrive")}</span>
@@ -341,13 +293,28 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
                       type="button"
                       onClick={() => void onDisconnect()}
                       disabled={isBusy}
-                      className="ui-button ui-button-secondary w-full justify-center rounded-[1rem] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="ui-button ui-button ui-button-danger w-full justify-center rounded-[1rem] px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Link2Off width={15} height={15} />
                       <span>{t("disconnectGoogleDrive")}</span>
                     </button>
                   </>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(t("clearLocalStorageConfirm"))) {
+                      localStorage.clear();
+                      window.location.reload();
+                    }
+                  }}
+                  disabled={isBusy}
+                  className="ui-button ui-button ui-button-danger w-full justify-center rounded-[1rem] px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 width={15} height={15} />
+                  <span>{t("clearLocalStorage")}</span>
+                </button>
               </div>
             </div>
           </motion.div>
