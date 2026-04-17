@@ -1,31 +1,22 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, Copy, Download, Upload } from "lucide-react";
+import { AlertTriangle, Download, Trash2, Upload } from "lucide-react";
 import { useI18n } from "../i18n";
 
-export interface SyncConflictDialogConflict {
-  id: string;
-  name: string;
-}
-
-interface SyncConflictDialogProps {
+interface BackupModeDialogProps {
   isOpen: boolean;
-  mode: "sync" | "restore";
-  conflicts: SyncConflictDialogConflict[];
-  onKeepLocal: () => void;
-  onKeepRemote: () => void;
-  onDuplicateAndRestore: () => void;
+  collectionNames: string[];
+  onMerge: () => void;
+  onOverwrite: () => void;
   onCancel: () => void;
 }
 
-export const SyncConflictDialog: React.FC<SyncConflictDialogProps> = ({
+export const BackupModeDialog: React.FC<BackupModeDialogProps> = ({
   isOpen,
-  mode,
-  conflicts,
-  onKeepLocal,
-  onKeepRemote,
-  onDuplicateAndRestore,
+  collectionNames,
+  onMerge,
+  onOverwrite,
   onCancel,
 }) => {
   const { t } = useI18n();
@@ -34,11 +25,14 @@ export const SyncConflictDialog: React.FC<SyncConflictDialogProps> = ({
     return null;
   }
 
+  const previewNames = collectionNames.slice(0, 3);
+  const remainingCount = Math.max(0, collectionNames.length - previewNames.length);
+
   return createPortal(
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          className="ui-modal-overlay fixed inset-0 z-120 flex items-center justify-center bg-black/80 p-4"
+          className="ui-modal-overlay fixed inset-0 z-110 flex items-center justify-center bg-black/80 p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -59,72 +53,77 @@ export const SyncConflictDialog: React.FC<SyncConflictDialogProps> = ({
                   <AlertTriangle size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="ui-kicker">{t("syncConflictTitle")}</div>
+                  <div className="ui-kicker">{t("backupChoiceKicker")}</div>
                   <h2 className="ui-display-title mt-2 text-[1.5rem] leading-tight text-white">
-                    {mode === "sync"
-                      ? t("syncConflictSyncHeading")
-                      : t("syncConflictRestoreHeading")}
+                    {t("backupChoiceTitle", { count: collectionNames.length })}
                   </h2>
                   <p className="mt-2 text-[0.92rem] leading-7 text-zinc-400">
-                    {t("syncConflictDescription", { count: conflicts.length })}
+                    {t("backupChoiceDescription")}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3 px-6 py-5">
+            <div className="space-y-4 px-6 py-5">
               <div className="rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-4 py-3">
                 <div className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                  {t("conflictingCollections")}
+                  {t("backupChoiceListLabel")}
                 </div>
                 <div className="mt-3 space-y-2">
-                  {conflicts.slice(0, 5).map((conflict) => (
+                  {previewNames.map((name) => (
                     <div
-                      key={conflict.id}
+                      key={name}
                       className="rounded-[0.9rem] border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200"
                     >
-                      {conflict.name}
+                      {name}
                     </div>
                   ))}
-                  {conflicts.length > 5 ? (
+                  {remainingCount > 0 ? (
                     <div className="text-[0.8rem] text-zinc-500">
-                      {t("moreConflictingCollections", {
-                        count: conflicts.length - 5,
-                      })}
+                      {t("backupChoiceMore", { count: remainingCount })}
                     </div>
                   ) : null}
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={onKeepLocal}
-                  className="ui-button ui-button-primary justify-center"
+                  onClick={onOverwrite}
+                  className="ui-button ui-button-danger justify-center"
                 >
-                  <Upload width={15} height={15} />
-                  <span>
-                    {mode === "sync"
-                      ? t("keepLocalAndSync")
-                      : t("keepLocalOnly")}
-                  </span>
+                  <Trash2 width={15} height={15} />
+                  <span>{t("backupOverwriteAction")}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={onKeepRemote}
+                  onClick={onMerge}
                   className="ui-button ui-button-secondary justify-center"
                 >
                   <Download width={15} height={15} />
-                  <span>{t("keepRemoteAndRestore")}</span>
+                  <span>{t("backupMergeAction")}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={onDuplicateAndRestore}
-                  className="ui-button ui-button-secondary justify-center"
-                >
-                  <Copy width={15} height={15} />
-                  <span>{t("duplicateLocalThenRestore")}</span>
-                </button>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-[1rem] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Trash2 width={14} height={14} />
+                    <span>{t("backupOverwriteAction")}</span>
+                  </div>
+                  <div className="mt-1 text-[0.8rem] text-red-100/80">
+                    {t("backupOverwriteHelp")}
+                  </div>
+                </div>
+                <div className="rounded-[1rem] border border-zinc-700 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-100">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Upload width={14} height={14} />
+                    <span>{t("backupMergeAction")}</span>
+                  </div>
+                  <div className="mt-1 text-[0.8rem] text-zinc-400">
+                    {t("backupMergeHelp")}
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end">

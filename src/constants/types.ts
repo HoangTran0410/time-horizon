@@ -60,11 +60,6 @@ export interface CollectionCloudMetadata {
   lastSyncedAt?: string;
 }
 
-export type SyncScope =
-  | "custom-collections"
-  | "catalog-metadata"
-  | "collection-colors";
-
 export type SyncConnectionStatus =
   | "disconnected"
   | "connecting"
@@ -73,8 +68,6 @@ export type SyncConnectionStatus =
 
 export interface SyncPreferences {
   onboardingCompleted: boolean;
-  enabledScopes: SyncScope[];
-  autosyncEnabled: boolean;
   lastSuccessfulSyncAt?: string | null;
 }
 

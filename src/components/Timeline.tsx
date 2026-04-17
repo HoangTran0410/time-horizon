@@ -2,7 +2,6 @@ import React, {
   Suspense,
   useDeferredValue,
   useEffect,
-  useEffectEvent,
   lazy,
   useMemo,
   useRef,
@@ -11,16 +10,13 @@ import React, {
 import { FileText, FolderOpen, Plus } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
 import { Event, EventCollectionMeta, StoredEvent } from "../constants/types";
-import { GOOGLE_CLIENT_ID, AUTOSYNC_DELAY_SECONDS } from "../constants";
+import { GOOGLE_CLIENT_ID } from "../constants";
 import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
 import { Controller } from "./Controller";
+import { BackupModeDialog } from "./BackupModeDialog";
 import { ConfirmDialog, type ConfirmDialogOptions } from "./ConfirmDialog";
-import {
-  SyncConflictDialog,
-  type SyncConflictDialogConflict,
-} from "./SyncConflictDialog";
 import { ShareModal } from "./ShareModal";
 import { ImportEventsDialog } from "./ImportEventsDialog";
 import { EventInfoPanel } from "./EventInfoPanel";
@@ -46,10 +42,10 @@ import { useTimelineShareUrl } from "../hooks/useTimelineShareUrl";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
 import {
   buildSyncProjectionSnapshot,
-  detectSyncConflicts,
   hasPendingSyncableChanges as hasPendingSyncableChangesForSync,
 } from "../sync";
 import {
+  type DriveBackupMode,
   loadSyncProjectionFromGoogleDrive,
   loadGoogleDriveWorkspaceSummary,
   requestGoogleDriveAccessToken,
@@ -111,15 +107,14 @@ export const Timeline = ({
   const [isSyncPanelOpen, setIsSyncPanelOpen] = useState(false);
   const [isSyncBusy, setIsSyncBusy] = useState(false);
   const [syncProgressStep, setSyncProgressStep] = useState<string | null>(null);
+  const [backupModeDialog, setBackupModeDialog] = useState<{
+    remoteSnapshot: NonNullable<
+      Awaited<ReturnType<typeof loadSyncProjectionFromGoogleDrive>>["remoteState"]
+    >;
+    collectionNames: string[];
+  } | null>(null);
   const syncAccessToken = useStore((s) => s.syncAccessToken);
   const setSyncAccessToken = useStore((s) => s.setSyncAccessToken);
-  const [syncConflictDialog, setSyncConflictDialog] = useState<{
-    mode: "sync" | "restore";
-    conflicts: SyncConflictDialogConflict[];
-    remoteSnapshot: Awaited<
-      ReturnType<typeof loadSyncProjectionFromGoogleDrive>
-    >["remoteState"];
-  } | null>(null);
 
   // Store state — individual selectors avoid useShallow overhead
   const selectedEventId = useStore((s) => s.selectedEventId);
@@ -137,7 +132,6 @@ export const Timeline = ({
   const spatialMapping = useStore((s) => s.spatialMapping);
   const isSpatialAnchorPickMode = useStore((s) => s.isSpatialAnchorPickMode);
   const syncPreferences = useStore((s) => s.syncPreferences);
-  const syncConnectionStatus = useStore((s) => s.syncConnectionStatus);
   const collectionLibrary = useStore((s) => s.collectionLibrary);
   const collectionColorPreferences = useStore(
     (s) => s.collectionColorPreferences,
@@ -200,14 +194,9 @@ export const Timeline = ({
   // Store actions — call directly, no need to route through hook
   const addVisibleCollection = useStore((s) => s.addVisibleCollection);
   const setSyncConnectionStatus = useStore((s) => s.setSyncConnectionStatus);
-  const setNextAutosyncAt = useStore((s) => s.setNextAutosyncAt);
   const completeSyncOnboarding = useStore((s) => s.completeSyncOnboarding);
-  const setAutosyncEnabled = useStore((s) => s.setAutosyncEnabled);
   const markSyncSuccess = useStore((s) => s.markSyncSuccess);
   const restoreSyncSnapshot = useStore((s) => s.restoreSyncSnapshot);
-  const duplicateCollectionsForConflictResolution = useStore(
-    (s) => s.duplicateCollectionsForConflictResolution,
-  );
   const downloadCollection = useStore((s) => s.downloadCollection);
   const syncCollection = useStore((s) => s.syncCollection);
   const setCollectionVisibility = useStore((s) => s.setCollectionVisibility);
@@ -278,12 +267,7 @@ export const Timeline = ({
     ],
   );
 
-  const resolveSyncAccessToken = async (
-    prompt: string,
-    onboardingOptions?: {
-      autosyncEnabled: boolean;
-    },
-  ) => {
+  const resolveSyncAccessToken = async (prompt: string) => {
     if (!hasGoogleClientId) {
       throw new Error(t("syncNotConfiguredHelp"));
     }
@@ -294,10 +278,7 @@ export const Timeline = ({
       prompt,
     });
     setSyncAccessToken(accessToken);
-    if (onboardingOptions) {
-      completeSyncOnboarding();
-      setAutosyncEnabled(onboardingOptions.autosyncEnabled);
-    }
+    completeSyncOnboarding();
     const workspaceSummary = await loadGoogleDriveWorkspaceSummary({
       accessToken,
     });
@@ -317,12 +298,10 @@ export const Timeline = ({
     return accessToken;
   };
 
-  const handleConnectSync = async (options: {
-    autosyncEnabled: boolean;
-  }) => {
+  const handleConnectSync = async () => {
     setIsSyncBusy(true);
     try {
-      await resolveSyncAccessToken("consent", options);
+      await resolveSyncAccessToken("consent");
     } catch (error) {
       setSyncConnectionStatus(
         "error",
@@ -347,7 +326,6 @@ export const Timeline = ({
         syncPreferences: {
           ...s.syncPreferences,
           onboardingCompleted: false,
-          autosyncEnabled: false,
           lastSuccessfulSyncAt: null,
         },
       }));
@@ -362,77 +340,57 @@ export const Timeline = ({
     }
   };
 
-  const executeManualSync = async (
-    source: "manual" | "autosync" = "manual",
-    options?: {
-      ignoreConflicts?: boolean;
-      remoteSnapshotOverride?: Awaited<
-        ReturnType<typeof loadSyncProjectionFromGoogleDrive>
-      >["remoteState"];
-    },
-  ) => {
+  const runBackupToDrive = async (options?: {
+    backupMode?: DriveBackupMode;
+    remoteSnapshotOverride?: NonNullable<
+      Awaited<ReturnType<typeof loadSyncProjectionFromGoogleDrive>>["remoteState"]
+    >;
+  }) => {
     setIsSyncBusy(true);
     setSyncProgressStep(t("syncStepLoading"));
 
     try {
-      const accessToken =
-        syncAccessToken ??
-        (await resolveSyncAccessToken(source === "manual" ? "consent" : ""));
-      const remoteStateResult = options?.remoteSnapshotOverride
-        ? {
-            remoteState: options.remoteSnapshotOverride,
-            recoveredManifest: false,
-          }
-        : await loadSyncProjectionFromGoogleDrive({
-            accessToken,
-          });
-      if (remoteStateResult.remoteState) {
-        const conflicts = detectSyncConflicts({
-          collectionLibrary,
-          deletedCollectionSyncTombstones,
-          syncPreferences,
-          collectionColorPreferences,
-          remoteState: remoteStateResult.remoteState,
-        });
-
-        if (conflicts.length > 0 && !options?.ignoreConflicts) {
-          if (source === "manual") {
-            setSyncConflictDialog({
-              mode: "sync",
-              conflicts: conflicts.map((conflict) => ({
-                id: conflict.id,
-                name:
-                  collectionLibrary[conflict.id]?.meta?.name ??
-                  remoteStateResult.remoteState?.collections.find(
-                    (collection) => collection.id === conflict.id,
-                  )?.meta?.name ??
-                  conflict.id,
-              })),
-              remoteSnapshot: remoteStateResult.remoteState,
-            });
-            setSyncProgressStep(null);
-            return;
-          }
-          setSyncConnectionStatus(
-            "error",
-            t("syncConflictsDetected", {
-              count: conflicts.length,
-            }),
-          );
-          setSyncProgressStep(null);
-          return;
-        }
-      }
+      const accessToken = syncAccessToken ?? (await resolveSyncAccessToken("consent"));
       const snapshot = buildSyncProjectionSnapshot({
         collectionLibrary,
         deletedCollectionSyncTombstones,
         syncPreferences,
         collectionColorPreferences,
       });
+      const remoteSnapshot =
+        options?.remoteSnapshotOverride ??
+        (
+          await loadSyncProjectionFromGoogleDrive({
+            accessToken,
+          })
+        ).remoteState;
+
+      if (!options?.backupMode && remoteSnapshot) {
+        const localCollectionIds = new Set(
+          snapshot.collections.map((collection) => collection.id),
+        );
+        const remoteOnlyCollections = remoteSnapshot.collections.filter(
+          (collection) => !localCollectionIds.has(collection.id),
+        );
+
+        if (remoteOnlyCollections.length > 0) {
+          setBackupModeDialog({
+            remoteSnapshot,
+            collectionNames: remoteOnlyCollections.map(
+              (collection) => collection.meta?.name ?? collection.id,
+            ),
+          });
+          setIsSyncBusy(false);
+          setSyncProgressStep(null);
+          return;
+        }
+      }
+
       setSyncProgressStep(t("syncStepUploading"));
       const result = await syncProjectionToGoogleDrive({
         accessToken,
         snapshot,
+        backupMode: options?.backupMode ?? "merge",
       });
 
       markSyncSuccess({
@@ -446,8 +404,6 @@ export const Timeline = ({
           time: new Date(result.syncedAt).toLocaleTimeString(
             language === "vi" ? "vi-VN" : "en-US",
           ),
-          uploaded: result.syncedCollections.length,
-          skipped: result.skippedCollections.length,
         }),
       );
     } catch (error) {
@@ -469,6 +425,10 @@ export const Timeline = ({
       setIsSyncBusy(false);
       setSyncProgressStep(null);
     }
+  };
+
+  const handleBackupToDrive = async () => {
+    await runBackupToDrive();
   };
 
   const applyRemoteRestoreSnapshot = (
@@ -505,59 +465,18 @@ export const Timeline = ({
         setSyncProgressStep(null);
         return;
       }
-      const conflicts = detectSyncConflicts({
-        collectionLibrary,
-        deletedCollectionSyncTombstones,
-        syncPreferences,
-        collectionColorPreferences,
-        remoteState: remoteSnapshot,
-      });
-
-      if (conflicts.length > 0) {
-        const conflictingNames = conflicts
-          .map(
-            (conflict) =>
-              collectionLibrary[conflict.id]?.meta?.name ??
-              remoteSnapshot.collections.find(
-                (collection) => collection.id === conflict.id,
-              )?.meta?.name ??
-              conflict.id,
-          )
-          .slice(0, 3)
-          .join(", ");
-
-        setSyncConflictDialog({
-          mode: "restore",
-          conflicts: conflicts.map((conflict) => ({
-            id: conflict.id,
-            name:
-              collectionLibrary[conflict.id]?.meta?.name ??
-              remoteSnapshot.collections.find(
-                (collection) => collection.id === conflict.id,
-              )?.meta?.name ??
-              conflict.id,
-          })),
-          remoteSnapshot,
+      if (hasPendingSyncableChanges) {
+        setConfirmDialog({
+          title: t("restoreBackupTitle"),
+          description: t("restoreBackupDescription"),
+          confirmLabel: t("restoreBackupConfirm"),
+          tone: "danger",
+          onConfirm: () => {
+            applyRemoteRestoreSnapshot(remoteSnapshot);
+          },
         });
-        setSyncConnectionStatus(
-          "error",
-          t("restoreConflictsDescription", {
-            count: conflicts.length,
-            names: conflictingNames,
-          }),
-        );
-        setSyncProgressStep(null);
-        return;
-      }
-
-      applyRemoteRestoreSnapshot(remoteSnapshot);
-      if (remoteStateResult.recoveredManifest) {
-        setSyncConnectionStatus(
-          "connected",
-          t("syncManifestRecovered", {
-            collections: remoteSnapshot.collections.length,
-          }),
-        );
+      } else {
+        applyRemoteRestoreSnapshot(remoteSnapshot);
       }
     } catch (error) {
       const isAuthError =
@@ -579,10 +498,6 @@ export const Timeline = ({
       setSyncProgressStep(null);
     }
   };
-
-  const runAutosync = useEffectEvent(() => {
-    void executeManualSync("autosync");
-  });
 
   useEffect(() => {
     if (sharedOrientation && sharedOrientation !== timelineOrientation) {
@@ -1290,44 +1205,6 @@ export const Timeline = ({
   }, [setSpatialMapping, sharedSpatialMapping]);
 
   useEffect(() => {
-    if (
-      !syncPreferences.onboardingCompleted ||
-      !syncPreferences.autosyncEnabled ||
-      !syncPreferences.lastSuccessfulSyncAt ||
-      !syncAccessToken ||
-      syncConnectionStatus !== "connected" ||
-      !hasPendingSyncableChanges ||
-      isSyncBusy
-    ) {
-      setNextAutosyncAt(null);
-      return;
-    }
-
-    const delayMs = AUTOSYNC_DELAY_SECONDS * 1000;
-    const triggerAt = Date.now() + delayMs;
-    setNextAutosyncAt(triggerAt);
-
-    const timeoutId = window.setTimeout(() => {
-      setNextAutosyncAt(null);
-      runAutosync();
-    }, delayMs);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    hasPendingSyncableChanges,
-    isSyncBusy,
-    runAutosync,
-    setNextAutosyncAt,
-    syncAccessToken,
-    syncConnectionStatus,
-    syncPreferences.autosyncEnabled,
-    syncPreferences.lastSuccessfulSyncAt,
-    syncPreferences.onboardingCompleted,
-  ]);
-
-  useEffect(() => {
     if (!hasPendingSyncableChanges) {
       return;
     }
@@ -1538,56 +1415,9 @@ export const Timeline = ({
           progressStep={syncProgressStep}
           onConnect={handleConnectSync}
           onDisconnect={handleDisconnectSync}
-          onManualSync={() => executeManualSync("manual")}
+          onBackupToDrive={handleBackupToDrive}
           onRestoreFromDrive={handleRestoreFromDrive}
           onClose={() => setIsSyncPanelOpen(false)}
-        />
-
-        <SyncConflictDialog
-          isOpen={Boolean(syncConflictDialog)}
-          mode={syncConflictDialog?.mode ?? "sync"}
-          conflicts={syncConflictDialog?.conflicts ?? []}
-          onKeepLocal={() => {
-            const dialog = syncConflictDialog;
-            setSyncConflictDialog(null);
-            if (!dialog) return;
-            if (dialog.mode === "sync") {
-              void executeManualSync("manual", {
-                ignoreConflicts: true,
-                remoteSnapshotOverride: dialog.remoteSnapshot,
-              });
-              return;
-            }
-            setSyncConnectionStatus("connected", t("keptLocalConflicts"));
-            setSyncProgressStep(null);
-          }}
-          onKeepRemote={() => {
-            const dialog = syncConflictDialog;
-            setSyncConflictDialog(null);
-            if (!dialog?.remoteSnapshot) return;
-            applyRemoteRestoreSnapshot(dialog.remoteSnapshot);
-            setSyncProgressStep(null);
-          }}
-          onDuplicateAndRestore={() => {
-            const dialog = syncConflictDialog;
-            setSyncConflictDialog(null);
-            if (!dialog?.remoteSnapshot) return;
-            const duplicatedIds = duplicateCollectionsForConflictResolution(
-              dialog.conflicts.map((conflict) => conflict.id),
-            );
-            applyRemoteRestoreSnapshot(dialog.remoteSnapshot);
-            setSyncConnectionStatus(
-              "connected",
-              t("duplicatedLocalConflicts", {
-                count: duplicatedIds.length,
-              }),
-            );
-            setSyncProgressStep(null);
-          }}
-          onCancel={() => {
-            setSyncConflictDialog(null);
-            setSyncProgressStep(null);
-          }}
         />
 
         <Controller
@@ -1766,6 +1596,36 @@ export const Timeline = ({
           tone={confirmDialog?.tone}
           onConfirm={handleConfirmDialog}
           onCancel={handleCloseConfirmDialog}
+        />
+
+        <BackupModeDialog
+          isOpen={Boolean(backupModeDialog)}
+          collectionNames={backupModeDialog?.collectionNames ?? []}
+          onOverwrite={() => {
+            const dialog = backupModeDialog;
+            setBackupModeDialog(null);
+            if (!dialog) {
+              return;
+            }
+            void runBackupToDrive({
+              backupMode: "overwrite",
+              remoteSnapshotOverride: dialog.remoteSnapshot,
+            });
+          }}
+          onMerge={() => {
+            const dialog = backupModeDialog;
+            setBackupModeDialog(null);
+            if (!dialog) {
+              return;
+            }
+            void runBackupToDrive({
+              backupMode: "merge",
+              remoteSnapshotOverride: dialog.remoteSnapshot,
+            });
+          }}
+          onCancel={() => {
+            setBackupModeDialog(null);
+          }}
         />
 
         <ConfirmDialog

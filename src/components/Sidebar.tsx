@@ -548,7 +548,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="ui-button ui-button-compact ui-button-secondary shrink-0 rounded-full px-3 py-1.5"
             >
               <Cloud size={13} />
-              <span className="text-[0.74rem]">{t("sync")}</span>
+              <span className="text-[0.74rem]">{t("openSyncPanel")}</span>
             </button>
           </div>
 

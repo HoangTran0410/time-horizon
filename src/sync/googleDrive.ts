@@ -64,6 +64,8 @@ type DriveFilesListResponse = {
   files?: DriveFileResponse[];
 };
 
+export type DriveBackupMode = "merge" | "overwrite";
+
 const GOOGLE_GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
@@ -297,6 +299,19 @@ const upsertDriveJsonFile = async (options: {
   };
 };
 
+const deleteDriveFile = async (options: {
+  accessToken: string;
+  fileId: string;
+}): Promise<void> => {
+  await driveFetch<void>(
+    options.accessToken,
+    `${DRIVE_FILES_ENDPOINT}/${options.fileId}`,
+    {
+      method: "DELETE",
+    },
+  );
+};
+
 const readDriveJsonFile = async <T>(
   accessToken: string,
   fileId: string,
@@ -308,8 +323,6 @@ const readDriveJsonFile = async <T>(
 
 const createDefaultRemotePreferences = (): SyncProjectionSnapshot["preferences"] => ({
   onboardingCompleted: true,
-  enabledScopes: ["custom-collections", "catalog-metadata", "collection-colors"],
-  autosyncEnabled: false,
   lastSuccessfulSyncAt: null,
 });
 
@@ -683,6 +696,7 @@ export const syncProjectionToGoogleDrive = async (options: {
   accessToken: string;
   snapshot: SyncProjectionSnapshot;
   rootFolderName?: string;
+  backupMode?: DriveBackupMode;
 }): Promise<{
   syncedAt: string;
   rootFolderId: string;
@@ -703,6 +717,7 @@ export const syncProjectionToGoogleDrive = async (options: {
   clearedDeletedCollectionIds: string[];
 }> => {
   const syncedAt = new Date().toISOString();
+  const backupMode = options.backupMode ?? "merge";
   const rootFolder = await ensureDriveFolder({
     accessToken: options.accessToken,
     name: options.rootFolderName ?? "time-horizon",
@@ -740,6 +755,13 @@ export const syncProjectionToGoogleDrive = async (options: {
     revision?: string;
     contentHash: string;
   }> = [];
+  const localCollectionIds = new Set(
+    options.snapshot.collections.map((collection) => collection.id),
+  );
+  const remoteOnlyCollections =
+    existingStateResult.remoteState?.collections.filter(
+      (collection) => !localCollectionIds.has(collection.id),
+    ) ?? [];
 
   for (const collection of options.snapshot.collections) {
     const payload = {
@@ -778,10 +800,62 @@ export const syncProjectionToGoogleDrive = async (options: {
     });
   }
 
-  const manifestCollections = [
-    ...syncedCollections,
-    ...skippedCollections,
-  ].sort((left, right) => left.id.localeCompare(right.id));
+  if (backupMode === "overwrite") {
+    await Promise.all(
+      remoteOnlyCollections.flatMap((collection) =>
+        collection.fileId
+          ? [
+              deleteDriveFile({
+                accessToken: options.accessToken,
+                fileId: collection.fileId,
+              }),
+            ]
+          : [],
+      ),
+    );
+  }
+
+  const manifestCollectionsById = new Map(
+    [...syncedCollections, ...skippedCollections].map((collection) => [
+      collection.id,
+      collection,
+    ]),
+  );
+
+  if (backupMode === "merge") {
+    remoteOnlyCollections.forEach((collection) => {
+      if (!collection.fileId) {
+        return;
+      }
+
+      manifestCollectionsById.set(collection.id, {
+        id: collection.id,
+        fileId: collection.fileId,
+        revision: collection.revision,
+        contentHash: collection.contentHash ?? "",
+      });
+    });
+  }
+
+  const manifestCollections = Array.from(manifestCollectionsById.values()).sort(
+    (left, right) => left.id.localeCompare(right.id),
+  );
+  const manifestCollectionIds = new Set(
+    manifestCollections.map((collection) => collection.id),
+  );
+  const manifestDeletedCollections =
+    backupMode === "overwrite"
+      ? options.snapshot.deletedCollections
+      : Array.from(
+          new Map(
+            [
+              ...(existingStateResult.remoteState?.deletedCollections ?? []),
+              ...options.snapshot.deletedCollections,
+            ]
+              .filter((collection) => !manifestCollectionIds.has(collection.id))
+              .map((collection) => [collection.id, collection]),
+          ).values(),
+        ).sort((left, right) => left.id.localeCompare(right.id));
 
   const manifestPayload = {
     ...options.snapshot,
@@ -794,6 +868,7 @@ export const syncProjectionToGoogleDrive = async (options: {
       revision: collection.revision,
       contentHash: collection.contentHash,
     })),
+    deletedCollections: manifestDeletedCollections,
   };
 
   const existingManifestFile = await findDriveFileByName({

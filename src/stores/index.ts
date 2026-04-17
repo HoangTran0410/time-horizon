@@ -19,7 +19,6 @@ import type {
   SupportedLanguage,
   SyncConnectionStatus,
   SyncPreferences,
-  SyncScope,
   TimelineOrientation,
   VerticalWheelBehavior,
   VerticalTimeDirection,
@@ -92,7 +91,6 @@ type TimelineStoreState = {
   syncStatusMessage: string | null;
   syncAccessToken: string | null;
   syncAccessTokenExpiry: number | null;
-  nextAutosyncAt: number | null; // Unix ms timestamp when autosync will trigger, null if not scheduled
   visibleCollectionIds: string[];
   downloadingCollectionIds: string[];
   collectionColorPreferences: Record<string, string>;
@@ -140,10 +138,7 @@ type TimelineStoreState = {
     message?: string | null,
   ) => void;
   setSyncAccessToken: (token: string | null) => void;
-  setNextAutosyncAt: (timestamp: number | null) => void;
-  completeSyncOnboarding: (enabledScopes?: SyncScope[]) => void;
-  setSyncScopes: (enabledScopes: SyncScope[]) => void;
-  setAutosyncEnabled: (value: boolean) => void;
+  completeSyncOnboarding: () => void;
   setLastSuccessfulSyncAt: (value: string | null) => void;
   markSyncSuccess: (payload: {
     syncedAt: string;
@@ -182,9 +177,6 @@ type TimelineStoreState = {
   ) => void;
   setCollectionColor: (collectionId: string, color: string) => void;
   resetCollectionColor: (collectionId: string) => void;
-  duplicateCollectionsForConflictResolution: (
-    collectionIds: string[],
-  ) => string[];
   focusEvent: (eventId: string) => void;
   previewEvent: (eventId: string) => void;
   clearFocusedEvent: () => void;
@@ -286,7 +278,6 @@ type TimelinePersistedState = Pick<
   | "syncConnectionStatus"
   | "syncAccessToken"
   | "syncAccessTokenExpiry"
-  | "nextAutosyncAt"
   | "visibleCollectionIds"
   | "collectionColorPreferences"
   | "selectedEventId"
@@ -374,17 +365,6 @@ const sanitizeVerticalTimeDirection = (
 ): VerticalTimeDirection | undefined =>
   value === "up" || value === "down" ? value : undefined;
 
-const DEFAULT_SYNC_SCOPES: SyncScope[] = [
-  "custom-collections",
-  "catalog-metadata",
-  "collection-colors",
-];
-
-const isSyncScope = (value: unknown): value is SyncScope =>
-  value === "custom-collections" ||
-  value === "catalog-metadata" ||
-  value === "collection-colors";
-
 const isSyncConnectionStatus = (
   value: unknown,
 ): value is SyncConnectionStatus =>
@@ -395,8 +375,6 @@ const isSyncConnectionStatus = (
 
 const createInitialSyncPreferences = (): SyncPreferences => ({
   onboardingCompleted: false,
-  enabledScopes: [...DEFAULT_SYNC_SCOPES],
-  autosyncEnabled: false,
   lastSuccessfulSyncAt: null,
 });
 
@@ -420,14 +398,8 @@ const sanitizeSyncPreferences = (value: unknown): SyncPreferences => {
   }
 
   const candidate = value as Partial<SyncPreferences>;
-  const enabledScopes = Array.isArray(candidate.enabledScopes)
-    ? candidate.enabledScopes.filter(isSyncScope)
-    : [...DEFAULT_SYNC_SCOPES];
-
   return {
     onboardingCompleted: candidate.onboardingCompleted === true,
-    enabledScopes: enabledScopes.length > 0 ? enabledScopes : [...DEFAULT_SYNC_SCOPES],
-    autosyncEnabled: candidate.autosyncEnabled === true,
     lastSuccessfulSyncAt:
       typeof candidate.lastSuccessfulSyncAt === "string" &&
       candidate.lastSuccessfulSyncAt.trim().length > 0
@@ -1636,7 +1608,6 @@ export const useStore = create<TimelineStoreState>()(
           syncStatusMessage: null,
           syncAccessToken: null,
           syncAccessTokenExpiry: null,
-          nextAutosyncAt: null,
           visibleCollectionIds: [],
           downloadingCollectionIds: [],
           collectionColorPreferences: {},
@@ -1728,37 +1699,10 @@ export const useStore = create<TimelineStoreState>()(
               syncAccessToken: token,
               syncAccessTokenExpiry: token ? Date.now() : null,
             }),
-          setNextAutosyncAt: (timestamp) =>
-            set({
-              nextAutosyncAt: timestamp,
-            }),
-          completeSyncOnboarding: (enabledScopes = DEFAULT_SYNC_SCOPES) =>
+          completeSyncOnboarding: () =>
             set(
               produce((state) => {
                 state.syncPreferences.onboardingCompleted = true;
-                state.syncPreferences.enabledScopes = enabledScopes.filter(
-                  isSyncScope,
-                );
-                if (state.syncPreferences.enabledScopes.length === 0) {
-                  state.syncPreferences.enabledScopes = [...DEFAULT_SYNC_SCOPES];
-                }
-              }),
-            ),
-          setSyncScopes: (enabledScopes) =>
-            set(
-              produce((state) => {
-                state.syncPreferences.enabledScopes = enabledScopes.filter(
-                  isSyncScope,
-                );
-                if (state.syncPreferences.enabledScopes.length === 0) {
-                  state.syncPreferences.enabledScopes = [...DEFAULT_SYNC_SCOPES];
-                }
-              }),
-            ),
-          setAutosyncEnabled: (value) =>
-            set(
-              produce((state) => {
-                state.syncPreferences.autosyncEnabled = value;
               }),
             ),
           setLastSuccessfulSyncAt: (value) =>
@@ -2463,69 +2407,6 @@ export const useStore = create<TimelineStoreState>()(
                 }
               }),
             ),
-          duplicateCollectionsForConflictResolution: (collectionIds) => {
-            const duplicatedIds: string[] = [];
-
-            set(
-              produce((state) => {
-                const existingIds = new Set(Object.keys(state.collectionLibrary));
-                const changedAt = new Date().toISOString();
-
-                collectionIds.forEach((collectionId) => {
-                  const existingCollection = state.collectionLibrary[collectionId];
-                  if (!existingCollection) return;
-
-                  const baseMeta = existingCollection.meta ?? {
-                    id: collectionId,
-                    name: collectionId,
-                    emoji: "🗂️",
-                    description: "",
-                    author: "You",
-                    createdAt: createLocalDateStamp(),
-                  };
-
-                  const duplicatedName = `${baseMeta.name} (local copy)`;
-                  const nextId = createUniqueCollectionId(
-                    duplicatedName,
-                    existingIds,
-                  );
-
-                  state.collectionLibrary[nextId] = createCollectionRecord(nextId, {
-                    events: rematerializeCollectionEvents(
-                      nextId,
-                      existingCollection.events,
-                    ),
-                    meta: {
-                      ...baseMeta,
-                      id: nextId,
-                      name: duplicatedName,
-                      dataUrl: undefined,
-                    },
-                    origin: "custom",
-                  });
-
-                  if (state.collectionColorPreferences[collectionId]) {
-                    state.collectionColorPreferences[nextId] =
-                      state.collectionColorPreferences[collectionId];
-                  }
-
-                  markCollectionSyncStateDirty(
-                    state.collectionLibrary[nextId],
-                    "content",
-                    changedAt,
-                  );
-
-                  if (state.visibleCollectionIds.includes(collectionId)) {
-                    state.visibleCollectionIds.push(nextId);
-                  }
-
-                  duplicatedIds.push(nextId);
-                });
-              }),
-            );
-
-            return duplicatedIds;
-          },
           focusEvent: (eventId) =>
             set({
               selectedEventId: eventId,
@@ -2703,7 +2584,6 @@ export const useStore = create<TimelineStoreState>()(
           syncConnectionStatus: state.syncConnectionStatus,
           syncAccessToken: state.syncAccessToken,
           syncAccessTokenExpiry: state.syncAccessTokenExpiry,
-          nextAutosyncAt: state.nextAutosyncAt,
           visibleCollectionIds: state.visibleCollectionIds,
           collectionColorPreferences: state.collectionColorPreferences,
           selectedEventId: state.selectedEventId,
