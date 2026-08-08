@@ -43,6 +43,7 @@ import {
 } from "../helpers";
 import {
   CAMERA_FIT_PADDING,
+  MIN_FIT_RANGE_YEARS,
   CAMERA_SPRING,
   EVENT_LAYOUT_SPRING,
   FOCUS_SPRING,
@@ -728,7 +729,13 @@ export const useTimelineViewport = ({
     const primarySize = getViewportPrimarySize();
     const minYear = Math.min(startYear, endYear);
     const maxYear = Math.max(startYear, endYear);
-    const rangeYears = Math.max(maxYear - minYear, 1);
+    // A real range is framed by its own extent, floored at one day. Only a
+    // degenerate zero-width range (fitting a lone point event) falls back to a
+    // year — the old flat floor of 1 clamped every sub-year span, so focusing
+    // an eight-day event landed on a twelve-month view.
+    const rawRangeYears = maxYear - minYear;
+    const rangeYears =
+      rawRangeYears > 0 ? Math.max(rawRangeYears, MIN_FIT_RANGE_YEARS) : 1;
     const fitZoom = Math.max(
       MIN_ZOOM,
       Math.min((primarySize * (1 - CAMERA_FIT_PADDING * 2)) / rangeYears, MAX_ZOOM),

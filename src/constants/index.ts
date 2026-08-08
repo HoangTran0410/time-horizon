@@ -31,6 +31,12 @@ export const MIN_ZOOM = 100 / 13.8e9;
 export const MAX_ZOOM = 1000 / (1 / 365.25);
 
 export const CAMERA_FIT_PADDING = 0.12;
+/**
+ * Narrowest range a camera fit will frame. One day is the timeline's finest
+ * unit (see MAX_ZOOM), so a span shorter than that gets padded out to it
+ * rather than driving the zoom to infinity.
+ */
+export const MIN_FIT_RANGE_YEARS = 1 / 365.25;
 export const CAMERA_SPRING = {
   type: "spring" as const,
   stiffness: 300,
