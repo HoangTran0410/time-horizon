@@ -413,8 +413,7 @@ select {
 }
 
 .landing-theme-button,
-.landing-primary-button,
-.landing-secondary-button {
+.landing-primary-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -443,8 +442,7 @@ select {
   padding: 0;
 }
 
-.landing-theme-button:hover,
-.landing-secondary-button:hover {
+.landing-theme-button:hover {
   transform: translateY(-1px);
   border-color: var(--ui-border-zinc-700);
 }
@@ -485,15 +483,6 @@ select {
 .landing-primary-button-large {
   padding-inline: 1.35rem;
   padding-block: 0.95rem;
-}
-
-.landing-secondary-button {
-  border: 1px solid var(--ui-border-zinc-800);
-  background: var(--ui-zinc-950-50);
-  color: var(--ui-zinc-200);
-  text-decoration: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .landing-title {
@@ -543,7 +532,13 @@ select {
   top: 0;
   height: 100vh;
   width: 100%;
-  overflow: hidden;
+  /* `clip`, not `hidden`: `hidden` makes this a scroll container, which
+     `animation-timeline: scroll()` on the hero would then resolve to (it means
+     `scroll(nearest block)`). This box never scrolls, so the hero dissolve
+     would never advance. `clip` gives the same visual clipping without
+     creating a scroll container, letting `scroll()` fall through to the
+     document scroller. Stickiness is unaffected. */
+  overflow: clip;
 }
 
 .landing-stage-canvas {
@@ -571,10 +566,19 @@ select {
   gap: 1rem;
   padding: 0 1.5rem;
   text-align: center;
-  /* Dissolves as the first segment scrolls past. */
-  animation: landing-hero-dissolve linear both;
-  animation-timeline: scroll();
-  animation-range: 0 12vh;
+}
+
+/* Dissolves as the first segment scrolls past.
+   Gated on @supports because without a scroll timeline `animation-duration`
+   stays `auto` (= 0s) and `fill-mode: both` would pin the hero — including its
+   only CTA — to the `to` keyframe, i.e. invisible from first paint. Browsers
+   that drop `animation-timeline` at parse get a static, fully visible hero. */
+@supports (animation-timeline: scroll()) {
+  .landing-hero-overlay {
+    animation: landing-hero-dissolve linear both;
+    animation-timeline: scroll();
+    animation-range: 0 12vh;
+  }
 }
 
 .landing-scroll-hint {
@@ -590,7 +594,11 @@ select {
   position: absolute;
   left: 50%;
   bottom: 8vh;
-  transform: translateX(-50%);
+  /* Centred with the independent `translate` property, not `transform`:
+     `landing-fade-up` animates `transform`, and animation-origin declarations
+     outrank normal ones (with `fill-mode: both` keeping them applied), so a
+     `transform: translateX(-50%)` here would never take effect. */
+  translate: -50% 0;
   width: min(34rem, calc(100% - 3rem));
   text-align: center;
   animation: landing-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1641,8 +1649,7 @@ select {
 }
 
 @media (max-width: 820px) {
-  .landing-primary-button,
-  .landing-secondary-button {
+  .landing-primary-button {
     width: 100%;
   }
 
