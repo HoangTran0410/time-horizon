@@ -995,12 +995,15 @@ export const Timeline = ({
   const handleCreateEvent = (
     newEvent: Event,
     targetCollectionId?: string | null,
+    keepOpen?: boolean,
   ) => {
     const resolvedTargetCollectionId =
       targetCollectionId ?? addingCollectionId ?? singleVisibleCollectionId;
     if (!resolvedTargetCollectionId) return;
 
     addEvent(newEvent, resolvedTargetCollectionId);
+    /* "Create another" — the editor has already reset itself for the next one. */
+    if (keepOpen) return;
     closeEventCreator();
   };
 

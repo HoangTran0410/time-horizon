@@ -15,6 +15,7 @@ const EmojiPicker = lazy(() =>
 );
 type EmojiPickerTheme = import("emoji-picker-react").Theme;
 import {
+  createNewTimelineEvent,
   formatYear,
   normalizeEmbedVideoUrl,
   normalizeEventTimeParts,
@@ -32,7 +33,15 @@ import { EventVideoModal } from "./EventVideoModal";
 interface EventEditorProps {
   event: Event;
   mode: "create" | "edit";
-  onSave: (event: Event, collectionId?: string | null) => void;
+  /**
+   * `keepOpen` is the "create another" path: the event is saved but the editor
+   * stays mounted so a run of events can be typed without reopening it.
+   */
+  onSave: (
+    event: Event,
+    collectionId?: string | null,
+    keepOpen?: boolean,
+  ) => void;
   onClose: () => void;
   availableCollections?: EventCollectionMeta[];
   /** Editing will turn a tracked catalog collection into a local fork. */
@@ -313,6 +322,10 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isVideoPreviewOpen, setIsVideoPreviewOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  /** Create mode only: keep the editor up after saving, for a run of events. */
+  const [createAnother, setCreateAnother] = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
+  const firstTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setEditedEvent({
@@ -591,6 +604,35 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     }
   }, [isVideoPreviewOpen, videoPreviewUrl]);
 
+  /**
+   * Clears what belongs to the event just saved and keeps what belongs to the
+   * run being typed — collection, date, emoji, colour, priority and which
+   * language variants are open all carry over.
+   *
+   * The new `eventUid` is the load-bearing part: it is the durable cross-device
+   * identity, so reusing the saved event's would make every event in the run a
+   * sync-level duplicate of the first.
+   */
+  const resetDraftForNextEvent = () => {
+    const fresh = createNewTimelineEvent();
+    setEditedEvent((prev) => ({
+      ...prev,
+      id: fresh.id,
+      eventUid: fresh.eventUid,
+      title: createEditableLocalizedTextDraft(fresh.title, language),
+      description: createEditableLocalizedTextDraft(fresh.description, language),
+      image: undefined,
+      video: undefined,
+      link: undefined,
+      endTime: undefined,
+    }));
+    endTimeTailRef.current = getEventTimeTail(undefined);
+    setEndYearInput("");
+    setDateError(null);
+    setCollectionError(null);
+    firstTitleInputRef.current?.focus();
+  };
+
   const handleSave = () => {
     if (!validateDate()) return;
 
@@ -604,16 +646,22 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       return;
     }
 
+    const keepOpen = mode === "create" && createAnother;
+
     if (mode === "create" && availableCollections.length > 0) {
       if (!selectedCollectionId) {
         setCollectionError(t("collectionRequired"));
         return;
       }
-      onSave(normalizedEvent, selectedCollectionId);
-      return;
+      onSave(normalizedEvent, selectedCollectionId, keepOpen);
+    } else {
+      onSave(normalizedEvent, null, keepOpen);
     }
 
-    onSave(normalizedEvent);
+    if (keepOpen) {
+      setAddedCount((count) => count + 1);
+      resetDraftForNextEvent();
+    }
   };
 
   /**
@@ -696,7 +744,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             onChange={(e) => handleTimePartChange(target, 1, e.target.value)}
             onKeyDown={stopEditorShortcutPropagation}
             className={TIME_INPUT_CLASS}
-            placeholder="—"
+            placeholder="1–12"
           />
         </div>
         <div>
@@ -710,7 +758,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             onChange={(e) => handleTimePartChange(target, 2, e.target.value)}
             onKeyDown={stopEditorShortcutPropagation}
             className={TIME_INPUT_CLASS}
-            placeholder="—"
+            /* Tracks the month's real length, so February says 1–28. */
+            placeholder={`1–${maxDay}`}
             title={rowMonth == null ? t("dayNeedsMonth") : undefined}
           />
         </div>
@@ -894,8 +943,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               {/* Emoji and colour sit on the title row rather than owning a
                   labelled row each — they are one-tap choices, not fields. */}
               <section className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-end gap-2">
                   <div className="relative shrink-0">
+                    <span className={TIME_SUBLABEL_CLASS}>{t("icon")}</span>
                     <button
                       type="button"
                       className="emoji-trigger flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-950 text-xl transition-colors hover:border-zinc-500"
@@ -932,6 +982,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   </div>
 
                   <div className="relative shrink-0">
+                    <span className={TIME_SUBLABEL_CLASS}>{t("color")}</span>
                     <button
                       type="button"
                       className="color-trigger flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-950 transition-colors hover:border-zinc-500"
@@ -990,7 +1041,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                   </div>
 
                   <label className="ui-label mb-0 min-w-0 flex-1 truncate">
-                    {t("title")}
+                    {t("title")} *
                   </label>
 
                   {missingLanguages.map((option) => (
@@ -1029,15 +1080,20 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                             option.value,
                           )}
                           onKeyDown={stopEditorShortcutPropagation}
+                          ref={
+                            visibleLanguage === visibleLanguages[0]
+                              ? firstTitleInputRef
+                              : undefined
+                          }
                           autoFocus={
                             mode === "create" &&
                             visibleLanguage === visibleLanguages[0]
                           }
-                          placeholder={
-                            visibleLanguages.length > 1
-                              ? `${t("title")} • ${option.label}`
-                              : t("title")
-                          }
+                          /* The language is already spelled out by the badge
+                             above, so the placeholder is free to say what a
+                             good value looks like instead of echoing the
+                             label back at you. */
+                          placeholder={t("titlePlaceholder")}
                           className="ui-field"
                         />
                       </div>
@@ -1075,11 +1131,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                           )}
                           onKeyDown={stopEditorShortcutPropagation}
                           rows={visibleLanguages.length > 1 ? 3 : 4}
-                          placeholder={
-                            visibleLanguages.length > 1
-                              ? `${t("description")} • ${option.label}`
-                              : t("description")
-                          }
+                          placeholder={t("descriptionPlaceholder")}
                           className="ui-field resize-y"
                         />
                       </div>
@@ -1257,7 +1309,25 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         </div>
 
         {/* Pinned so Save is one click away no matter how far the body scrolls. */}
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-zinc-800/70 px-5 py-4 md:px-8">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-zinc-800/70 px-5 py-4 md:px-8">
+          {/* Entering a collection means typing a run of events; without this
+              every one of them costs a reopen of the dialog. */}
+          {mode === "create" && (
+            <label className="mr-auto flex cursor-pointer items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-zinc-200">
+              <input
+                type="checkbox"
+                checked={createAnother}
+                onChange={(e) => setCreateAnother(e.target.checked)}
+                className="h-4 w-4 cursor-pointer accent-emerald-500"
+              />
+              {t("createAnother")}
+              {addedCount > 0 && (
+                <span className="text-emerald-400">
+                  {t("createAnotherAdded", { count: addedCount })}
+                </span>
+              )}
+            </label>
+          )}
           <button
             onClick={requestClose}
             className="ui-button ui-button-secondary px-5 py-2.5"
