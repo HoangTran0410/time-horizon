@@ -1,9 +1,11 @@
 import type {
   CollectionOrigin,
   DeletedCollectionSyncTombstone,
+  StoredEvent,
   StoredTimelineCollection,
   SyncPreferences,
 } from "../constants/types";
+import { stripRuntimeEventIds } from "../helpers/index";
 
 export interface SyncProjectionCollection {
   id: string;
@@ -13,7 +15,7 @@ export interface SyncProjectionCollection {
   revision?: string;
   contentHash?: string;
   meta?: StoredTimelineCollection["meta"];
-  events?: StoredTimelineCollection["events"];
+  events?: StoredEvent[];
   colorPreference?: string | null;
   dirtyReason?: StoredTimelineCollection["sync"] extends infer T
     ? T extends { dirtyReason?: infer R }
@@ -97,7 +99,10 @@ export const buildSyncProjectionSnapshot = (options: {
         ? { sourceCatalogId: collection.sourceCatalogId }
         : {}),
       meta: collection.meta ?? null,
-      events: collection.events,
+      // Runtime ids are never-persist by contract, and they feed the Drive
+      // contentHash — leaking them made identical content hash differently
+      // across devices, so every sync re-uploaded clean collections.
+      events: stripRuntimeEventIds(collection.events),
       ...(options.collectionColorPreferences[collectionId] !== undefined
         ? {
             colorPreference:

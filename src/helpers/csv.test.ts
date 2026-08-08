@@ -166,12 +166,9 @@ describe("exportCollectionToCsv → parseCsvEvents round trip", () => {
     expect(parsed[0].description).toBe(trickyDescription);
   });
 
-  it("drops rows whose field values contain literal newlines (line-based parser limitation)", async () => {
-    // exportCollectionToCsv quotes embedded newlines per RFC-4180, but
-    // parseCsvEvents splits the file on newlines before parsing quotes, so a
-    // multiline field breaks its row into fragments with the wrong column
-    // count and the event is silently skipped. Pin the actual behavior: the
-    // multiline event is lost, surrounding clean rows still parse.
+  it("round-trips field values containing literal newlines", async () => {
+    // Newlines are quoted per RFC-4180 on export, and the importer splits
+    // records quote-aware — a multiline description must not fragment its row.
     const events: StoredEvent[] = [
       makeEvent({ title: "Before", time: [1900], priority: 10 }),
       makeEvent({
@@ -187,7 +184,35 @@ describe("exportCollectionToCsv → parseCsvEvents round trip", () => {
       await exportToText(makeMeta(), events),
     );
 
-    expect(parsed.map((e) => e.title)).toEqual(["Before", "After"]);
+    expect(parsed.map((e) => e.title)).toEqual(["Before", "Multiline", "After"]);
+    expect(parsed[1].description).toBe("line one\nline two");
+  });
+
+  it("round-trips meta values containing semicolons and backslashes", () => {
+    const roundTrip = parseCsvMetaLine(
+      "#meta;" +
+        "id=x;" +
+        "name=A\\;B;" +
+        "author=back\\\\slash;" +
+        "createdAt=2026-01-01",
+    );
+    expect(roundTrip).toEqual({
+      id: "x",
+      name: "A;B",
+      author: "back\\slash",
+      createdAt: "2026-01-01",
+    });
+  });
+
+  it("round-trips an eventUid column so durable identity survives CSV", async () => {
+    const events: StoredEvent[] = [
+      makeEvent({ title: "Has uid", time: [1990], eventUid: "uid-keep-1" }),
+    ];
+    const { events: parsed } = parseCsvEvents(
+      await exportToText(makeMeta(), events),
+    );
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].eventUid).toBe("uid-keep-1");
   });
 
   it("emits the #meta header as the first line", async () => {

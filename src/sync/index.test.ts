@@ -238,15 +238,14 @@ describe("buildSyncProjectionSnapshot", () => {
     expect("dirtyReason" in byId(snapshot, "vn-history")).toBe(false);
   });
 
-  it("passes events through verbatim — runtime `id` fields are NOT stripped (current behavior)", () => {
-    // The durable identity is eventUid; the runtime `id` is documented as
-    // never-persisted, yet the snapshot carries the events array by reference,
-    // so runtime ids leak into the sync payload. Flagged in the review notes;
-    // this test pins the actual behavior.
+  it("strips runtime `id` fields from snapshot events, keeping eventUid", () => {
+    // Runtime ids are never-persist and they used to leak into the Drive
+    // payload and contentHash, making identical content hash differently
+    // across devices. The snapshot must carry the stored shape only.
     const snapshot = buildSnapshot();
     const entry = byId(snapshot, "custom-notes");
-    expect(entry.events).toBe(events);
-    expect(entry.events?.[0]?.id).toBe("runtime-id-1");
+    expect(entry.events).not.toBe(events);
+    expect(entry.events?.[0]).not.toHaveProperty("id");
     expect(entry.events?.[0]?.eventUid).toBe("uid-1");
   });
 

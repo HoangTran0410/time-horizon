@@ -3,7 +3,7 @@
  *
  * CSV format (export):
  *   Line 1: #meta;id=...;name=...;emoji=...;author=...;createdAt=...
- *   Line 2: title,description,time,duration,emoji,color,priority,link,image,video
+ *   Line 2: title,description,time,endTime,duration,emoji,color,priority,link,image,video,eventUid
  *   Lines 3+: event rows
  */
 
@@ -49,7 +49,15 @@ const parseLocalizedText = (value: string): LocalizedText | null => {
 /** EventTime array → space-separated string: [2026,3,4] → "2026 3 4" */
 function eventTimeToStr(time: unknown): string {
   if (!Array.isArray(time)) return "";
-  return time.map((v) => String(v ?? "")).filter(Boolean).join(" ");
+  const parts: string[] = [];
+  for (const value of time) {
+    // Position carries the meaning, so stop at the first hole — dropping it
+    // and keeping the rest turned [1969, null, 20] into "1969 20", which
+    // re-imports as year+month with the day promoted to month.
+    if (typeof value !== "number" || !Number.isFinite(value)) break;
+    parts.push(String(value));
+  }
+  return parts.join(" ");
 }
 
 /** Build a #meta; line from collection metadata. */
@@ -89,6 +97,7 @@ export function exportCollectionToCsv(
     "link",
     "image",
     "video",
+    "eventUid",
   ] as const;
 
   const lines = [
@@ -107,6 +116,7 @@ export function exportCollectionToCsv(
         escapeCsvValue(ev.link ?? ""),
         escapeCsvValue(ev.image ?? ""),
         escapeCsvValue(ev.video ?? ""),
+        escapeCsvValue(ev.eventUid ?? ""),
       ].join(","),
     ),
   ];
@@ -118,17 +128,20 @@ export function exportCollectionToCsv(
 export function parseCsvMetaLine(line: string): Partial<EventCollectionMeta> {
   const raw = line.replace(/^#meta;?/, "");
   const meta: Partial<EventCollectionMeta> = {};
-  const parts = raw.split(/;(?![^\\]*\\)/);
+  // Each part is a run of "escaped char or anything but ;", so an escaped \;
+  // stays inside its value. The lookahead split this replaces stopped
+  // splitting at all once any backslash appeared later in the line.
+  const parts = raw.match(/(?:\\.|[^;])+/g) ?? [];
   for (const part of parts) {
     const idx = part.indexOf("=");
     if (idx === -1) continue;
     const key = part.slice(0, idx).trim();
     const rawVal = part.slice(idx + 1);
-    // Unescape: \n → newline, \; → semicolon, \\ → backslash
-    const value = rawVal
-      .replace(/\\n/g, "\n")
-      .replace(/\\;/g, ";")
-      .replace(/\\\\/g, "\\");
+    // Single pass, mirroring buildCsvMetaLine: \n → newline, \<x> → <x>.
+    // Sequential replaces corrupted a literal backslash-n ("\\n" → newline).
+    const value = rawVal.replace(/\\(.)/g, (_match, ch: string) =>
+      ch === "n" ? "\n" : ch,
+    );
     if (key === "id") meta.id = value;
     else if (key === "name") meta.name = value;
     else if (key === "emoji") meta.emoji = value;
@@ -137,6 +150,40 @@ export function parseCsvMetaLine(line: string): Partial<EventCollectionMeta> {
     else if (key === "color") meta.color = value || null;
   }
   return meta;
+}
+
+/**
+ * Split CSV text into records, honouring RFC-4180 quoting: a newline inside a
+ * quoted field belongs to the field. Splitting on raw newlines first — which
+ * is what this replaced — fragmented any event whose title or description
+ * contained a line break, so the exporter emitted rows its own importer then
+ * dropped as column-count mismatches.
+ */
+export function splitCsvRecords(text: string): string[] {
+  const records: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+      i++;
+      continue;
+    }
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      records.push(current);
+      current = "";
+      i++;
+      continue;
+    }
+    current += ch;
+    i++;
+  }
+  records.push(current);
+  return records;
 }
 
 /** Parse a single CSV line, respecting double-quote escaping (RFC-4180). */
@@ -224,6 +271,9 @@ export function parseCsvEventRow(
     ...(row.id || row.event_id
       ? { id: row.id ?? row.event_id }
       : {}),
+    ...(row.eventUid || row.event_uid
+      ? { eventUid: row.eventUid ?? row.event_uid }
+      : {}),
     title,
     description,
     emoji,
@@ -246,7 +296,7 @@ export function parseCsvEventRow(
 export function parseCsvEvents(
   csvText: string,
 ): { events: Partial<ImportedEvent>[]; meta?: Partial<EventCollectionMeta> } {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
+  const lines = splitCsvRecords(csvText).filter((l) => l.trim());
   if (lines.length < 2) return { events: [] };
 
   let offset = 0;

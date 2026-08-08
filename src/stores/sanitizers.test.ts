@@ -114,12 +114,10 @@ describe("sanitizeImportedEvents — hostile input tolerance", () => {
     expect(second).toEqual(first);
   });
 
-  it("ignores incoming `id` and `eventUid` fields — both are regenerated (current behavior)", () => {
-    // CLAUDE.md documents eventUid as the durable identity that "must be
-    // preserved across edits, imports, and re-downloads", but the sanitizer
-    // rebuilds each event without copying eventUid, so an explicit uid in an
-    // imported payload never survives. Flagged in the review notes; this test
-    // pins the actual behavior.
+  it("regenerates the runtime `id` but preserves an explicit `eventUid`", () => {
+    // eventUid is the durable identity that must survive imports and
+    // re-downloads (it can be a random uuid, not derivable from content);
+    // the runtime id, by contrast, is always re-derived and never trusted.
     const [event] = sanitizeImportedEvents(
       [
         {
@@ -135,9 +133,25 @@ describe("sanitizeImportedEvents — hostile input tolerance", () => {
     );
 
     expect(event.id).not.toBe("attacker-supplied-id");
-    expect(event.eventUid).not.toBe("persisted-uid");
+    expect(event.eventUid).toBe("persisted-uid");
+  });
+
+  it("still derives an eventUid when the incoming one is blank", () => {
+    const [event] = sanitizeImportedEvents(
+      [
+        {
+          eventUid: "   ",
+          title: "A",
+          description: "",
+          emoji: "🌕",
+          time: [1969],
+        },
+      ],
+      { collectionId: "c" },
+    );
+
     expect(typeof event.eventUid).toBe("string");
-    expect(event.eventUid && event.eventUid.length > 0).toBe(true);
+    expect(event.eventUid!.trim().length > 0).toBe(true);
   });
 });
 
@@ -360,11 +374,11 @@ describe("persisted-state sanitization via useStore.persist.rehydrate()", () => 
     expect(state.selectedEventId).toBeNull();
     expect(state.savedFocusYear).toBeNull();
     expect(state.spatialMapping).toBeTypeOf("object");
-    // Current behavior: invalid persisted scalars come back as literal
-    // `undefined` and the merge spread lets them override the initial defaults
-    // ("dark" / "vi"). Flagged in the review notes; pinned here as-is.
-    expect(state.theme).toBeUndefined();
-    expect(state.currentLanguage).toBeUndefined();
+    // Invalid persisted scalars are dropped by the sanitizer, so the merge
+    // spread leaves the in-memory defaults intact instead of clobbering them
+    // with explicit `undefined`.
+    expect(state.theme).toBe("dark");
+    expect(state.currentLanguage).toBe("vi");
   });
 
   it("rebuilds collection library entries defensively", async () => {

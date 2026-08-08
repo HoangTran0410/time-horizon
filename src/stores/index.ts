@@ -853,6 +853,12 @@ export const sanitizeImportedEvents = (
 
     return [
       {
+        // Without this passthrough the durable identity is silently re-derived
+        // from content on every rehydrate, so a random uid (createNewTimelineEvent)
+        // would not survive a reload and Drive conflict handling loses track.
+        ...(isNonEmptyString(candidate.eventUid)
+          ? { eventUid: candidate.eventUid.trim() }
+          : {}),
         title,
         description,
         emoji: candidate.emoji.trim(),
@@ -989,7 +995,7 @@ const sanitizePersistedTimelineState = (
     persistedCollectionLibrary,
   );
 
-  return {
+  const sanitized: Partial<TimelinePersistedState> = {
     theme: isThemeMode(candidate.theme) ? candidate.theme : undefined,
     currentLanguage: isSupportedLanguage(
       (candidate as { currentLanguage?: unknown }).currentLanguage,
@@ -1095,6 +1101,13 @@ const sanitizePersistedTimelineState = (
       (candidate as { dimmedEventUids?: unknown }).dimmedEventUids,
     ),
   };
+
+  // Invalid fields come back as explicit `undefined`; dropping those keys keeps
+  // merge's spread over currentState from clobbering the in-memory defaults
+  // (a hostile payload used to leave theme/currentLanguage === undefined).
+  return Object.fromEntries(
+    Object.entries(sanitized).filter(([, fieldValue]) => fieldValue !== undefined),
+  ) as Partial<TimelinePersistedState>;
 };
 
 const readLegacyCollectionCache = () => {
@@ -2596,11 +2609,11 @@ export const useStore = create<TimelineStoreState>()(
         name: STORE_KEY,
         version: 5,
         storage: timelinePersistStorage,
-        migrate: (persistedState) => {
-          const raw = persistedState as Partial<
-            TimelinePersistedState & { version?: number }
-          >;
-          if (!raw || raw.version === 0 || raw.version === undefined) {
+        // The stored version arrives as the second argument — the state object
+        // itself never carries a `version` key (partialize doesn't write one),
+        // so reading it off the state sent every payload down the legacy branch.
+        migrate: (persistedState, version) => {
+          if (!persistedState || version === undefined || version === 0) {
             const legacy = getLegacyPersistedTimelineState();
             return sanitizePersistedTimelineState(
               Object.keys(legacy).length > 0 ? legacy : persistedState,
