@@ -24,17 +24,17 @@ no scale switches, no reloading.
 
 ## Why this exists
 
-Put the Cambrian explosion, the Roman Empire and the invention of paper in one sentence
-and you hit the problem immediately: they live eight orders of magnitude apart. Every
-timeline tool solves this by picking a band — geological, historical, or personal — and
-staying inside it. Cross the boundary and you change tools, units, and mental model.
+The Cambrian explosion, the Roman Empire and the invention of paper sit eight orders of
+magnitude apart. That one fact breaks most timelines.
 
-Time Horizon refuses to pick a band. **The hard part is the camera:** the entire view is
-two numbers — the year at the centre of the screen, and the *log* of pixels-per-year.
-Because zoom lives in log space, one flick of the wheel crosses nine orders of magnitude
-without ever changing mode, breaking the layout, or asking which "era" you'd like.
-Everything else falls out of that — ticks that re-derive their unit as you fall, events
-that cluster and unfold, rings that name the scale you're standing in.
+- **They pick a band and stay in it** — geological, historical, or personal. Cross the
+  boundary and you change tool, unit, and mental model.
+- **The fix is the camera, not the data.** The whole view is two numbers: the year at
+  the centre of the screen, and the *log* of pixels-per-year.
+- **Log space is the trick.** One flick of the wheel crosses nine orders of magnitude —
+  no mode switch, no broken layout, no "which era?" prompt.
+- **Everything else falls out of it** — ticks re-derive their unit as you fall, events
+  cluster and unfold, rings name the scale you're standing in.
 
 <img src=".github/readme/timeline-zoom.jpg" alt="The timeline at a 165-year window, reference rings marking the 5, 10 and 50 year scales" width="100%">
 
