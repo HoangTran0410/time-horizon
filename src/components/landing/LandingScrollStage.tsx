@@ -38,6 +38,19 @@ export function LandingScrollStage({
     return () => query.removeEventListener("change", sync);
   }, []);
 
+  const [isStageVisible, setIsStageVisible] = useState(true);
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsStageVisible(entry.isIntersecting),
+      { rootMargin: "10% 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   // Titles and descriptions are stored as i18n keys; resolve them here so the
   // canvas draws real localized text and re-draws when the language changes.
   const events = useMemo(
@@ -91,7 +104,7 @@ export function LandingScrollStage({
     waypoints: LANDING_CAMERA_WAYPOINTS,
     focusYear,
     logZoom: currentLogZoom,
-    enabled: !prefersReducedMotion,
+    enabled: !prefersReducedMotion && isStageVisible,
   });
 
   if (prefersReducedMotion) {
