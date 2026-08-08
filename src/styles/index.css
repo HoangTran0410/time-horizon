@@ -487,12 +487,20 @@ select {
 
 .landing-title {
   text-wrap: balance;
+  /* The size lives here, not on the element: the hero is shared between the
+     animated stage and the reduced-motion static block, so Tailwind size
+     utilities on one call site would silently not apply to the other. */
+  font-size: clamp(2.75rem, 7vw, 5.25rem);
+  line-height: 0.94;
+  margin: 0;
 }
 
 .landing-copy {
   max-width: 41rem;
   color: var(--ui-zinc-300);
   line-height: 1.8;
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  margin: 0;
 }
 
 .landing-feature-icon {
@@ -544,12 +552,14 @@ select {
 .landing-stage-canvas {
   position: absolute;
   inset: 0;
+  z-index: 0;
 }
 
 /* Keeps hero and caption copy legible over a live canvas. */
 .landing-stage-scrim {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
   background:
     linear-gradient(180deg, var(--ui-zinc-950-70) 0%, transparent 42%),
@@ -558,14 +568,54 @@ select {
 
 .landing-hero-overlay {
   position: absolute;
-  inset: auto 0 auto 0;
-  top: 14vh;
+  /* Fills the stage and centres its content, rather than hanging from a fixed
+     top offset — the first screen shows the hero alone, so a block pinned near
+     the top left two thirds of the viewport empty. */
+  inset: 0;
+  /* Above the canvas and the scrim. The three layers are all absolutely
+     positioned siblings, so without this they stack by DOM order alone — which
+     works today but breaks the moment anything is reordered. */
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1.5rem;
+  justify-content: center;
+  gap: 1.15rem;
+  padding: 4rem 1.5rem;
   text-align: center;
+}
+
+.landing-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.landing-hero-stat {
+  min-width: 8.5rem;
+  padding: 0.7rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--ui-border-zinc-800-70);
+  background: var(--ui-zinc-900-80);
+  backdrop-filter: blur(6px);
+}
+
+.landing-hero-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ui-zinc-100);
+  line-height: 1.2;
+}
+
+.landing-hero-stat-label {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-zinc-500);
 }
 
 /* Dissolves as the first segment scrolls past.
@@ -577,7 +627,26 @@ select {
   .landing-hero-overlay {
     animation: landing-hero-dissolve linear both;
     animation-timeline: scroll();
-    animation-range: 0 12vh;
+    animation-range: 0 22vh;
+  }
+
+  /* The first screen is hero-only: the timeline is still at its 13.8-billion-year
+     extreme there, where event cards stack up into the hero's band and fight it
+     for the same pixels. Hold the canvas back and let it rise as the hero
+     leaves, so scrolling is what brings the timeline into being.
+     Same @supports gate and same reasoning as the hero: browsers without a
+     scroll timeline must fall through to a fully visible canvas, never a
+     permanently blank one. */
+  /* `.landing-caption-layer` exists purely to carry this: the caption itself
+     already runs the time-driven `landing-fade-up`, which re-triggers on every
+     waypoint via its `key`. Stacking a second, scroll-driven animation onto the
+     same element did not hold — the caption stayed at opacity 1 on the first
+     screen — so the scroll reveal gets its own wrapper instead. */
+  .landing-stage-canvas,
+  .landing-caption-layer {
+    animation: landing-stage-reveal linear both;
+    animation-timeline: scroll();
+    animation-range: 14vh 78vh;
   }
 }
 
@@ -588,6 +657,15 @@ select {
   text-transform: uppercase;
   color: var(--ui-zinc-500);
   animation: landing-scroll-nudge 2.4s ease-in-out infinite;
+}
+
+/* Positioning layer for the caption. Holds the scroll-driven reveal so the
+   caption keeps its own per-waypoint fade-up animation slot. */
+.landing-caption-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .landing-caption {
@@ -625,6 +703,18 @@ select {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--ui-zinc-400);
+}
+
+/* Reduced-motion counterpart of the hero overlay: same content, ordinary flow. */
+.landing-static-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 6rem 1.5rem 2rem;
+  text-align: center;
 }
 
 /* Static fallback rendered instead of the stage under reduced motion. */
@@ -673,6 +763,17 @@ select {
   font-size: 0.92rem;
   line-height: 1.55;
   color: var(--ui-zinc-400);
+}
+
+/* Canvas and captions rise into view as the hero leaves. `from` is the state
+   the first screen shows: nothing but the hero. */
+@keyframes landing-stage-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes landing-hero-dissolve {

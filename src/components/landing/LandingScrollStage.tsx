@@ -13,6 +13,8 @@ import {
 
 type LandingScrollStageProps = {
   theme: ThemeMode;
+  /** Catalog size, shown in the hero stat row. 0 while the catalog is loading. */
+  collectionCount: number;
   onEnterTimeline: () => void;
 };
 
@@ -30,8 +32,76 @@ const readPrefersReducedMotion = (): boolean =>
     ? false
     : window.matchMedia(REDUCED_MOTION_QUERY).matches;
 
+/**
+ * The hero block: kicker, title, subtitle, primary CTA and the stat row.
+ *
+ * Shared by both paths — it sits over the canvas on the animated stage, and
+ * stands alone above the static list under reduced motion. Reduced-motion users
+ * were previously getting the moments list with no title and no CTA at all.
+ */
+function LandingHeroContent({
+  collectionCount,
+  onEnterTimeline,
+  children,
+}: {
+  collectionCount: number;
+  onEnterTimeline: () => void;
+  children?: React.ReactNode;
+}) {
+  const { t } = useI18n();
+
+  const stats = [
+    {
+      // Falls back to a static claim rather than "0" while the catalog loads
+      // or when the fetch failed outright.
+      value: collectionCount > 0 ? `${collectionCount}+` : "—",
+      label: t("collectionsReady"),
+    },
+    { value: "13.8B+", label: t("timeSpan") },
+    { value: t("yours"), label: t("customEvents") },
+  ];
+
+  return (
+    <>
+      <div className="ui-kicker">{t("landingHeroKicker")}</div>
+      <h1 className="ui-display-title landing-title">
+        {t("historyOneLine")
+          .split("\n")
+          .map((line, index, lines) => (
+            <span key={line} className="landing-title-line">
+              {line}
+              {index < lines.length - 1 ? <br /> : null}
+            </span>
+          ))}
+      </h1>
+      <p className="landing-copy">{t("landingSubtitle")}</p>
+      <button
+        type="button"
+        className="landing-primary-button landing-primary-button-large"
+        onClick={onEnterTimeline}
+      >
+        <Compass size={17} strokeWidth={2} />
+        {t("enterTimeline")}
+        <ArrowRight size={17} strokeWidth={2} />
+      </button>
+
+      <div className="landing-hero-stats">
+        {stats.map((stat) => (
+          <div key={stat.label} className="landing-hero-stat">
+            <div className="landing-hero-stat-value">{stat.value}</div>
+            <div className="landing-hero-stat-label">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {children}
+    </>
+  );
+}
+
 export function LandingScrollStage({
   theme,
+  collectionCount,
   onEnterTimeline,
 }: LandingScrollStageProps) {
   const { t } = useI18n();
@@ -52,7 +122,15 @@ export function LandingScrollStage({
 
   if (prefersReducedMotion) {
     return (
-      <section className="landing-moments">
+      <>
+        <section className="landing-static-hero">
+          <LandingHeroContent
+            collectionCount={collectionCount}
+            onEnterTimeline={onEnterTimeline}
+          />
+        </section>
+
+        <section className="landing-moments">
         <h2 className="landing-moments-heading">{t("landingMomentsHeading")}</h2>
         <ol className="landing-moments-list">
           {LANDING_WAYPOINTS.map((waypoint) => (
@@ -63,11 +141,18 @@ export function LandingScrollStage({
             </li>
           ))}
         </ol>
-      </section>
+        </section>
+      </>
     );
   }
 
-  return <LandingCanvasStage theme={theme} onEnterTimeline={onEnterTimeline} />;
+  return (
+    <LandingCanvasStage
+      theme={theme}
+      collectionCount={collectionCount}
+      onEnterTimeline={onEnterTimeline}
+    />
+  );
 }
 
 /**
@@ -78,6 +163,7 @@ export function LandingScrollStage({
  */
 function LandingCanvasStage({
   theme,
+  collectionCount,
   onEnterTimeline,
 }: LandingScrollStageProps) {
   const { t, language } = useI18n();
@@ -203,34 +289,20 @@ function LandingCanvasStage({
         <div className="landing-stage-scrim" aria-hidden="true" />
 
         <div className="landing-hero-overlay">
-          <div className="ui-kicker">{t("landingHeroKicker")}</div>
-          <h1 className="ui-display-title landing-title">
-            {t("historyOneLine")
-              .split("\n")
-              .map((line, index, lines) => (
-                <span key={line} className="landing-title-line">
-                  {line}
-                  {index < lines.length - 1 ? <br /> : null}
-                </span>
-              ))}
-          </h1>
-          <p className="landing-copy">{t("landingSubtitle")}</p>
-          <button
-            type="button"
-            className="landing-primary-button landing-primary-button-large"
-            onClick={onEnterTimeline}
+          <LandingHeroContent
+            collectionCount={collectionCount}
+            onEnterTimeline={onEnterTimeline}
           >
-            <Compass size={17} strokeWidth={2} />
-            {t("enterTimeline")}
-            <ArrowRight size={17} strokeWidth={2} />
-          </button>
-          <div className="landing-scroll-hint">{t("landingScrollHint")}</div>
+            <div className="landing-scroll-hint">{t("landingScrollHint")}</div>
+          </LandingHeroContent>
         </div>
 
-        <div className="landing-caption" key={active.eventUid}>
-          <div className="landing-caption-time">{t(active.timeLabelKey)}</div>
-          <h2 className="landing-caption-title">{t(active.titleKey)}</h2>
-          <p className="landing-caption-copy">{t(active.captionKey)}</p>
+        <div className="landing-caption-layer" aria-hidden={activeIndex === 0}>
+          <div className="landing-caption" key={active.eventUid}>
+            <div className="landing-caption-time">{t(active.timeLabelKey)}</div>
+            <h2 className="landing-caption-title">{t(active.titleKey)}</h2>
+            <p className="landing-caption-copy">{t(active.captionKey)}</p>
+          </div>
         </div>
       </div>
     </div>

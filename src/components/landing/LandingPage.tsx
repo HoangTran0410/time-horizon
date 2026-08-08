@@ -28,7 +28,11 @@ export function LandingPage({
       <div className="landing-noise absolute inset-0" aria-hidden="true" />
 
       <div className="relative z-10">
-        <LandingScrollStage theme={theme} onEnterTimeline={onEnterTimeline} />
+        <LandingScrollStage
+          theme={theme}
+          collectionCount={catalogCollections.length}
+          onEnterTimeline={onEnterTimeline}
+        />
         <LandingFeatureBlocks />
         <LandingCollections
           collections={catalogCollections}
