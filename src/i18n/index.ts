@@ -1,10 +1,15 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { SUPPORTED_LANGUAGES } from "../constants/types";
 import type { SupportedLanguage } from "../constants/types";
 import { DEFAULT_LANGUAGE } from "../helpers/localization";
 import { useStore } from "../stores";
-
-import viMessages from "./vi.json";
-import enMessages from "./en.json";
+import {
+  ensureMessagesLoaded,
+  getFallbackMessages,
+  getMessages,
+  getMessagesVersion,
+  subscribeToMessages,
+} from "./messages";
 
 export type MessageParams = Record<string, string | number>;
 
@@ -32,31 +37,46 @@ const interpolate = (template: string, params?: MessageParams): string => {
   return result;
 };
 
-type Messages = Record<string, string>;
+const resolveLanguage = (value: unknown): SupportedLanguage =>
+  SUPPORTED_LANGUAGES.includes(value as SupportedLanguage)
+    ? (value as SupportedLanguage)
+    : DEFAULT_LANGUAGE;
 
-const messages: Record<SupportedLanguage, Messages> = {
-  vi: viMessages as Messages,
-  en: enMessages as Messages,
-};
+// The persisted language is already known here — localStorage rehydration is
+// synchronous — so start fetching it now rather than waiting for React's first
+// effect. Nothing renders any sooner for it, but the fallback is on screen for
+// fewer frames.
+ensureMessagesLoaded(resolveLanguage(useStore.getState().currentLanguage));
 
 export const useI18n = () => {
   const language = useStore((state) => state.currentLanguage);
+  const activeLanguage = resolveLanguage(language);
+
+  // Only the default language is bundled; the rest arrive later and have to
+  // re-render whatever is already on screen showing the fallback.
+  const messagesVersion = useSyncExternalStore(
+    subscribeToMessages,
+    getMessagesVersion,
+    getMessagesVersion,
+  );
+
+  useEffect(() => {
+    ensureMessagesLoaded(activeLanguage);
+  }, [activeLanguage]);
 
   return useMemo(() => {
-    const activeLanguage: SupportedLanguage =
-      typeof language === "string" && language in messages
-        ? (language as SupportedLanguage)
-        : DEFAULT_LANGUAGE;
+    const active = getMessages(activeLanguage);
+    const fallback = getFallbackMessages();
 
     return {
       language: activeLanguage,
       t: (key: string, params?: MessageParams): string => {
-        const template =
-          messages[activeLanguage]?.[key] ??
-          messages[DEFAULT_LANGUAGE]?.[key] ??
-          key;
+        const template = active?.[key] ?? fallback[key] ?? key;
         return interpolate(template, params);
       },
     };
-  }, [language]);
+    // messagesVersion is the whole point: a language landing has to produce a
+    // new `t`, or memoised consumers keep rendering the fallback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLanguage, messagesVersion]);
 };

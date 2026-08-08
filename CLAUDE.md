@@ -136,6 +136,9 @@ Two layers:
 1. **UI strings** — flat key maps in `src/i18n/en.json` and `src/i18n/vi.json`, read via
    `useI18n().t(key, params)` with `{placeholder}` and ICU plural support. Default language is **`vi`**
    (`DEFAULT_LANGUAGE` in `src/helpers/localization.ts`). Keep both files at exact key parity.
+   Only `vi` is bundled; every other language is fetched on demand by `src/i18n/messages.ts`, and
+   `t()` serves `vi` until it lands. Never `import` a language JSON outside that module (or the
+   parity test) — it puts the whole map back on the critical path.
 2. **Event content** — `LocalizedText = string | Record<lang, string>`. Always read titles and
    descriptions through `getLocalizedText` / `getLocalizedEventTitle` / `getSearchableLocalizedText`,
    never `event.title` directly.
@@ -145,8 +148,14 @@ Two layers:
 - Time is `EventTime = [year, month?, day?, hour?, minute?, second?]`, year-only being the common
   case; negative years are BCE and `BIG_BANG_YEAR = -13.8e9` is the floor. Convert with
   `getEventTimelineYear` / `normalizeEventTimeParts` rather than by hand.
+- The landing page's entry chunk is kept clear of the app: `Timeline` (App.tsx, prefetched on idle),
+  `LandingCanvasStage` (the timeline engine, behind a same-height skeleton so nothing shifts) and
+  `LanguagePickerDialog` (the only reason the entry chunk pulled `motion`) are all behind `lazy()`.
+  Importing any of them statically from an eager module silently undoes that — check
+  `dist/index.html`'s preload list after touching those paths.
 - `maplibre-gl` is code-split behind `lazy()` (`TimelineSpatialBackground`) — keep it off the main
-  chunk. `vite.config.ts` also splits react/zustand/motion/lucide vendor chunks manually.
+  chunk. `vite.config.ts` splits react/zustand/motion vendor chunks manually; lucide is deliberately
+  left to Rollup so timeline-only icons stay out of the landing chunk.
 - Import/export supports JSON and CSV (`src/helpers/csv.ts`, first line is a `#meta;...` header).
 - `scripts/` are one-off data utilities run manually (`node scripts/x.js`, or `tsx scripts/json-to-csv.ts`),
   not part of any build step. The Histography ones still point at an old `src/data/` layout that no

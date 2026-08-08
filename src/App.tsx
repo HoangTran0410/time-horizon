@@ -1,6 +1,12 @@
-import { startTransition, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { LandingPage } from "./components/landing/LandingPage";
-import { Timeline } from "./components/Timeline";
 import { DEFAULT_SEED_COLLECTION_ID } from "./constants";
 import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
 import { useCatalogCollections } from "./hooks/useCatalogCollections";
@@ -8,6 +14,40 @@ import { useTimelineShareUrl } from "./hooks/useTimelineShareUrl";
 import { useStore } from "./stores";
 
 type AppView = "landing" | "timeline";
+
+/**
+ * The timeline app — editors, dialogs, sidebar, Drive sync, CSV — is the bulk
+ * of the bundle and none of it is on the landing page's path. Splitting it out
+ * halves what a first visitor downloads to see the intro.
+ *
+ * Kept as a module-level promise so `prefetchTimeline` and the render share one
+ * request: whichever runs first starts the download, the other reuses it.
+ */
+const importTimeline = () => import("./components/Timeline");
+
+const Timeline = lazy(() =>
+  importTimeline().then((module) => ({ default: module.Timeline })),
+);
+
+/**
+ * Pull the timeline chunk in while the visitor is still reading the landing
+ * page, so pressing the CTA switches views instead of showing a spinner.
+ */
+const prefetchTimeline = () => {
+  void importTimeline();
+};
+
+/**
+ * Shown only if the timeline chunk is still in flight when the view switches —
+ * a prefetched or cached chunk resolves before React ever paints this.
+ */
+function AppLoadingScreen() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
+    </div>
+  );
+}
 
 export default function App() {
   const theme = useStore((state) => state.theme);
@@ -84,6 +124,22 @@ export default function App() {
     applyThemeToDocument(resolvedTheme);
   }, [resolvedTheme]);
 
+  // Warm the timeline chunk once the landing page has settled. Idle time on the
+  // intro is free; the moment the visitor presses "enter" is not.
+  useEffect(() => {
+    if (view !== "landing") return;
+
+    if (typeof window.requestIdleCallback !== "function") {
+      const timeoutId = window.setTimeout(prefetchTimeline, 1200);
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    const handle = window.requestIdleCallback(prefetchTimeline, {
+      timeout: 3000,
+    });
+    return () => window.cancelIdleCallback(handle);
+  }, [view]);
+
   // React to later URL changes only — the initial route is resolved above, and
   // re-applying it here would stomp on in-app navigation.
   const hasResolvedInitialRoute = useRef(false);
@@ -155,11 +211,13 @@ export default function App() {
       }`}
     >
       {view === "timeline" ? (
-        <Timeline
-          theme={resolvedTheme}
-          onToggleTheme={handleToggleTheme}
-          onBackToLanding={handleBackToLanding}
-        />
+        <Suspense fallback={<AppLoadingScreen />}>
+          <Timeline
+            theme={resolvedTheme}
+            onToggleTheme={handleToggleTheme}
+            onBackToLanding={handleBackToLanding}
+          />
+        </Suspense>
       ) : (
         <LandingPage
           theme={resolvedTheme}

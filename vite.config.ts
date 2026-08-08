@@ -12,11 +12,14 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       rollupOptions: {
         output: {
+          // Deliberately no rule for lucide-react: forcing the icons into one
+          // shared chunk put every icon the timeline uses on the landing page's
+          // critical path. Left alone, Rollup files each icon into the chunk
+          // that imports it.
           manualChunks: (id) => {
             if (id.includes("node_modules/react")) return "vendor-react";
             if (id.includes("node_modules/zustand")) return "vendor-zustand";
             if (id.includes("node_modules/motion")) return "vendor-motion";
-            if (id.includes("node_modules/lucide-react")) return "vendor-icons";
           },
         },
       },
