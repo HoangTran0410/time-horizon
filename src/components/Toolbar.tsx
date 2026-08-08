@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Layers, Settings2 } from "lucide-react";
+import { EyeOff, Layers, Settings2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../stores";
 import { hasPendingSyncableChanges as hasPendingSyncableChangesForSync } from "../sync";
@@ -26,6 +26,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onOpenControlCenter,
 }) => {
   const { t } = useI18n();
+  const dimmedEventUids = useStore((s) => s.dimmedEventUids);
+  const clearDimmedEvents = useStore((s) => s.clearDimmedEvents);
   const syncPreferences = useStore((s) => s.syncPreferences);
   const syncConnectionStatus = useStore((s) => s.syncConnectionStatus);
   const collectionLibrary = useStore((s) => s.collectionLibrary);
@@ -94,6 +96,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             {visibleCollectionCount}
           </span>
         </button>
+
+        {/* Muted events go faint, which makes them easy to lose track of.
+            This is the one always-visible way back. */}
+        {dimmedEventUids.length > 0 ? (
+          <button
+            type="button"
+            onClick={clearDimmedEvents}
+            className="ui-badge flex shrink-0 items-center gap-1 whitespace-nowrap text-[0.72rem] transition hover:brightness-125"
+            aria-label={t("unmuteAllEvents", { count: dimmedEventUids.length })}
+            title={t("unmuteAllEvents", { count: dimmedEventUids.length })}
+          >
+            <EyeOff width={12} height={12} />
+            {dimmedEventUids.length}
+          </button>
+        ) : null}
 
         <button
           type="button"

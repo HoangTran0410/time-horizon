@@ -43,6 +43,7 @@ import {
 } from "../helpers";
 import {
   CAMERA_FIT_PADDING,
+  DIMMED_EVENT_OPACITY,
   MIN_FIT_RANGE_YEARS,
   CAMERA_SPRING,
   EVENT_LAYOUT_SPRING,
@@ -82,6 +83,8 @@ type UseTimelineViewportParams = {
   orientation: TimelineOrientation;
   verticalWheelBehavior: VerticalWheelBehavior;
   verticalTimeDirection: VerticalTimeDirection;
+  /** Runtime ids of muted events: drawn faint and excluded from row packing. */
+  dimmedEventIds: ReadonlySet<string>;
   /** Optional: deep-link focus year. When provided, viewport boots to this year instead of auto-fit. */
   initialFocusYear?: number | null;
   /** Optional: deep-link log-zoom. When provided, viewport boots to this zoom instead of auto-fit. */
@@ -130,6 +133,7 @@ export const useTimelineViewport = ({
   orientation,
   verticalWheelBehavior,
   verticalTimeDirection,
+  dimmedEventIds,
   initialFocusYear = null,
   initialLogZoom = null,
 }: UseTimelineViewportParams) => {
@@ -425,6 +429,27 @@ export const useTimelineViewport = ({
       const eventYear = getEventTimelineYear(event);
       const originalIndex = timelineEventIndexMap.get(event.id) as number;
       const side = originalIndex % 2 === 0 ? 1 : -1;
+
+      /**
+       * A muted event keeps its row but stops reserving space, which is the
+       * whole point: muting a 540-million-year era has to give the events
+       * inside it their rows back, not just make the bar fainter.
+       */
+      const isDimmed = dimmedEventIds.has(event.id);
+      if (isDimmed) {
+        const targetY = side * LAYOUT_ROW_OFFSET;
+        if (layout.targetY !== targetY) {
+          layout.targetY = targetY;
+          if (immediate) layout.y.set(targetY);
+          else animate(layout.y, targetY, EVENT_LAYOUT_SPRING);
+        }
+        if (layout.targetOpacity !== DIMMED_EVENT_OPACITY) {
+          layout.targetOpacity = DIMMED_EVENT_OPACITY;
+          if (immediate) layout.opacity.set(DIMMED_EVENT_OPACITY);
+          else animate(layout.opacity, DIMMED_EVENT_OPACITY, { duration: 0.2 });
+        }
+        return;
+      }
 
       // A span only deserves its own row once it is actually wide on screen.
       // Below that it is visually a point and may collapse like one.
@@ -1793,6 +1818,13 @@ export const useTimelineViewport = ({
     updateTicks();
     updateLayout();
   }, [renderedTimelineEvents]);
+
+  // Muting changes row packing, so it has to re-layout even though the camera
+  // has not moved.
+  useEffect(() => {
+    if (!hasBootstrappedRef.current) return;
+    updateLayout();
+  }, [dimmedEventIds]);
 
   useEffect(() => {
     updateVisibleBounds();

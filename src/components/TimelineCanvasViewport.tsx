@@ -16,6 +16,7 @@ import {
   withAlpha,
   getCollapsedGroupOffset,
   getEventTimelineEndYear,
+  getEventTimelineRange,
   getEventTimelineYear,
 } from "../helpers";
 import { getLocalizedEventTitle } from "../helpers/localization";
@@ -1562,17 +1563,55 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       if (currentRulerEvent && rulerPointerRef.current.isVisible) {
         const originLayout = currentEventLayouts[currentRulerEvent.id];
         if (originLayout && originLayout.opacity.get() > 0.02) {
-          const originYear = getEventTimelineYear(currentRulerEvent);
-          const originPoint = toCanvasPoint(
-            getPrimaryScreenPosition(originYear),
-            originLayout.y.get(),
-            width,
-            height,
-          );
-          const originX = originPoint.x;
-          const originY = originPoint.y;
           let targetX = rulerPointerRef.current.x;
           let targetY = rulerPointerRef.current.y;
+
+          /**
+           * A span has two ends worth measuring from, so the ruler anchors to
+           * whichever is nearer the pointer. It used to always anchor to the
+           * start, which for a long era sits far off-screen.
+           */
+          const anchorFor = (event: Event, layoutY: number) => {
+            const range = getEventTimelineRange(event);
+            const candidates =
+              range.endYear > range.startYear
+                ? [range.startYear, range.endYear]
+                : [getEventTimelineYear(event)];
+
+            let bestYear = candidates[0];
+            let bestPoint = toCanvasPoint(
+              getPrimaryScreenPosition(bestYear),
+              layoutY,
+              width,
+              height,
+            );
+            let bestDistance = Math.hypot(
+              targetX - bestPoint.x,
+              targetY - bestPoint.y,
+            );
+
+            for (const year of candidates.slice(1)) {
+              const point = toCanvasPoint(
+                getPrimaryScreenPosition(year),
+                layoutY,
+                width,
+                height,
+              );
+              const distance = Math.hypot(targetX - point.x, targetY - point.y);
+              if (distance < bestDistance) {
+                bestYear = year;
+                bestPoint = point;
+                bestDistance = distance;
+              }
+            }
+
+            return { year: bestYear, point: bestPoint };
+          };
+
+          const originAnchor = anchorFor(currentRulerEvent, originLayout.y.get());
+          const originYear = originAnchor.year;
+          const originX = originAnchor.point.x;
+          const originY = originAnchor.point.y;
           let targetYear =
             originYear +
             ((orientation === "horizontal" ? targetX - originX : targetY - originY) /
@@ -1588,15 +1627,15 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           if (rulerHoveredEvent) {
             const hoveredLayout = currentEventLayouts[rulerHoveredEvent.event.id];
             if (hoveredLayout && hoveredLayout.opacity.get() > 0.02) {
-              targetYear = rulerHoveredEvent.year;
-              const hoveredPoint = toCanvasPoint(
-                getPrimaryScreenPosition(targetYear),
+              // Snap to the nearer end of the hovered event too, so a
+              // span-to-span measurement can pick any pair of endpoints.
+              const hoveredAnchor = anchorFor(
+                rulerHoveredEvent.event,
                 hoveredLayout.y.get(),
-                width,
-                height,
               );
-              targetX = hoveredPoint.x;
-              targetY = hoveredPoint.y;
+              targetYear = hoveredAnchor.year;
+              targetX = hoveredAnchor.point.x;
+              targetY = hoveredAnchor.point.y;
             }
           }
 

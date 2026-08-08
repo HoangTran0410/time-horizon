@@ -23,7 +23,13 @@ export const ZOOM_UI_THROTTLE_MS = 80;
  */
 export const ZOOM_LAYOUT_THROTTLE_MS = 250;
 export const ZOOM_SETTLE_DELAY_MS = 140;
-export const ZOOM_WARP_HIDE_MS = 520;
+/**
+ * How long the zoom reference rings linger after the last zoom input. They
+ * carry the only readout of the current time scale, so they have to outlast
+ * the gesture long enough to actually be read — 520ms started the fade before
+ * the eye had landed on the label.
+ */
+export const ZOOM_WARP_HIDE_MS = 1600;
 export const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
 export const FPS_SAMPLE_WINDOW_MS = 250;
 
@@ -64,6 +70,14 @@ export const LAYOUT_MARGIN_RATIO = 0.3;
  * that margin so nothing can scroll into view unplaced.
  */
 export const LAYOUT_REFRESH_SHIFT_RATIO = 0.15;
+/**
+ * Opacity a muted event is drawn at. Deliberately below the 0.35 hit-test
+ * cutoff in TimelineCanvasViewport, so a muted bar stops intercepting clicks
+ * meant for the events it covers — which is half the point of muting a span
+ * that stretches across the whole viewport. Unmuting goes through the search
+ * panel or the toolbar chip rather than the canvas.
+ */
+export const DIMMED_EVENT_OPACITY = 0.18;
 export const LAYOUT_MIN_DISTANCE_PX = 90;
 export const LAYOUT_EDGE_PADDING = 96;
 export const LAYOUT_MAX_LEVELS_PER_SIDE = 4;

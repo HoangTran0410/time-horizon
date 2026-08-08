@@ -24,6 +24,7 @@ interface ControllerProps {
   previousEvent: Event | null;
   nextEvent: Event | null;
   isRulerActive: boolean;
+  isSelectedEventDimmed: boolean;
   visibleCollections?: EventCollectionMeta[];
   collectionEventsById?: Record<string, Event[]>;
   onQuickZoom: (e: React.ChangeEvent<HTMLSelectElement>) => void;
@@ -37,6 +38,7 @@ interface ControllerProps {
   onEditSelectedEvent: () => void;
   onDeleteSelectedEvent: () => void;
   onToggleSelectedEventRuler: () => void;
+  onToggleSelectedEventDimmed: () => void;
   onCloseSelectedEvent: () => void;
   onStartAddEvent: () => void;
   timelineOrientation: TimelineOrientation;
@@ -56,6 +58,7 @@ export const Controller: React.FC<ControllerProps> = ({
   previousEvent,
   nextEvent,
   isRulerActive,
+  isSelectedEventDimmed,
   visibleCollections,
   collectionEventsById,
   onQuickZoom,
@@ -69,6 +72,7 @@ export const Controller: React.FC<ControllerProps> = ({
   onEditSelectedEvent,
   onDeleteSelectedEvent,
   onToggleSelectedEventRuler,
+  onToggleSelectedEventDimmed,
   onCloseSelectedEvent,
   onStartAddEvent,
   timelineOrientation,
@@ -246,6 +250,7 @@ export const Controller: React.FC<ControllerProps> = ({
                     previousEvent={previousEvent}
                     nextEvent={nextEvent}
                     isRulerActive={isRulerActive}
+                    isDimmed={isSelectedEventDimmed}
                     hideOnDesktop
                     onFocus={onFocusSelectedEvent}
                     onEdit={onEditSelectedEvent}
@@ -261,6 +266,7 @@ export const Controller: React.FC<ControllerProps> = ({
                       }
                     }}
                     onToggleRuler={onToggleSelectedEventRuler}
+                    onToggleDimmed={onToggleSelectedEventDimmed}
                     onClose={() => setActivePanel(null)}
                   />
                 ) : null}

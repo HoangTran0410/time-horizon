@@ -111,6 +111,12 @@ type TimelineStoreState = {
    * a user who deliberately emptied their library.
    */
   hasSeededDefaultCollection: boolean;
+  /**
+   * Events the user has muted so they stop dominating the view — a long era
+   * spanning the whole viewport crowds out everything inside it. Keyed by the
+   * durable eventUid, so a mute survives re-download and sync.
+   */
+  dimmedEventUids: string[];
   hasHydrated: boolean;
   isRulerActive: boolean;
   isEventInfoCollapsed: boolean;
@@ -200,6 +206,9 @@ type TimelineStoreState = {
   stopSpatialAnchorPickMode: () => void;
   setLastOpenedView: (view: TimelineAppView) => void;
   markDefaultCollectionSeeded: () => void;
+  /** Mute or unmute a single event by its durable eventUid. */
+  toggleEventDimmed: (eventUid: string) => void;
+  clearDimmedEvents: () => void;
   setHasHydrated: (value: boolean) => void;
   setIsRulerActive: (value: boolean) => void;
   toggleEventInfoCollapsed: () => void;
@@ -298,6 +307,7 @@ type TimelinePersistedState = Pick<
   | "lastOpenedView"
   | "isToolbarExpanded"
   | "hasSeededDefaultCollection"
+  | "dimmedEventUids"
 >;
 
 const STORE_KEY = "time-horizon:timeline-store:v1";
@@ -944,6 +954,16 @@ const sanitizeVisibleCollectionIds = (
   );
 };
 
+/** Persisted mutes arrive from Drive and JSON imports, so re-validate them. */
+const sanitizeDimmedEventUids = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (isNonEmptyString(entry)) seen.add(entry);
+  }
+  return [...seen];
+};
+
 const sanitizePersistedTimelineState = (
   value: unknown,
 ): Partial<TimelinePersistedState> => {
@@ -1071,6 +1091,9 @@ const sanitizePersistedTimelineState = (
         ? (candidate as { hasSeededDefaultCollection: boolean })
             .hasSeededDefaultCollection
         : undefined,
+    dimmedEventUids: sanitizeDimmedEventUids(
+      (candidate as { dimmedEventUids?: unknown }).dimmedEventUids,
+    ),
   };
 };
 
@@ -1647,6 +1670,7 @@ export const useStore = create<TimelineStoreState>()(
           spatialMapping: DEFAULT_SPATIAL_MAPPING,
           lastOpenedView: "landing",
           hasSeededDefaultCollection: false,
+          dimmedEventUids: [],
           hasHydrated: false,
           isRulerActive: false,
           isEventInfoCollapsed: getInitialEventInfoCollapsed(),
@@ -2509,6 +2533,18 @@ export const useStore = create<TimelineStoreState>()(
             set({
               hasSeededDefaultCollection: true,
             }),
+          toggleEventDimmed: (eventUid) =>
+            set((state) => {
+              if (!isNonEmptyString(eventUid)) return;
+              const index = state.dimmedEventUids.indexOf(eventUid);
+              if (index === -1) state.dimmedEventUids.push(eventUid);
+              else state.dimmedEventUids.splice(index, 1);
+            }),
+          clearDimmedEvents: () =>
+            set((state) => {
+              if (state.dimmedEventUids.length === 0) return;
+              state.dimmedEventUids = [];
+            }),
           setHasHydrated: (value) =>
             set({
               hasHydrated: value,
@@ -2627,6 +2663,7 @@ export const useStore = create<TimelineStoreState>()(
           lastOpenedView: state.lastOpenedView,
           isToolbarExpanded: state.isToolbarExpanded,
           hasSeededDefaultCollection: state.hasSeededDefaultCollection,
+          dimmedEventUids: state.dimmedEventUids,
         }),
       },
     ),

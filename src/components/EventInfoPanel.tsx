@@ -5,6 +5,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Eye,
+  EyeOff,
   ExternalLink,
   ImageOff,
   Locate,
@@ -18,7 +20,10 @@ import {
 } from "lucide-react";
 import { Event } from "../constants/types";
 import {
+  formatElapsedTimelineTime,
   getEventDisplayLabel,
+  getEventEndDisplayLabel,
+  getEventSpanLengthYears,
   normalizeEmbedVideoUrl,
   normalizeExternalLinkUrl,
   normalizeImageUrl,
@@ -35,6 +40,7 @@ interface EventInfoPanelProps {
   previousEvent: Event | null;
   nextEvent: Event | null;
   isRulerActive: boolean;
+  isDimmed: boolean;
   isCollapsed?: boolean;
   isOpen?: boolean;
   hideOnMobile?: boolean;
@@ -45,6 +51,7 @@ interface EventInfoPanelProps {
   onSelectPreviousEvent: () => void;
   onSelectNextEvent: () => void;
   onToggleRuler: () => void;
+  onToggleDimmed: () => void;
   onToggleCollapsed?: () => void;
   onClose: () => void;
 }
@@ -275,31 +282,37 @@ const EventNavigationButtons: React.FC<EventNavigationButtonsProps> = ({
 
 interface EventActionButtonsProps {
   isRulerActive: boolean;
+  isDimmed: boolean;
   focusLabel: string;
   editLabel: string;
   deleteLabel: string;
   rulerLabel: string;
+  dimLabel: string;
   onFocus: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onToggleRuler: () => void;
+  onToggleDimmed: () => void;
   mobile?: boolean;
 }
 
 const EventActionButtons: React.FC<EventActionButtonsProps> = ({
   isRulerActive,
+  isDimmed,
   focusLabel,
   editLabel,
   deleteLabel,
   rulerLabel,
+  dimLabel,
   onFocus,
   onEdit,
   onDelete,
   onToggleRuler,
+  onToggleDimmed,
   mobile = false,
 }) =>
   mobile ? (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-5 gap-2">
       <button
         type="button"
         onClick={onFocus}
@@ -327,6 +340,22 @@ const EventActionButtons: React.FC<EventActionButtonsProps> = ({
         }`}
       >
         <Ruler width={14} height={14} />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleDimmed}
+        aria-label={dimLabel}
+        className={`ui-icon-button h-10 flex-1 rounded-[0.95rem] ${
+          isDimmed
+            ? "border-sky-400/60 bg-sky-500/15 text-sky-100 hover:bg-sky-500/20"
+            : "ui-button-secondary"
+        }`}
+      >
+        {isDimmed ? (
+          <EyeOff width={14} height={14} />
+        ) : (
+          <Eye width={14} height={14} />
+        )}
       </button>
       <button
         type="button"
@@ -366,6 +395,22 @@ const EventActionButtons: React.FC<EventActionButtonsProps> = ({
         title={rulerLabel}
       >
         <Ruler width={14} height={14} />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleDimmed}
+        className={`ui-icon-button p-2 ${
+          isDimmed
+            ? "border-sky-400/60 bg-sky-500/15 text-sky-100 hover:bg-sky-500/20"
+            : "ui-button-secondary"
+        }`}
+        title={dimLabel}
+      >
+        {isDimmed ? (
+          <EyeOff width={14} height={14} />
+        ) : (
+          <Eye width={14} height={14} />
+        )}
       </button>
       <button
         type="button"
@@ -499,6 +544,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   previousEvent,
   nextEvent,
   isRulerActive,
+  isDimmed,
   isCollapsed = false,
   isOpen = false,
   hideOnMobile = false,
@@ -509,6 +555,7 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
   onSelectPreviousEvent,
   onSelectNextEvent,
   onToggleRuler,
+  onToggleDimmed,
   onToggleCollapsed,
   onClose,
 }) => {
@@ -747,6 +794,24 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
     ? getLocalizedEventTitle(nextEvent, language)
     : t("nextEvent");
   const panelMaxHeight = "min(48vh, 26rem)";
+
+  /**
+   * A span used to show only its start date, so there was no way to tell how
+   * far it actually reached — the bar on the canvas was the only clue, and it
+   * is clipped to the viewport.
+   */
+  const spanEndLabel = getEventEndDisplayLabel(event, language);
+  const spanLengthYears = getEventSpanLengthYears(event);
+  const timeLabel = spanEndLabel
+    ? `${getEventDisplayLabel(event, language)} → ${spanEndLabel}`
+    : getEventDisplayLabel(event, language);
+  const spanDurationLabel =
+    spanLengthYears === null
+      ? null
+      : t("spanDuration", {
+          duration: formatElapsedTimelineTime(spanLengthYears, language),
+        });
+
   const canCollapse = typeof onToggleCollapsed === "function";
   const showDesktopExpanded = !canCollapse || !isCollapsed;
 
@@ -777,8 +842,13 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                       {title}
                     </h3>
                     <p className="mt-1 text-[0.72rem] font-mono uppercase tracking-[0.14em] text-emerald-400">
-                      {getEventDisplayLabel(event, language)}
+                      {timeLabel}
                     </p>
+                    {spanDurationLabel && (
+                      <p className="mt-0.5 text-[0.7rem] text-zinc-400">
+                        {spanDurationLabel}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -820,14 +890,17 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
 
                 <EventActionButtons
                   isRulerActive={isRulerActive}
+                  isDimmed={isDimmed}
                   focusLabel={t("focusEvent")}
                   editLabel={t("editEvent")}
                   deleteLabel={t("deleteEvent")}
                   rulerLabel={t("toggleRuler")}
+                  dimLabel={isDimmed ? t("unmuteEvent") : t("muteEvent")}
                   onFocus={onFocus}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onToggleRuler={onToggleRuler}
+                  onToggleDimmed={onToggleDimmed}
                   mobile
                 />
               </div>
@@ -884,21 +957,29 @@ export const EventInfoPanel: React.FC<EventInfoPanelProps> = ({
                               {title}
                             </h3>
                             <p className="mt-1 font-mono text-[0.76rem] uppercase tracking-[0.12em] text-emerald-500">
-                              {getEventDisplayLabel(event, language)}
+                              {timeLabel}
                             </p>
+                            {spanDurationLabel && (
+                              <p className="mt-0.5 text-[0.72rem] text-zinc-400">
+                                {spanDurationLabel}
+                              </p>
+                            )}
                           </div>
 
                           <div className="flex items-start justify-end gap-1">
                             <EventActionButtons
                               isRulerActive={isRulerActive}
+                              isDimmed={isDimmed}
                               focusLabel={t("focusEvent")}
                               editLabel={t("editEvent")}
                               deleteLabel={t("deleteEvent")}
                               rulerLabel={t("toggleRuler")}
+                              dimLabel={isDimmed ? t("unmuteEvent") : t("muteEvent")}
                               onFocus={onFocus}
                               onEdit={onEdit}
                               onDelete={onDelete}
                               onToggleRuler={onToggleRuler}
+                              onToggleDimmed={onToggleDimmed}
                             />
                             <button
                               type="button"

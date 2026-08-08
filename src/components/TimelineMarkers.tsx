@@ -217,7 +217,11 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
         transition:
           mode === "travel"
             ? "opacity 700ms ease-out"
-            : "opacity 400ms ease-out",
+            : // Fading in fast keeps the rings responsive to the gesture;
+              // fading out slowly keeps the scale label readable afterwards.
+              isWarping
+              ? "opacity 160ms ease-out"
+              : "opacity 900ms ease-out",
       }}
     >
       {mode === "travel" ? (

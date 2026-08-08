@@ -127,6 +127,9 @@ export const Timeline = ({
   // Store state — individual selectors avoid useShallow overhead
   const selectedEventId = useStore((s) => s.selectedEventId);
   const isRulerActive = useStore((s) => s.isRulerActive);
+  const dimmedEventUids = useStore((s) => s.dimmedEventUids);
+  const toggleEventDimmed = useStore((s) => s.toggleEventDimmed);
+  const clearDimmedEvents = useStore((s) => s.clearDimmedEvents);
   const isEventInfoCollapsed = useStore((s) => s.isEventInfoCollapsed);
   const editingEventId = useStore((s) => s.editingEventId);
   const addingEvent = useStore((s) => s.addingEvent);
@@ -582,6 +585,27 @@ export const Timeline = ({
     ],
   );
 
+  /**
+   * Mutes are stored against the durable eventUid, but everything downstream
+   * of here keys off the runtime id, so translate once per change.
+   */
+  const dimmedEventIds = useMemo(() => {
+    if (dimmedEventUids.length === 0) return new Set<string>();
+    const muted = new Set(dimmedEventUids);
+    const ids = new Set<string>();
+    for (const event of renderedTimelineEvents) {
+      if (event.eventUid && muted.has(event.eventUid)) ids.add(event.id);
+    }
+    return ids;
+  }, [dimmedEventUids, renderedTimelineEvents]);
+
+  const selectedEventUid = selectedEventInfo?.eventUid ?? null;
+  const isSelectedEventDimmed =
+    selectedEventUid !== null && dimmedEventUids.includes(selectedEventUid);
+  const handleToggleSelectedEventDimmed = () => {
+    if (selectedEventUid) toggleEventDimmed(selectedEventUid);
+  };
+
   const orderedTimelineEvents = useMemo(
     () =>
       [...renderedTimelineEvents].sort((first, second) => {
@@ -657,6 +681,7 @@ export const Timeline = ({
     containerRef,
     renderedTimelineEvents,
     selectedEventId,
+    dimmedEventIds,
     initialFocusYear: hasSharedTimelineState
       ? (sharedFocusYear ?? undefined)
       : (savedFocusYear ?? undefined),
@@ -1484,6 +1509,8 @@ export const Timeline = ({
           visibleCollections={visibleCollections}
           collectionEventsById={collectionEventsById}
           isRulerActive={isRulerActive}
+          isSelectedEventDimmed={isSelectedEventDimmed}
+          onToggleSelectedEventDimmed={handleToggleSelectedEventDimmed}
           onQuickZoom={handleQuickZoom}
           onJumpToDate={handleJumpToDate}
           onSearchSelect={handleFocusEvent}
@@ -1527,6 +1554,7 @@ export const Timeline = ({
             previousEvent={selectedEventNeighbors.previousEvent}
             nextEvent={selectedEventNeighbors.nextEvent}
             isRulerActive={isRulerActive}
+            isDimmed={isSelectedEventDimmed}
             isCollapsed={isEventInfoCollapsed}
             hideOnMobile
             onFocus={() => {
@@ -1549,6 +1577,7 @@ export const Timeline = ({
             onToggleRuler={() => {
               setIsRulerActive(!isRulerActive);
             }}
+            onToggleDimmed={handleToggleSelectedEventDimmed}
             onToggleCollapsed={() => {
               toggleEventInfoCollapsed();
             }}

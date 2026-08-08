@@ -469,19 +469,16 @@ export const formatYear = (absoluteYear: number): string => {
   return d.toLocaleString(undefined, DATE_TIME_FORMAT);
 };
 
-const formatEventTime = (
-  event: Event,
+/**
+ * Human label for one point in time. Split out from formatEventTime so a span
+ * can format its end the same way its start is formatted.
+ */
+export const formatTimelineTimeLabel = (
+  time: EventTime,
   locale: SupportedLanguage,
 ): string => {
-  const cached = _displayLabelCache.get(event);
-  if (cached !== undefined) {
-    const hit = cached[locale];
-    if (hit !== undefined) return hit;
-  }
-
-  const [year, month, day, hour, minute, seconds] = normalizeEventTimeParts(
-    event.time,
-  );
+  const [year, month, day, hour, minute, seconds] =
+    normalizeEventTimeParts(time);
 
   let label: string;
 
@@ -490,7 +487,7 @@ const formatEventTime = (
   } else if (year <= 0) {
     // JavaScript Date formatting around BC years is unreliable for locale output.
     // For BCE dates, fall back to decimal year formatting.
-    label = formatYear(getEventTimelineYear(event));
+    label = formatYear(eventTimeToTimelineYear(time));
   } else {
     const d = new Date(
       year,
@@ -504,7 +501,7 @@ const formatEventTime = (
     const localeStr = LOCALE_MAP[locale];
 
     if (isNaN(d.getTime())) {
-      label = formatYear(getEventTimelineYear(event));
+      label = formatYear(eventTimeToTimelineYear(time));
     } else if (day == null) {
       label = d.toLocaleDateString(localeStr, MONTH_YEAR_FORMAT);
     } else {
@@ -520,9 +517,22 @@ const formatEventTime = (
     }
   }
 
+  return label;
+};
+
+const formatEventTime = (
+  event: Event,
+  locale: SupportedLanguage,
+): string => {
+  const cached = _displayLabelCache.get(event);
+  if (cached !== undefined) {
+    const hit = cached[locale];
+    if (hit !== undefined) return hit;
+  }
+
+  const label = formatTimelineTimeLabel(event.time, locale);
+
   // Persist per-locale so other locales can still hit cache.
-  // Only write to cache after confirming label is non-empty (guards against
-  // partial cache entry from a parallel caller).
   const existing = _displayLabelCache.get(event) ?? { vi: undefined, en: undefined };
   existing[locale] = label;
   _displayLabelCache.set(event, existing);
@@ -533,6 +543,21 @@ export const getEventDisplayLabel = (
   event: Event,
   locale: SupportedLanguage,
 ): string => formatEventTime(event, locale);
+
+/** Label for the end of a span, or null when the event is a point. */
+export const getEventEndDisplayLabel = (
+  event: Event,
+  locale: SupportedLanguage,
+): string | null =>
+  event.endTime == null || !isSpanEvent(event)
+    ? null
+    : formatTimelineTimeLabel(event.endTime, locale);
+
+/** How long a span lasts, in fractional years, or null for a point event. */
+export const getEventSpanLengthYears = (event: Event): number | null => {
+  const { startYear, endYear } = getEventTimelineRange(event);
+  return endYear > startYear ? endYear - startYear : null;
+};
 
 export const formatElapsedTimelineTime = (
   years: number,
