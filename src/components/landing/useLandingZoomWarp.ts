@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMotionValue, useMotionValueEvent } from "motion/react";
 import type { MotionValue } from "motion/react";
+import { ZOOM_WARP_MIN_LOG_DELTA } from "../../constants";
 import type { WarpOverlayMode } from "../../constants/types";
 
 type LandingWarpState = {
@@ -11,11 +12,11 @@ type LandingWarpState = {
 };
 
 /**
- * Below this a frame counts as holding zoom steady. Scrolling one pixel moves
- * the camera by roughly 4e-3 in log space, so this only ever filters out the
- * segments the tour deliberately holds still to pan.
+ * Below this a frame counts as holding zoom steady. Shared with the app so both
+ * surfaces raise the rings on the same input; see the constant for why it is a
+ * magnitude rather than a speed.
  */
-const ZOOM_ACTIVITY_EPSILON = 1e-4;
+const ZOOM_ACTIVITY_EPSILON = ZOOM_WARP_MIN_LOG_DELTA;
 
 /** How long the rings linger after the last zoom change. */
 const ZOOM_IDLE_MS = 220;

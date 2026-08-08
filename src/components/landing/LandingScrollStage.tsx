@@ -265,6 +265,7 @@ function LandingCanvasStage({
     focusYear,
     zoom,
     currentLogZoom,
+    warpPivot,
     ticks,
     collapsedGroups,
     expandedCollapsedGroup,
@@ -367,7 +368,7 @@ function LandingCanvasStage({
             theme={theme}
             zoom={warp.zoom}
             orientation={orientation}
-            zoomPivot={focusPixel}
+            zoomPivot={warpPivot}
           />
         </div>
 

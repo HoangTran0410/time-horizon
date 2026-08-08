@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   motion,
   MotionValue,
@@ -201,16 +201,25 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   // Smooth pivot: spring-animates to zoomPivot so rings glide, not snap.
   // useMotionValueEvent gives us the new value directly (not stale like .get() in useEffect).
   const pivot = useMotionValue(zoomPivot.get());
+  // The pivot is re-derived from the camera on every zooming frame, so the
+  // target arrives ~60 times a second. Restarting the spring each time would
+  // leave it perpetually in its first, slowest 16ms; holding the last target
+  // and ignoring sub-pixel moves lets one spring actually run to the value.
+  const pivotTargetRef = useRef(zoomPivot.get());
 
   useMotionValueEvent(zoomPivot, "change", (nextPivot: number) => {
     // Only animate when not in travel mode.
     if (mode === "travel") return;
-    const controls = animate(pivot, nextPivot, {
+    if (Math.abs(nextPivot - pivotTargetRef.current) < 0.5) return;
+
+    pivotTargetRef.current = nextPivot;
+    // Animating a motion value stops whatever was already animating it, so the
+    // superseded spring needs no explicit teardown here.
+    animate(pivot, nextPivot, {
       type: "spring",
       stiffness: 350,
       damping: 35,
     });
-    return controls.stop;
   });
 
   useEffect(() => {

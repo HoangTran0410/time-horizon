@@ -63,7 +63,8 @@ import {
   ZOOM_SETTLE_DELAY_MS,
   ZOOM_UI_THROTTLE_MS,
   ZOOM_WARP_HIDE_MS,
-  ZOOM_WARP_SPEED_THRESHOLD,
+  ZOOM_WARP_MIN_LOG_DELTA,
+  ZOOM_WARP_SAMPLE_STALE_MS,
 } from "../constants";
 import {
   areCollapsedGroupsEqual,
@@ -72,6 +73,8 @@ import {
   getStableTickLabelWidthEstimate,
   getTickIntervalThatFitsLabels,
   getTimelineLayoutLevels,
+  resolveZoomFixedPointPixel,
+  type TimelineCameraSample,
 } from "../helpers";
 import { getSearchableLocalizedText } from "../helpers/localization";
 
@@ -143,8 +146,10 @@ export const useTimelineViewport = ({
   });
   const focusedEventIdRef = useRef<string | null>(selectedEventId);
   const zoomWarpTimeoutRef = useRef<number | null>(null);
+  const warpModeRef = useRef<WarpOverlayMode>("travel");
   const prevZoomWarpSampleRef = useRef<{
     logZoom: number;
+    camera: TimelineCameraSample;
     time: number;
   } | null>(null);
   const visibleBoundsRef = useRef({ startYear: 0, endYear: 1 });
@@ -184,6 +189,16 @@ export const useTimelineViewport = ({
   const panX = useTransform(
     () => focusPixel.get() - focusYear.get() * zoom.get() * axisDirection,
   );
+  /**
+   * Pixel the warp overlay centres its reference rings on: the point the
+   * timeline is expanding from, not the middle of the viewport.
+   *
+   * They coincide for a wheel or pinch zoom, which pins focusPixel/focusYear to
+   * the pointer. They do not when the camera pans while it zooms — the landing
+   * tour does exactly that — and centring on focusPixel there makes every ring
+   * edge slide across the timeline at the pan rate.
+   */
+  const warpPivot = useMotionValue(focusPixel.get());
 
   const targetLogZoom = useRef(DEFAULT_LOG_ZOOM);
   const focusPixelAnimationRef = useRef<StoppableAnimation | null>(null);
@@ -356,7 +371,13 @@ export const useTimelineViewport = ({
     focusYearAnimationRef.current = null;
     logZoomAnimationRef.current = null;
     targetLogZoom.current = logZoom.get();
-    setIsWarping(false);
+    // Only a travel warp belongs to the animation being stopped. Clearing the
+    // zoom rings here too meant every wheel event dropped them for a frame and
+    // cancelled their hold, so they faded the moment a gesture ended instead of
+    // staying up long enough to read.
+    setIsWarping((previous) =>
+      warpModeRef.current === "travel" ? false : previous,
+    );
   };
 
   const updateVisibleBounds = () => {
@@ -688,16 +709,27 @@ export const useTimelineViewport = ({
     });
   };
 
-  const triggerZoomWarp = (
-    mode: Exclude<WarpOverlayMode, "travel">,
-    _currentLogZoom: number,
-  ) => {
+  const clearZoomWarpTimeout = () => {
+    if (zoomWarpTimeoutRef.current !== null) {
+      window.clearTimeout(zoomWarpTimeoutRef.current);
+      zoomWarpTimeoutRef.current = null;
+    }
+  };
+
+  /** Raise a travel warp, and drop the zoom rings' pending hide with it. */
+  const startTravelWarp = () => {
+    clearZoomWarpTimeout();
+    warpModeRef.current = "travel";
+    setWarpMode("travel");
+    setIsWarping(true);
+  };
+
+  const triggerZoomWarp = (mode: Exclude<WarpOverlayMode, "travel">) => {
+    warpModeRef.current = mode;
     setWarpMode(mode);
     setIsWarping(true);
 
-    if (zoomWarpTimeoutRef.current !== null) {
-      window.clearTimeout(zoomWarpTimeoutRef.current);
-    }
+    clearZoomWarpTimeout();
 
     zoomWarpTimeoutRef.current = window.setTimeout(() => {
       setIsWarping(false);
@@ -964,8 +996,7 @@ export const useTimelineViewport = ({
 
     if (isLongTravel) {
       const duration = Math.min(1.2, 0.3 + pixelDist / 4000);
-      setWarpMode("travel");
-      setIsWarping(true);
+      startTravelWarp();
       const travelDirection = eventYear > currentYear ? -1 : 1;
       setWarpDirection(
         orientation === "vertical"
@@ -1629,8 +1660,7 @@ export const useTimelineViewport = ({
       const phase1Duration = duration * 0.7;
       const isWarpingLeft = targetYear > focusYear.get();
 
-      setWarpMode("travel");
-      setIsWarping(true);
+      startTravelWarp();
       const travelDirection = isWarpingLeft ? -1 : 1;
       setWarpDirection(
         orientation === "vertical"
@@ -1787,20 +1817,51 @@ export const useTimelineViewport = ({
     }
 
     const now = performance.now();
-    const prevZoomSample = prevZoomWarpSampleRef.current;
+    const nextZoom = Math.exp(value);
+    const nextCamera: TimelineCameraSample = {
+      panPixel: focusPixel.get() - focusYear.get() * nextZoom * axisDirection,
+      zoom: nextZoom,
+    };
+    // A sample from before the last pause belongs to an earlier gesture, and
+    // whatever panning happened in between would poison the pivot it derives.
+    const prevZoomSample =
+      prevZoomWarpSampleRef.current &&
+      now - prevZoomWarpSampleRef.current.time <= ZOOM_WARP_SAMPLE_STALE_MS
+        ? prevZoomWarpSampleRef.current
+        : null;
+
     if (
       prevZoomSample &&
-      prevZoomSample.time < now &&
-      !(isWarping && warpMode === "travel")
+      Math.abs(value - prevZoomSample.logZoom) >= ZOOM_WARP_MIN_LOG_DELTA
     ) {
-      const delta = value - prevZoomSample.logZoom;
-      const speed = Math.abs(delta) / (now - prevZoomSample.time);
-
-      if (speed >= ZOOM_WARP_SPEED_THRESHOLD) {
-        triggerZoomWarp(delta > 0 ? "zoom-in" : "zoom-out", value);
+      const pivot = resolveZoomFixedPointPixel(
+        prevZoomSample.camera,
+        nextCamera,
+        axisDirection,
+      );
+      // A pivot outside the viewport means the pan is outrunning the zoom by
+      // enough that there is no useful centre on screen; the last one stays.
+      const primarySize = getViewportPrimarySize();
+      if (pivot !== null && pivot >= 0 && pivot <= primarySize) {
+        warpPivot.set(pivot);
       }
+
+      if (!(isWarping && warpMode === "travel")) {
+        triggerZoomWarp(value > prevZoomSample.logZoom ? "zoom-in" : "zoom-out");
+      }
+
+      prevZoomWarpSampleRef.current = {
+        logZoom: value,
+        camera: nextCamera,
+        time: now,
+      };
+    } else if (!prevZoomSample) {
+      prevZoomWarpSampleRef.current = {
+        logZoom: value,
+        camera: nextCamera,
+        time: now,
+      };
     }
-    prevZoomWarpSampleRef.current = { logZoom: value, time: now };
 
     prevLogZoom.current = value;
     scheduleZoomSettle();
@@ -1987,6 +2048,7 @@ export const useTimelineViewport = ({
     isWarping,
     warpMode,
     warpDirection,
+    warpPivot,
     recordRenderFrame,
     handleWheel,
     handlePointerDown,

@@ -1316,6 +1316,48 @@ export const getTimelineLayoutLevels = (viewportHeight: number): number[] =>
 export const getCollapsedGroupOffset = (viewportHeight: number): number =>
   (getTimelineLayoutLevelCount(viewportHeight) + 1) * LAYOUT_ROW_OFFSET;
 
+/**
+ * One frame of the camera, reduced to the map it applies to years.
+ *
+ * `panPixel` is where year 0 lands — `focusPixel - focusYear * zoom *
+ * axisDirection`, the quantity the viewport hook derives as `panX`. Sampling
+ * that rather than the (focusPixel, focusYear) pair it is built from matters:
+ * the wheel handler rewrites both on every event to re-anchor on the pointer,
+ * which does not move the picture at all, and `panPixel` is what stays put.
+ */
+export type TimelineCameraSample = {
+  panPixel: number;
+  zoom: number;
+};
+
+/**
+ * The pixel that does not move between two camera frames — the point the
+ * timeline appears to expand from.
+ *
+ * Zooming and panning at once still reads as a pure zoom about *some* pixel,
+ * and that pixel is generally not the middle of the viewport: the landing
+ * tour's camera expands about a point up to ~90px off centre. Anything drawn
+ * to measure the zoom — the warp overlay's reference rings — has to be centred
+ * there, or its edges slide across the timeline at exactly the pan rate.
+ *
+ * Returns null when the two frames share a zoom, since a pure pan has no fixed
+ * point. Callers should hold their last pivot in that case.
+ */
+export const resolveZoomFixedPointPixel = (
+  previous: TimelineCameraSample,
+  next: TimelineCameraSample,
+  axisDirection: 1 | -1,
+): number | null => {
+  const zoomDelta = previous.zoom - next.zoom;
+  if (!Number.isFinite(zoomDelta) || zoomDelta === 0) return null;
+
+  const fixedYear =
+    (next.panPixel - previous.panPixel) / (zoomDelta * axisDirection);
+  const pixel = next.panPixel + fixedYear * next.zoom * axisDirection;
+
+  return Number.isFinite(pixel) ? pixel : null;
+};
+
 export const areCollapsedGroupsEqual = (
   prevGroups: CollapsedEventGroup[],
   nextGroups: CollapsedEventGroup[],

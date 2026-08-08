@@ -30,7 +30,24 @@ export const ZOOM_SETTLE_DELAY_MS = 140;
  * the eye had landed on the label.
  */
 export const ZOOM_WARP_HIDE_MS = 1600;
-export const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
+/**
+ * Smallest change in logZoom that counts as zooming, for both raising the rings
+ * and re-deriving the pixel they are centred on.
+ *
+ * This used to be a *speed* gate (0.0024 log units per ms), which meant only a
+ * flick showed the rings at all: an ordinary trackpad zoom moves roughly a
+ * third of that, so the one gesture where you actually want to read the scale
+ * never raised them. A magnitude gate matches the landing tour, where the rings
+ * follow the scripted camera however slowly it moves. Scrolling one pixel there
+ * moves logZoom by ~4e-3, so this only ever filters out frames that hold the
+ * zoom still to pan.
+ */
+export const ZOOM_WARP_MIN_LOG_DELTA = 1e-4;
+/**
+ * How long a zoom sample stays usable. Past this the gesture is over, and the
+ * pan that happened since would make nonsense of the pixel derived from it.
+ */
+export const ZOOM_WARP_SAMPLE_STALE_MS = 320;
 export const FPS_SAMPLE_WINDOW_MS = 250;
 
 /**
