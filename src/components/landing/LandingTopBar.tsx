@@ -50,9 +50,9 @@ export function LandingTopBar({ theme, onToggleTheme }: LandingTopBarProps) {
         <span className="landing-brand-title">Time Horizon</span>
         {/* Trailing rather than stacked above: a two-line block in a pill this
             short left the mark floating between lines and squeezed both. */}
-        <span className="landing-topbar-brand-tag ui-kicker" aria-hidden="true">
+        {/* <span className="landing-topbar-brand-tag ui-kicker" aria-hidden="true">
           {t("chronologyEngine")}
-        </span>
+        </span> */}
       </a>
 
       <div className="landing-topbar-actions">

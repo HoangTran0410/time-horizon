@@ -38,7 +38,7 @@ const SEGMENT_VH = 55;
  * never seen standing still. Ending the hold just past the reveal gives it a
  * beat of its own before the journey starts.
  */
-const INTRO_HOLD_VH = 85;
+const INTRO_HOLD_VH = 65;
 
 const TRACK_VH = INTRO_HOLD_VH + LANDING_WAYPOINTS.length * SEGMENT_VH;
 
