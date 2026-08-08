@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-```bash
-npm run dev      # Vite dev server on :3000 (root is src/)
-npm run lint     # tsc --noEmit — the only automated check in the repo
-npm run build    # rm -rf assets && vite build  → emits into the REPO ROOT
-npm run preview  # serve the built output
-```
+Scripts live in `package.json` — read them there. What it can't tell you:
 
-There is no test suite and no ESLint config. `npm run lint` (type-check) is the gate before committing.
+- `npm run lint` (tsc, no ESLint) + `npm test` (vitest) are the gate before committing.
+- `npm run build` emits into the **repo root** and that output is committed (see "Build output is
+  committed" below). `npm run build:pages` emits into gitignored `dist/` for the Pages workflow.
+- Tests are pure-logic only (node environment, no jsdom), colocated as `src/**/*.test.ts`.
+  `vitest.config.ts` is standalone on purpose — `vite.config.ts` sets `root: "src"`, which would
+  wreck include paths and drag the build plugins into unit runs. Browser globals the store touches
+  at import time are stubbed in `src/test/setup.ts`.
 
 ### Data for local dev
 
