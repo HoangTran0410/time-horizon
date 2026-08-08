@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDown,
   ArrowDownUp,
+  MonitorSmartphone,
   ArrowLeftRight,
   ArrowUp,
   ChevronDown,
@@ -30,6 +31,9 @@ interface NavigationPanelProps {
   onAutoFitAll: () => void;
   timelineOrientation: TimelineOrientation;
   onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
+  /** True while orientation follows viewport width instead of the explicit pick. */
+  timelineOrientationAuto: boolean;
+  onTimelineOrientationAutoChange: (auto: boolean) => void;
   verticalWheelBehavior: VerticalWheelBehavior;
   onVerticalWheelBehaviorChange: (behavior: VerticalWheelBehavior) => void;
   verticalTimeDirection: VerticalTimeDirection;
@@ -52,6 +56,8 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   onAutoFitAll,
   timelineOrientation,
   onTimelineOrientationChange,
+  timelineOrientationAuto,
+  onTimelineOrientationAutoChange,
   verticalWheelBehavior,
   onVerticalWheelBehaviorChange,
   verticalTimeDirection,
@@ -181,7 +187,18 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
               {t("timelineOrientationHelp")}
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {/* Auto is its own choice rather than a checkbox: without it,
+                  picking an orientation once would latch auto off for good. */}
+              <button
+                type="button"
+                className="ui-tab"
+                data-active={timelineOrientationAuto}
+                onClick={() => onTimelineOrientationAutoChange(true)}
+              >
+                <MonitorSmartphone size={15} className="icon" />{" "}
+                {t("orientationAuto")}
+              </button>
               {(
                 [
                   {
@@ -198,13 +215,23 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   key={orientation}
                   type="button"
                   className="ui-tab"
-                  data-active={timelineOrientation === orientation}
+                  data-active={
+                    !timelineOrientationAuto &&
+                    timelineOrientation === orientation
+                  }
                   onClick={() => onTimelineOrientationChange(orientation)}
                 >
                   {icon} {t(orientation)}
                 </button>
               ))}
             </div>
+            {timelineOrientationAuto ? (
+              <p className="mt-2 text-[0.7rem] leading-5 text-zinc-500">
+                {t("orientationAutoActive", {
+                  orientation: t(timelineOrientation),
+                })}
+              </p>
+            ) : null}
             <AnimatePresence initial={false}>
               {timelineOrientation === "vertical" ? (
                 <motion.div

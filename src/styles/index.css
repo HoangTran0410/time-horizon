@@ -462,6 +462,49 @@ select {
   box-shadow: 0 22px 52px rgba(126, 86, 38, 0.32);
 }
 
+/* The shared `--ui-*-05/10/15` tints are tuned for panels sitting on a dark
+   field; at those alphas on the light theme's warm beige they wash out to
+   nothing, leaving the landing page looking like a blank sheet. The landing
+   background is one large field rather than a small panel, so it gets its own
+   stronger, warmer wash. */
+:root[data-theme="light"] .landing-shell {
+  background:
+    /* Corner falloff first, so the washes below read as light rather than
+       as flat panels of colour. */
+    radial-gradient(
+      ellipse 120% 80% at 50% 40%,
+      transparent 40%,
+      rgba(120, 110, 96, 0.16) 100%
+    ),
+    radial-gradient(
+      circle at 14% 16%,
+      rgba(77, 155, 139, 0.3) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 86% 10%,
+      rgba(196, 124, 48, 0.26) 0%,
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 50% 98%,
+      rgba(77, 155, 139, 0.22) 0%,
+      transparent 46%
+    ),
+    var(--app-bg-image);
+}
+
+:root[data-theme="light"] .landing-stage-scrim {
+  background:
+    linear-gradient(180deg, rgba(243, 239, 232, 0.82) 0%, transparent 42%),
+    linear-gradient(0deg, rgba(243, 239, 232, 0.82) 0%, transparent 34%);
+}
+
+:root[data-theme="light"] .landing-topbar-brand,
+:root[data-theme="light"] .landing-topbar-actions {
+  background: rgba(250, 247, 242, 0.78);
+}
+
 :root[data-theme="light"] .landing-primary-button {
   --ui-amber-500: #c47c30;
   --ui-border-amber-400-60: rgba(183, 112, 40, 0.5);
@@ -528,6 +571,86 @@ select {
   margin: 0.8rem 0 0;
   color: var(--ui-zinc-400);
   line-height: 1.7;
+}
+
+.landing-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Above the sticky stage and every section below it. */
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  pointer-events: none;
+}
+
+/* Only the controls themselves take pointer events — the bar spans the full
+   width and would otherwise swallow clicks across the top of the page. */
+.landing-topbar-brand,
+.landing-topbar-actions {
+  pointer-events: auto;
+}
+
+.landing-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-zinc-800-50);
+  background: var(--ui-zinc-950-70);
+  backdrop-filter: blur(10px);
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-topbar-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.landing-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-zinc-800-50);
+  background: var(--ui-zinc-950-70);
+  backdrop-filter: blur(10px);
+}
+
+/* Hidden until the visitor is far enough down for it to mean anything. */
+.landing-topbar-totop {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.85);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms;
+}
+
+.landing-topbar-totop.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+
+@media (max-width: 640px) {
+  .landing-topbar {
+    padding: 0.6rem 0.75rem;
+  }
+
+  /* The kicker above the wordmark is the first thing to go when space is tight. */
+  .landing-topbar-brand-text .ui-kicker {
+    display: none;
+  }
 }
 
 .landing-scroll-track {

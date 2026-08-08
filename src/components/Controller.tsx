@@ -42,6 +42,8 @@ interface ControllerProps {
   onCloseSelectedEvent: () => void;
   onStartAddEvent: () => void;
   timelineOrientation: TimelineOrientation;
+  timelineOrientationAuto: boolean;
+  onTimelineOrientationAutoChange: (auto: boolean) => void;
   onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
   verticalWheelBehavior: VerticalWheelBehavior;
   onVerticalWheelBehaviorChange: (behavior: VerticalWheelBehavior) => void;
@@ -76,6 +78,8 @@ export const Controller: React.FC<ControllerProps> = ({
   onCloseSelectedEvent,
   onStartAddEvent,
   timelineOrientation,
+  timelineOrientationAuto,
+  onTimelineOrientationAutoChange,
   onTimelineOrientationChange,
   verticalWheelBehavior,
   onVerticalWheelBehaviorChange,
@@ -220,6 +224,10 @@ export const Controller: React.FC<ControllerProps> = ({
                     onAutoFitRange={onAutoFitRange}
                     onAutoFitAll={onAutoFitAll}
                     timelineOrientation={timelineOrientation}
+                    timelineOrientationAuto={timelineOrientationAuto}
+                    onTimelineOrientationAutoChange={
+                      onTimelineOrientationAutoChange
+                    }
                     onTimelineOrientationChange={onTimelineOrientationChange}
                     verticalWheelBehavior={verticalWheelBehavior}
                     onVerticalWheelBehaviorChange={

@@ -37,6 +37,7 @@ import {
 import { getLocalizedEventTitle } from "../helpers/localization";
 import { exportCollectionToCsv, parseCsvEvents } from "../helpers/csv";
 import { useI18n } from "../i18n";
+import { useAutoTimelineOrientation } from "../hooks/useAutoTimelineOrientation";
 import { useTimelineCollections } from "../hooks/useTimelineCollections";
 import { useTimelineShareUrl } from "../hooks/useTimelineShareUrl";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
@@ -138,6 +139,8 @@ export const Timeline = ({
   const savedFocusYear = useStore((s) => s.savedFocusYear);
   const savedLogZoom = useStore((s) => s.savedLogZoom);
   const timelineOrientation = useStore((s) => s.timelineOrientation);
+  const timelineOrientationAuto = useStore((s) => s.timelineOrientationAuto);
+  const autoTimelineOrientation = useAutoTimelineOrientation();
   const verticalWheelBehavior = useStore((s) => s.verticalWheelBehavior);
   const verticalTimeDirection = useStore((s) => s.verticalTimeDirection);
   const spatialMapping = useStore((s) => s.spatialMapping);
@@ -156,6 +159,9 @@ export const Timeline = ({
   const reopenMobileInfoPanel = useStore((s) => s.reopenMobileInfoPanel);
   const setSavedViewport = useStore((s) => s.setSavedViewport);
   const setTimelineOrientation = useStore((s) => s.setTimelineOrientation);
+  const setTimelineOrientationAuto = useStore(
+    (s) => s.setTimelineOrientationAuto,
+  );
   const setVerticalWheelBehavior = useStore((s) => s.setVerticalWheelBehavior);
   const setVerticalTimeDirection = useStore((s) => s.setVerticalTimeDirection);
   const setSpatialMapping = useStore((s) => s.setSpatialMapping);
@@ -303,7 +309,9 @@ export const Timeline = ({
     sharedLogZoom !== null ||
     sharedOrientation !== null ||
     sharedSpatialMapping !== null;
-  const effectiveTimelineOrientation = timelineOrientation;
+  const effectiveTimelineOrientation = timelineOrientationAuto
+    ? autoTimelineOrientation
+    : timelineOrientation;
   const hasGoogleClientId = GOOGLE_CLIENT_ID.trim().length > 0;
   const googleClientId = GOOGLE_CLIENT_ID.trim();
   const hasPendingSyncableChanges = useMemo(
@@ -1542,6 +1550,8 @@ export const Timeline = ({
           onStartAddEvent={() => handleStartAddEvent()}
           timelineOrientation={effectiveTimelineOrientation}
           onTimelineOrientationChange={setTimelineOrientation}
+          timelineOrientationAuto={timelineOrientationAuto}
+          onTimelineOrientationAutoChange={setTimelineOrientationAuto}
           verticalWheelBehavior={verticalWheelBehavior}
           onVerticalWheelBehaviorChange={setVerticalWheelBehavior}
           verticalTimeDirection={verticalTimeDirection}

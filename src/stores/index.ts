@@ -99,6 +99,13 @@ type TimelineStoreState = {
   mobileInfoPanelReopenFlag: number;
   navigationPanelTab: NavigationPanelTab;
   timelineOrientation: TimelineOrientation;
+  /**
+   * When true the effective orientation follows viewport width instead of
+   * `timelineOrientation` — narrow screens get vertical, where a whole run of
+   * events is readable, rather than horizontal where only a couple fit.
+   * Picking an orientation by hand latches this off.
+   */
+  timelineOrientationAuto: boolean;
   verticalWheelBehavior: VerticalWheelBehavior;
   verticalTimeDirection: VerticalTimeDirection;
   savedFocusYear: number | null;
@@ -196,6 +203,7 @@ type TimelineStoreState = {
   reopenMobileInfoPanel: () => void;
   setNavigationPanelTab: (tab: NavigationPanelTab) => void;
   setTimelineOrientation: (orientation: TimelineOrientation) => void;
+  setTimelineOrientationAuto: (auto: boolean) => void;
   setVerticalWheelBehavior: (behavior: VerticalWheelBehavior) => void;
   setVerticalTimeDirection: (direction: VerticalTimeDirection) => void;
   setSavedViewport: (focusYear: number, logZoom: number) => void;
@@ -299,6 +307,7 @@ type TimelinePersistedState = Pick<
   | "selectedEventId"
   | "navigationPanelTab"
   | "timelineOrientation"
+  | "timelineOrientationAuto"
   | "verticalWheelBehavior"
   | "verticalTimeDirection"
   | "savedFocusYear"
@@ -1068,6 +1077,12 @@ const sanitizePersistedTimelineState = (
     timelineOrientation: sanitizeTimelineOrientation(
       (candidate as { timelineOrientation?: unknown }).timelineOrientation,
     ),
+    timelineOrientationAuto:
+      typeof (candidate as { timelineOrientationAuto?: unknown })
+        .timelineOrientationAuto === "boolean"
+        ? (candidate as { timelineOrientationAuto: boolean })
+            .timelineOrientationAuto
+        : undefined,
     verticalWheelBehavior: sanitizeVerticalWheelBehavior(
       (candidate as { verticalWheelBehavior?: unknown }).verticalWheelBehavior,
     ),
@@ -1676,6 +1691,7 @@ export const useStore = create<TimelineStoreState>()(
           mobileInfoPanelReopenFlag: 0,
         navigationPanelTab: "goto",
         timelineOrientation: "horizontal",
+        timelineOrientationAuto: true,
         verticalWheelBehavior: "pan",
         verticalTimeDirection: "down",
         savedFocusYear: null,
@@ -2494,9 +2510,16 @@ export const useStore = create<TimelineStoreState>()(
             set({
               navigationPanelTab: tab,
             }),
+          // An explicit choice latches auto off — otherwise the next resize
+          // would immediately overrule what the user just picked.
           setTimelineOrientation: (timelineOrientation) =>
             set({
               timelineOrientation,
+              timelineOrientationAuto: false,
+            }),
+          setTimelineOrientationAuto: (timelineOrientationAuto) =>
+            set({
+              timelineOrientationAuto,
             }),
         setVerticalWheelBehavior: (verticalWheelBehavior) =>
           set({
@@ -2668,6 +2691,7 @@ export const useStore = create<TimelineStoreState>()(
           selectedEventId: state.selectedEventId,
         navigationPanelTab: state.navigationPanelTab,
         timelineOrientation: state.timelineOrientation,
+        timelineOrientationAuto: state.timelineOrientationAuto,
         verticalWheelBehavior: state.verticalWheelBehavior,
         verticalTimeDirection: state.verticalTimeDirection,
         savedFocusYear: state.savedFocusYear,

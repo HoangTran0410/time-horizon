@@ -19,10 +19,21 @@ export type LandingWaypoint = LandingCameraWaypoint & {
 };
 
 /**
- * logZoom values are hand-tuned so each stop frames its moment: roughly
- * -18 shows all of cosmic time, and -2 is close enough to read single years.
- * They must stay inside [ln(MIN_ZOOM), ln(MAX_ZOOM)] — landingWaypoints.test.ts
- * enforces that.
+ * Each `logZoom` is derived from the span that stop should frame, not picked by
+ * eye: `logZoom = ln(viewportPx / visibleYears)` against a ~1440px reference.
+ *
+ *   Big Bang    18e9 yrs    First stars 6e9     Earth      3e9
+ *   First life  1.5e9       Cambrian    4e8     Asteroid   1e8
+ *   Sapiens     1e6         Writing     2e4     Moon       300      Now  120
+ *
+ * The earlier hand-picked values sat near `MIN_ZOOM`, framing ~128 billion
+ * years when the content only spans 13.8 — so every recent event collapsed into
+ * a few pixels at the right edge with its label clipped. Deriving from a target
+ * span keeps each stop's neighbours legible and pushes far-future events off
+ * screen instead of stacking them on the margin.
+ *
+ * Values must stay inside [ln(MIN_ZOOM), ln(MAX_ZOOM)] and stay strictly
+ * increasing — landingWaypoints.test.ts enforces both.
  *
  * Priority descends strictly from 100 (Big Bang) to 55 (Now) so that when
  * waypoints collide at maximum zoom-out (all events pile into a few pixels),
@@ -34,7 +45,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-big-bang",
     year: -13.8e9,
-    logZoom: -18.3,
+    logZoom: -16.34,
     titleKey: "landingWpBigBangTitle",
     captionKey: "landingWpBigBangCaption",
     timeLabelKey: "landingTimeBigBang",
@@ -44,7 +55,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-first-stars",
     year: -13.4e9,
-    logZoom: -17.6,
+    logZoom: -15.24,
     titleKey: "landingWpFirstStarsTitle",
     captionKey: "landingWpFirstStarsCaption",
     timeLabelKey: "landingTimeFirstStars",
@@ -54,7 +65,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-earth",
     year: -4.54e9,
-    logZoom: -16.4,
+    logZoom: -14.55,
     titleKey: "landingWpEarthTitle",
     captionKey: "landingWpEarthCaption",
     timeLabelKey: "landingTimeEarth",
@@ -64,7 +75,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-first-life",
     year: -3.7e9,
-    logZoom: -15.6,
+    logZoom: -13.86,
     titleKey: "landingWpLifeTitle",
     captionKey: "landingWpLifeCaption",
     timeLabelKey: "landingTimeLife",
@@ -74,7 +85,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-cambrian",
     year: -541e6,
-    logZoom: -13.4,
+    logZoom: -12.53,
     titleKey: "landingWpCambrianTitle",
     captionKey: "landingWpCambrianCaption",
     timeLabelKey: "landingTimeCambrian",
@@ -84,7 +95,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-asteroid",
     year: -66e6,
-    logZoom: -11.4,
+    logZoom: -11.15,
     titleKey: "landingWpAsteroidTitle",
     captionKey: "landingWpAsteroidCaption",
     timeLabelKey: "landingTimeAsteroid",
@@ -94,7 +105,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-sapiens",
     year: -300000,
-    logZoom: -7.2,
+    logZoom: -6.54,
     titleKey: "landingWpSapiensTitle",
     captionKey: "landingWpSapiensCaption",
     timeLabelKey: "landingTimeSapiens",
@@ -104,7 +115,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-writing",
     year: -3200,
-    logZoom: -4.6,
+    logZoom: -2.63,
     titleKey: "landingWpWritingTitle",
     captionKey: "landingWpWritingCaption",
     timeLabelKey: "landingTimeWriting",
@@ -114,7 +125,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-moon",
     year: 1969,
-    logZoom: -2.6,
+    logZoom: 1.57,
     titleKey: "landingWpMoonTitle",
     captionKey: "landingWpMoonCaption",
     timeLabelKey: "landingTimeMoon",
@@ -124,7 +135,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-now",
     year: new Date().getUTCFullYear(),
-    logZoom: -1.8,
+    logZoom: 2.48,
     titleKey: "landingWpNowTitle",
     captionKey: "landingWpNowCaption",
     timeLabelKey: "landingTimeNow",

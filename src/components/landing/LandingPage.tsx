@@ -5,6 +5,7 @@ import { LandingCta } from "./LandingCta";
 import { LandingFeatureBlocks } from "./LandingFeatureBlocks";
 import { LandingFooter } from "./LandingFooter";
 import { LandingScrollStage } from "./LandingScrollStage";
+import { LandingTopBar } from "./LandingTopBar";
 
 type LandingPageProps = {
   theme: ThemeMode;
@@ -27,6 +28,8 @@ export function LandingPage({
       <div className="landing-orbit landing-orbit-right" aria-hidden="true" />
       <div className="landing-noise absolute inset-0" aria-hidden="true" />
 
+      <LandingTopBar theme={theme} onToggleTheme={onToggleTheme} />
+
       <div className="relative z-10">
         <LandingScrollStage
           theme={theme}
@@ -39,7 +42,7 @@ export function LandingPage({
           onOpenCollection={onOpenCollection}
         />
         <LandingCta onEnterTimeline={onEnterTimeline} />
-        <LandingFooter theme={theme} onToggleTheme={onToggleTheme} />
+        <LandingFooter />
       </div>
     </div>
   );

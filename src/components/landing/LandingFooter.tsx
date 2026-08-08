@@ -1,16 +1,13 @@
-import { MoonStar, SunMedium } from "lucide-react";
-import type { ThemeMode } from "../../constants/theme";
-import { LanguagePickerButton } from "../LanguagePickerButton";
+import { MoonStar } from "lucide-react";
 import { useI18n } from "../../i18n";
 
-type LandingFooterProps = {
-  theme: ThemeMode;
-  onToggleTheme: () => void;
-};
-
-export function LandingFooter({ theme, onToggleTheme }: LandingFooterProps) {
+/**
+ * Language and theme controls deliberately live in `LandingTopBar`, not here —
+ * a visitor should not have to reach the bottom of a five-section page to find
+ * them.
+ */
+export function LandingFooter() {
   const { t } = useI18n();
-  const ThemeIcon = theme === "dark" ? SunMedium : MoonStar;
 
   return (
     <footer className="landing-footer">
@@ -38,24 +35,6 @@ export function LandingFooter({ theme, onToggleTheme }: LandingFooterProps) {
         <a href="./privacy.html">{t("landingFooterPrivacy")}</a>
         <a href="./terms.html">{t("landingFooterTerms")}</a>
       </nav>
-
-      <div className="landing-footer-actions">
-        <LanguagePickerButton
-          buttonClassName="landing-theme-button landing-theme-button-icon font-mono text-[0.72rem] font-semibold uppercase tracking-[0.16em]"
-          textClassName="leading-none"
-        />
-        <button
-          type="button"
-          className="landing-theme-button landing-theme-button-icon"
-          onClick={onToggleTheme}
-          aria-label={
-            theme === "dark" ? t("switchToLightTheme") : t("switchToDarkTheme")
-          }
-          title={theme === "dark" ? t("lightMode") : t("darkMode")}
-        >
-          <ThemeIcon size={18} strokeWidth={1.9} />
-        </button>
-      </div>
     </footer>
   );
 }

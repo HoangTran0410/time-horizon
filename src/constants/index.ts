@@ -33,6 +33,14 @@ export const ZOOM_WARP_HIDE_MS = 1600;
 export const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
 export const FPS_SAMPLE_WINDOW_MS = 250;
 
+/**
+ * Below this viewport width the timeline auto-switches to vertical (unless the
+ * user has picked an orientation by hand). A horizontal axis on a phone fits
+ * only a couple of event cards before they collapse into clusters; vertical
+ * gives a whole run of them at once.
+ */
+export const TIMELINE_VERTICAL_MAX_WIDTH_PX = 768;
+
 export const MIN_ZOOM = 100 / 13.8e9;
 
 const SECOND_IN_YEARS = 1 / (365.25 * 24 * 60 * 60);
