@@ -1,79 +1,108 @@
-# Time Horizon 🌌
+<div align="center">
 
-### Explore 13.8 billion years of history — from the Big Bang to your own lifetime. 🚀
+# Time Horizon
 
-Time Horizon is an interactive, zoomable timeline visualization that lets you navigate the full sweep of cosmic and human history on a single, fluid canvas. Zoom from galactic timescales to a single afternoon. Layer timelines of empires, scientists, religions, and inventions side by side. Share any view with a single URL. ✨
+### One timeline. 13.8 billion years. Down to a single second.
 
----
+Scroll from the Big Bang to this afternoon on one continuous canvas — no page breaks,
+no scale switches, no reloading. Stack the Roman Empire, the history of paper, and the
+Cambrian explosion on the same axis and watch where they land.
 
-## Who is it for? 🎯
+**[→ Open the timeline](https://hoangtran99.is-a.dev/time-horizon/)**
 
-- **Curious learners** 📚 who want to feel the scale of history — from cosmic origins to modern day
-- **Educators and presenters** 🧑‍🏫 who need a visual, shareable timeline for teaching
-- **Writers, researchers, and thinkers** 🧠 building mental models of cause and effect across time
-- **Anyone** 🌐 who has ever wondered where a specific event fits in the grand scheme of things
+[![Deploy](https://github.com/HoangTran0410/time-horizon/actions/workflows/deploy.yml/badge.svg)](https://github.com/HoangTran0410/time-horizon/actions/workflows/deploy.yml)
+![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+![No backend](https://img.shields.io/badge/backend-none-1f6f5c)
+![MIT](https://img.shields.io/badge/license-MIT-blue)
 
----
+<img src=".github/readme/timeline.jpg" alt="Five collections layered on one timeline around the fall of Rome" width="100%">
 
-## Features ⚡
-
-| Feature | Description |
-|---|---|
-| 🔭 **Infinite Zoom** | Pan and zoom across **13.8 billion years** with smooth inertia. A scroll of the mouse wheel takes you from the Big Bang to the Information Age in seconds. |
-| 📂 **Multi-Layer Timeline** | Load multiple collections onto the same canvas. See the Bronze Age, the Buddha, and the Industrial Revolution all at once — or one at a time. |
-| 🎯 **Focus Mode** | When you zoom in on a specific year, nearby events stay dimly visible so you never lose context. |
-| 🔍 **Search & Filter** | Full-text search across all loaded events. Filter by collection or year range. |
-| 🔗 **Shareable URLs** | Every view — your current year, zoom level, visible collections — is encoded in the URL. Paste it to a friend and they land on the exact same moment. |
-| ✏️ **Event Detail & Custom Events** | Click any event to see its full description, link, image, and video. Add and edit your own custom events. |
-| 🗂️ **Custom Events & Collections** | Create your own events and collections from scratch. Import from JSON, build your own timelines — it's all yours. |
-| 🌙 **Dark & Light Themes** | Toggle between a deep-space dark theme and a clean light theme. Persisted across sessions. |
-| 📱💻 **Responsive** | Works on both desktop and mobile with dedicated layouts for each. |
+</div>
 
 ---
 
-## Tech Stack 🛠️
+## Why it feels different
 
-| Layer | Technology |
-|---|---|
-| Framework | React 19 + TypeScript |
-| Bundler | Vite 6 |
-| Styling | Tailwind CSS v4 |
-| Animation | Framer Motion 12 |
-| State | Zustand 5 (localStorage persistence) |
-| Icons | Lucide React |
-| Code Editor (event JSON) | Monaco Editor |
-| Emoji Picker | emoji-picker-react |
+Most timelines are pictures of time. This one is a **camera flying through it**.
 
----
+The whole view is two numbers — the year at the centre of the screen and the log of
+pixels-per-year — and every gesture just moves them. Because zoom lives in log space, a
+single flick of the wheel can cross nine orders of magnitude without ever changing
+mode, breaking the layout, or asking you which "era" you'd like to see.
 
-## Getting Started 🚀
+Zoom far enough out and 300,000 years of human history collapses into one pixel. Zoom
+in and it unfolds again, event by event, with concentric rings marking the scale you're
+standing in.
+
+<img src=".github/readme/timeline-zoom.jpg" alt="Zoomed to a 120-year window, with reference rings showing 5, 10 and 50 year scales" width="100%">
+
+## What you can do with it
+
+- **Fly across 13.8 billion years** — wheel, drag, pinch, or jump straight to a date.
+  Everything is rendered to a single canvas, so density never costs you frames.
+- **Layer collections** — cosmology, empires, inventions, art, religion, Vietnamese
+  school history. Turn them on together and compare, or keep one at a time.
+- **Put history on a map** — spatial mode anchors events to real coordinates and drifts
+  the map as you travel through time.
+- **Bring your own** — create events and collections, import JSON or CSV, edit anything,
+  and sync it to your own Google Drive. Your data never touches a server we run,
+  because there isn't one.
+- **Share the exact view** — the year, the zoom, the visible collections and the focused
+  event all live in the URL. Paste it and the other person lands on the same frame.
+- **Read it in your language** — full Vietnamese and English, for both the interface and
+  the event content itself.
+
+<img src=".github/readme/landing-hero.jpg" alt="The Time Horizon landing page" width="100%">
+
+## Run it locally
+
+Collection data lives in a **separate repository**, mounted here as a submodule.
 
 ```bash
+git clone https://github.com/HoangTran0410/time-horizon.git
+cd time-horizon
 npm install
-npm run dev      # Start dev server on port 3000
-npm run build    # Production build
-npm run preview  # Preview production build
-npm run lint     # Type-check only
+git submodule update --init   # populates data/
+
+node data/server.cjs          # CORS static server for the data, on :5500
+npm run dev                   # app on :3000
 ```
 
----
+Both need to be running: without the data server on `:5500` the catalog comes up empty.
 
-## Project Structure 📁
-
-```
-src/
-├── components/     # 25+ React components (Timeline, EventEditor, Search, etc.)
-├── hooks/          # useTimelineViewport (pan/zoom engine), useTimelineShareUrl
-├── stores/         # Single Zustand store for all app state
-└── index.html      # Dev entry point
-
-data/
-├── collections/           # Built-in JSON collections
-└── collections-metadata.json  # Collection catalog index
+```bash
+npm run lint     # tsc, no ESLint
+npm test         # vitest
+npm run build    # production build into dist/
 ```
 
----
+## How it is built
 
-## License 📄
+No backend, no database, no accounts. Everything runs in the browser and persists to
+`localStorage`, with optional Google Drive sync using a `drive.file` scope — the app can
+only ever see the files it created.
+
+| | |
+|---|---|
+| **UI** | React 19 · TypeScript · Tailwind v4 · `motion` |
+| **Build** | Vite 6 → GitHub Pages and Cloudflare Pages |
+| **State** | one Zustand store, `immer` + `persist`, with every rehydrated field re-validated |
+| **Rendering** | the timeline is drawn to a single `<canvas>` with manual hit-testing; React DOM handles only the panels around it |
+| **Camera** | `focusYear` + `logZoom` as motion values; ticks, layout and clustering run inside rAF, outside React rendering |
+| **Maps** | maplibre-gl, lazily loaded so it stays off the main chunk |
+
+Working on the code? [`CLAUDE.md`](CLAUDE.md) is the architecture guide — the store
+layout, the event identity rules, the viewport engine, and the traps worth knowing
+about before you touch them.
+
+## Data
+
+Collections live in **[time-horizon-data](https://github.com/HoangTran0410/time-horizon-data)**
+as plain JSON, one file per collection plus a metadata index. Adding history is a pull
+request against that repo — no build step, no code change here.
+
+## License
 
 MIT

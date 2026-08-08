@@ -9,6 +9,7 @@ import {
 } from "motion/react";
 import { ThemeMode } from "../constants/theme";
 import { TimelineOrientation, WarpOverlayMode } from "../constants/types";
+import { useI18n, type MessageParams } from "../i18n";
 
 const MIN_RING_DIAMETER = 12;
 const RING_FADE_IN_START = 10;
@@ -42,21 +43,37 @@ const REFERENCE_RING_INTERVALS = [
   1e10,
 ] as const;
 
-const formatRingTimespan = (years: number): string => {
+/**
+ * The scale a ring stands for.
+ *
+ * Each bucket is a whole translated string with a `{value}` slot rather than a
+ * number plus a unit word: English wants "1.0B yrs" with the magnitude glued to
+ * the digits, Vietnamese wants "1,0 tỷ năm" with it spelled out and spaced. The
+ * spacing belongs to the language, so it lives in the translation.
+ */
+const formatRingTimespan = (
+  years: number,
+  t: (key: string, params?: MessageParams) => string,
+): string => {
   if (years >= 1e9)
-    return `${(years / 1e9).toFixed(years >= 1e10 ? 0 : 1)}B yrs`;
+    return t("ringSpanBillionYears", {
+      value: (years / 1e9).toFixed(years >= 1e10 ? 0 : 1),
+    });
   if (years >= 1e6)
-    return `${(years / 1e6).toFixed(years >= 1e7 ? 0 : 1)}M yrs`;
+    return t("ringSpanMillionYears", {
+      value: (years / 1e6).toFixed(years >= 1e7 ? 0 : 1),
+    });
   if (years >= 1e3)
-    return `${(years / 1e3).toFixed(years >= 1e4 ? 0 : 1)}K yrs`;
-  if (years >= 1) return `${years.toFixed(0)} yrs`;
-  if (years >= 1 / 12) {
-    const months = years * 12;
-    return `${months.toFixed(0)} mo`;
-  }
+    return t("ringSpanThousandYears", {
+      value: (years / 1e3).toFixed(years >= 1e4 ? 0 : 1),
+    });
+  if (years >= 1) return t("ringSpanYears", { value: years.toFixed(0) });
+  if (years >= 1 / 12)
+    return t("ringSpanMonths", { value: (years * 12).toFixed(0) });
+
   const days = years * 365.25;
-  if (days >= 1) return `${days.toFixed(0)} d`;
-  return `${(days * 24).toFixed(0)} h`;
+  if (days >= 1) return t("ringSpanDays", { value: days.toFixed(0) });
+  return t("ringSpanHours", { value: (days * 24).toFixed(0) });
 };
 
 const areIntervalsEqual = (prev: number[], next: number[]) =>
@@ -111,6 +128,7 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
   index,
   theme,
 }) => {
+  const { t } = useI18n();
   const diameter = useTransform(() => intervalYears * zoom.get());
   const opacity = useTransform(() => {
     const nextDiameter = intervalYears * zoom.get();
@@ -158,7 +176,7 @@ const ZoomReferenceRing: React.FC<ZoomReferenceRingProps> = ({
               : "rgba(148,163,184,0.72)",
         }}
       >
-        {formatRingTimespan(intervalYears)}
+        {formatRingTimespan(intervalYears, t)}
       </motion.div>
     </motion.div>
   );

@@ -437,5 +437,12 @@
   "landingFooterData": "Collection data",
   "landingFooterSource": "Source on GitHub",
   "landingFooterPrivacy": "Privacy",
-  "landingFooterTerms": "Terms"
+  "landingFooterTerms": "Terms",
+  "ringSpanBillionYears": "{value}B yrs",
+  "ringSpanMillionYears": "{value}M yrs",
+  "ringSpanThousandYears": "{value}K yrs",
+  "ringSpanYears": "{value} yrs",
+  "ringSpanMonths": "{value} mo",
+  "ringSpanDays": "{value} d",
+  "ringSpanHours": "{value} h"
 }

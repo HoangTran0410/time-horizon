@@ -437,5 +437,12 @@
   "landingFooterData": "Dữ liệu bộ sưu tập",
   "landingFooterSource": "Mã nguồn trên GitHub",
   "landingFooterPrivacy": "Quyền riêng tư",
-  "landingFooterTerms": "Điều khoản"
+  "landingFooterTerms": "Điều khoản",
+  "ringSpanBillionYears": "{value} tỷ năm",
+  "ringSpanMillionYears": "{value} triệu năm",
+  "ringSpanThousandYears": "{value} nghìn năm",
+  "ringSpanYears": "{value} năm",
+  "ringSpanMonths": "{value} tháng",
+  "ringSpanDays": "{value} ngày",
+  "ringSpanHours": "{value} giờ"
 }
