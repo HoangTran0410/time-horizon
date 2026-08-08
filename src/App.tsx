@@ -125,9 +125,17 @@ export default function App() {
   const handleOpenCollection = (collectionId: string) => {
     const state = useStore.getState();
     void state.downloadCollection(collectionId).then((ok) => {
+      const next = useStore.getState();
       if (ok) {
-        useStore.getState().setCollectionVisibility(collectionId, true);
+        next.setCollectionVisibility(collectionId, true);
+        return;
       }
+      // The app has no global toast, and every other downloadCollection call
+      // site ignores the result outright. The least-invasive way to stop the
+      // user staring at a timeline that silently lacks what they clicked is to
+      // drop them into the Explore panel, where the collection still shows its
+      // Download button and can be retried.
+      next.openSidebarExplore();
     });
     clearTimelineView();
     setView("timeline");
