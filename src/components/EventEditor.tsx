@@ -940,9 +940,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.85fr)]">
             <div className="space-y-4">
-              {/* Emoji and colour sit on the title row rather than owning a
-                  labelled row each — they are one-tap choices, not fields. */}
-              <section className="space-y-2">
+              {/* Emoji and colour share one row rather than owning a labelled
+                  row each — they are one-tap choices, not fields. The title's
+                  own label used to ride along here, which left it hanging
+                  beside two swatch buttons a row above the input it names. */}
+              <section className="space-y-3">
                 <div className="flex items-end gap-2">
                   <div className="relative shrink-0">
                     <span className={TIME_SUBLABEL_CLASS}>{t("icon")}</span>
@@ -1039,66 +1041,70 @@ export const EventEditor: React.FC<EventEditorProps> = ({
                       </div>
                     )}
                   </div>
-
-                  <label className="ui-label mb-0 min-w-0 flex-1 truncate">
-                    {t("title")} *
-                  </label>
-
-                  {missingLanguages.map((option) => (
-                    <button
-                      key={`add-language-${option.value}`}
-                      type="button"
-                      onClick={() => handleAddLanguageVariant(option.value)}
-                      className="ui-chip shrink-0 px-2.5 py-1"
-                      title={t("addLanguageVariant")}
-                    >
-                      <span aria-hidden="true">{option.flag}</span>
-                      <span>+ {option.shortLabel}</span>
-                    </button>
-                  ))}
                 </div>
 
                 <div className="space-y-2">
-                  {visibleLanguages.map((visibleLanguage) => {
-                    const option = LANGUAGE_OPTIONS.find(
-                      (languageOption) =>
-                        languageOption.value === visibleLanguage,
-                    );
-                    if (!option) return null;
+                  <div className="flex items-center gap-2">
+                    <label className="ui-label mb-0 min-w-0 flex-1 truncate">
+                      {t("title")} *
+                    </label>
 
-                    return (
-                      <div key={`title-${option.value}`} className="space-y-1">
-                        {/* A single-language event needs no label at all — the
-                            badge row only earns its space once there are two. */}
-                        {visibleLanguages.length > 1 &&
-                          renderLanguageBadge(option)}
-                        <input
-                          type="text"
-                          value={titleDraft[option.value]}
-                          onChange={handleLocalizedFieldChange(
-                            "title",
-                            option.value,
-                          )}
-                          onKeyDown={stopEditorShortcutPropagation}
-                          ref={
-                            visibleLanguage === visibleLanguages[0]
-                              ? firstTitleInputRef
-                              : undefined
-                          }
-                          autoFocus={
-                            mode === "create" &&
-                            visibleLanguage === visibleLanguages[0]
-                          }
-                          /* The language is already spelled out by the badge
-                             above, so the placeholder is free to say what a
-                             good value looks like instead of echoing the
-                             label back at you. */
-                          placeholder={t("titlePlaceholder")}
-                          className="ui-field"
-                        />
-                      </div>
-                    );
-                  })}
+                    {missingLanguages.map((option) => (
+                      <button
+                        key={`add-language-${option.value}`}
+                        type="button"
+                        onClick={() => handleAddLanguageVariant(option.value)}
+                        className="ui-chip shrink-0 px-2.5 py-1"
+                        title={t("addLanguageVariant")}
+                      >
+                        <span aria-hidden="true">{option.flag}</span>
+                        <span>+ {option.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    {visibleLanguages.map((visibleLanguage) => {
+                      const option = LANGUAGE_OPTIONS.find(
+                        (languageOption) =>
+                          languageOption.value === visibleLanguage,
+                      );
+                      if (!option) return null;
+
+                      return (
+                        <div key={`title-${option.value}`} className="space-y-1">
+                          {/* A single-language event needs no label at all — the
+                              badge row only earns its space once there are two. */}
+                          {visibleLanguages.length > 1 &&
+                            renderLanguageBadge(option)}
+                          <input
+                            type="text"
+                            value={titleDraft[option.value]}
+                            onChange={handleLocalizedFieldChange(
+                              "title",
+                              option.value,
+                            )}
+                            onKeyDown={stopEditorShortcutPropagation}
+                            ref={
+                              visibleLanguage === visibleLanguages[0]
+                                ? firstTitleInputRef
+                                : undefined
+                            }
+                            autoFocus={
+                              mode === "create" &&
+                              visibleLanguage === visibleLanguages[0]
+                            }
+                            /* The language is already spelled out by the badge
+                               above, so the placeholder is free to say what a
+                               good value looks like instead of echoing the
+                               label back at you. */
+                            placeholder={t("titlePlaceholder")}
+                            className="ui-field"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </section>
 
@@ -1308,17 +1314,20 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           </div>
         </div>
 
-        {/* Pinned so Save is one click away no matter how far the body scrolls. */}
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-zinc-800/70 px-5 py-4 md:px-8">
+        {/* Pinned so Save is one click away no matter how far the body scrolls.
+            The checkbox only shares the row once there is width for it: on a
+            phone it used to sit inline and wrap the buttons onto a line of
+            their own, growing the footer at the expense of the form. */}
+        <div className="flex shrink-0 flex-col gap-3 border-t border-zinc-800/70 px-5 py-3 sm:flex-row sm:items-center sm:justify-end sm:py-4 md:px-8">
           {/* Entering a collection means typing a run of events; without this
               every one of them costs a reopen of the dialog. */}
           {mode === "create" && (
-            <label className="mr-auto flex cursor-pointer items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-zinc-200">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-zinc-200 sm:mr-auto">
               <input
                 type="checkbox"
                 checked={createAnother}
                 onChange={(e) => setCreateAnother(e.target.checked)}
-                className="h-4 w-4 cursor-pointer accent-emerald-500"
+                className="h-4 w-4 shrink-0 cursor-pointer accent-emerald-500"
               />
               {t("createAnother")}
               {addedCount > 0 && (
@@ -1328,19 +1337,23 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               )}
             </label>
           )}
-          <button
-            onClick={requestClose}
-            className="ui-button ui-button-secondary px-5 py-2.5"
-          >
-            {t("cancel")}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={mode === "create" && availableCollections.length === 0}
-            className="ui-button ui-button-primary px-5 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {mode === "create" ? t("addEvent") : t("save")}
-          </button>
+          {/* Cancel and Save stay one unit — nothing may come between them and
+              split Save onto its own line. */}
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={requestClose}
+              className="ui-button ui-button-secondary px-5 py-2.5"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={mode === "create" && availableCollections.length === 0}
+              className="ui-button ui-button-primary px-5 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {mode === "create" ? t("addEvent") : t("save")}
+            </button>
+          </div>
         </div>
 
         <EventVideoModal
