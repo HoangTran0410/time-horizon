@@ -4,8 +4,7 @@
 
 ### 13.8 billion years on one axis, down to a single second.
 
-Scroll from the Big Bang to this afternoon on one continuous canvas — no page breaks,
-no scale switches, no reloading.
+Scroll from the Big Bang to this afternoon on one continuous canvas — no page breaks, no scale switches, no reloading.
 
 **[→ Open the timeline](https://hoangtran99.is-a.dev/time-horizon/)**
 
@@ -24,17 +23,12 @@ no scale switches, no reloading.
 
 ## Why this exists
 
-The Cambrian explosion, the Roman Empire and the invention of paper sit eight orders of
-magnitude apart. That one fact breaks most timelines.
+The Cambrian explosion, the Roman Empire and the invention of paper sit eight orders of magnitude apart. That one fact breaks most timelines.
 
-- **They pick a band and stay in it** — geological, historical, or personal. Cross the
-  boundary and you change tool, unit, and mental model.
-- **The fix is the camera, not the data.** The whole view is two numbers: the year at
-  the centre of the screen, and the *log* of pixels-per-year.
-- **Log space is the trick.** One flick of the wheel crosses nine orders of magnitude —
-  no mode switch, no broken layout, no "which era?" prompt.
-- **Everything else falls out of it** — ticks re-derive their unit as you fall, events
-  cluster and unfold, rings name the scale you're standing in.
+- **They pick a band and stay in it** — geological, historical, or personal. Cross the boundary and you change tool, unit, and mental model.
+- **The fix is the camera, not the data.** The whole view is two numbers: the year at the centre of the screen, and the *log* of pixels-per-year.
+- **Log space is the trick.** One flick of the wheel crosses nine orders of magnitude — no mode switch, no broken layout, no "which era?" prompt.
+- **Everything else falls out of it** — ticks re-derive their unit as you fall, events cluster and unfold, rings name the scale you're standing in.
 
 <img src=".github/readme/timeline-zoom.jpg" alt="The timeline at a 165-year window, reference rings marking the 5, 10 and 50 year scales" width="100%">
 
@@ -53,12 +47,9 @@ magnitude apart. That one fact breaks most timelines.
 ## What it does
 
 - **Fly across 13.8 billion years** — wheel, drag, pinch, or jump straight to a date.
-- **Layer collections** — cosmology, empires, inventions, art, religion, Vietnamese
-  school history. Stack them and compare, or keep one at a time.
-- **Put history on a map** — spatial mode anchors events to coordinates and drifts the
-  map as you travel.
-- **Bring your own** — create, import JSON/CSV, edit, sync to *your* Google Drive
-  (`drive.file` scope: the app only ever sees files it made). No server to trust.
+- **Layer collections** — cosmology, empires, inventions, art, religion, Vietnamese school history. Stack them and compare, or keep one at a time.
+- **Put history on a map** — spatial mode anchors events to coordinates and drifts the map as you travel.
+- **Bring your own** — create, import JSON/CSV, edit, sync to *your* Google Drive (`drive.file` scope: the app only ever sees files it made). No server to trust.
 - **Share the exact view** — year, zoom, layers and focused event live in the URL.
 - **Vietnamese and English** — for the interface *and* the event content.
 
@@ -78,13 +69,11 @@ node data/server.cjs          # CORS static server for the data, on :5500
 npm run dev                   # app on :3000
 ```
 
-Both must run — without `:5500` the catalog comes up empty.
-Then: `npm run lint` (tsc), `npm test` (vitest), `npm run build`.
+Both must run — without `:5500` the catalog comes up empty. Then: `npm run lint` (tsc), `npm test` (vitest), `npm run build`.
 
 ## How it's built
 
-No backend, no database, no accounts — everything runs in the browser and persists to
-`localStorage`.
+No backend, no database, no accounts — everything runs in the browser and persists to `localStorage`.
 
 | | |
 |---|---|
@@ -95,14 +84,11 @@ No backend, no database, no accounts — everything runs in the browser and pers
 | **Camera** | `focusYear` + `logZoom` as motion values; ticks, layout and clustering run in rAF, outside React rendering |
 | **Maps** | maplibre-gl, lazily loaded so it stays off the main chunk |
 
-Touching the code? [`CLAUDE.md`](CLAUDE.md) is the architecture guide — store layout,
-event identity rules, viewport engine, and the traps worth knowing first.
+Touching the code? [`CLAUDE.md`](CLAUDE.md) is the architecture guide — store layout, event identity rules, viewport engine, and the traps worth knowing first.
 
 ## Data
 
-Collections live in **[time-horizon-data](https://github.com/HoangTran0410/time-horizon-data)**
-as plain JSON, one file per collection plus an index. Adding history is a pull request
-against that repo — no build step, no code change here.
+Collections live in **[time-horizon-data](https://github.com/HoangTran0410/time-horizon-data)** as plain JSON, one file per collection plus an index. Adding history is a pull request against that repo — no build step, no code change here.
 
 ## License
 
