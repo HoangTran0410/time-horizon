@@ -1,5 +1,5 @@
 import React from "react";
-import { AnimatePresence, motion, MotionValue } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Compass, FileText, Plus, Search } from "lucide-react";
 import {
   Event,
@@ -39,11 +39,6 @@ interface ControllerProps {
   onToggleSelectedEventRuler: () => void;
   onCloseSelectedEvent: () => void;
   onStartAddEvent: () => void;
-  zoomTrackRef: React.RefObject<HTMLDivElement | null>;
-  zoomThumbY: MotionValue<number>;
-  onZoomDragStart: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onZoomDragMove: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onZoomDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void;
   timelineOrientation: TimelineOrientation;
   onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
   verticalWheelBehavior: VerticalWheelBehavior;
@@ -76,11 +71,6 @@ export const Controller: React.FC<ControllerProps> = ({
   onToggleSelectedEventRuler,
   onCloseSelectedEvent,
   onStartAddEvent,
-  zoomTrackRef,
-  zoomThumbY,
-  onZoomDragStart,
-  onZoomDragMove,
-  onZoomDragEnd,
   timelineOrientation,
   onTimelineOrientationChange,
   verticalWheelBehavior,
@@ -225,11 +215,6 @@ export const Controller: React.FC<ControllerProps> = ({
                     onJumpToDate={onJumpToDate}
                     onAutoFitRange={onAutoFitRange}
                     onAutoFitAll={onAutoFitAll}
-                    zoomTrackRef={zoomTrackRef}
-                    zoomThumbY={zoomThumbY}
-                    onZoomDragStart={onZoomDragStart}
-                    onZoomDragMove={onZoomDragMove}
-                    onZoomDragEnd={onZoomDragEnd}
                     timelineOrientation={timelineOrientation}
                     onTimelineOrientationChange={onTimelineOrientationChange}
                     verticalWheelBehavior={verticalWheelBehavior}

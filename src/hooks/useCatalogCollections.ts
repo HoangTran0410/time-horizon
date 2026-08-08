@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import type { EventCollectionMeta } from "../constants/types";
 
 const DATA_BASE_URL =
-  // @ts-ignore
-  import.meta.env.DEV
+  // @ts-ignore — `env` is injected by Vite; guard so the module can also be
+  // imported outside a Vite build (scripts, tests).
+  import.meta.env?.DEV
     ? "http://localhost:5500/data"
     : "https://hoangtran99.is-a.dev/time-horizon-data";
 

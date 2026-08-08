@@ -1077,12 +1077,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
           onSave={(json) => {
             try {
-              const events = sanitizeImportedEvents(JSON.parse(json), {
+              const parsed = JSON.parse(json);
+              const events = sanitizeImportedEvents(parsed, {
                 collectionId: jsonEditorCollection.id,
               });
+
+              // sanitizeImportedEvents drops anything that is not event-shaped.
+              // Losing every row means the payload was wrong, not empty — do
+              // not let that silently replace the collection with nothing.
+              if (Array.isArray(parsed) && parsed.length > 0 && events.length === 0) {
+                return t("jsonNoValidEvents");
+              }
+
               onUpdateCollectionEvents(jsonEditorCollection.id, events);
-            } catch {
-              // invalid — modal shows its own parse error
+              return null;
+            } catch (error) {
+              return error instanceof Error
+                ? error.message
+                : t("invalidJsonSyntax");
             }
           }}
           onClose={() => setJsonEditorCollection(null)}

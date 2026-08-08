@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Settings2 } from "lucide-react";
+import { Layers, Settings2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../stores";
 import { hasPendingSyncableChanges as hasPendingSyncableChangesForSync } from "../sync";
@@ -8,12 +8,21 @@ import { getSyncStatusPresentation } from "./syncStatus";
 interface ToolbarProps {
   logicFps: number;
   renderFps: number;
+  zoomRangeLabel: string;
+  visibleCollectionCount: number;
+  onOpenCollections: () => void;
   onOpenControlCenter: () => void;
 }
+
+// @ts-ignore — import.meta.env is provided by Vite
+const IS_DEV = import.meta.env.DEV;
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   logicFps,
   renderFps,
+  zoomRangeLabel,
+  visibleCollectionCount,
+  onOpenCollections,
   onOpenControlCenter,
 }) => {
   const { t } = useI18n();
@@ -54,9 +63,38 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div className="flex items-center gap-1">
-        <div className="ui-badge shrink-0 font-mono text-[0.72rem]">
-          {logicFps}|{renderFps}
-        </div>
+        {/* Dev-only frame counter. It used to sit here permanently, taking the
+            most valuable corner of the screen from actual app state. */}
+        {IS_DEV ? (
+          <div className="ui-badge shrink-0 font-mono text-[0.72rem] opacity-60">
+            {logicFps}|{renderFps}
+          </div>
+        ) : null}
+
+        {/* Reads out what you are currently looking at — visible time span and
+            how many collections are on — and doubles as a labelled way into the
+            collections drawer. */}
+        <button
+          type="button"
+          onClick={onOpenCollections}
+          className="ui-badge flex shrink-0 items-center gap-2 whitespace-nowrap transition hover:brightness-125"
+          aria-label={t("statusChipAria", { count: visibleCollectionCount })}
+          title={t("statusChipAria", { count: visibleCollectionCount })}
+        >
+          {zoomRangeLabel ? (
+            <>
+              <span className="font-mono text-[0.72rem]">{zoomRangeLabel}</span>
+              <span aria-hidden className="opacity-40">
+                ·
+              </span>
+            </>
+          ) : null}
+          <span className="flex items-center gap-1 text-[0.72rem]">
+            <Layers width={12} height={12} />
+            {visibleCollectionCount}
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={onOpenControlCenter}

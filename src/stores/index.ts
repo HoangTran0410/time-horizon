@@ -68,7 +68,7 @@ type AbsoluteYearRange = {
 };
 
 export type TimelineAppView = "landing" | "timeline";
-export type NavigationPanelTab = "view" | "zoom" | "jump" | "fit";
+export type NavigationPanelTab = "goto" | "display";
 
 type TimelineStoreState = {
   theme: ThemeMode;
@@ -105,6 +105,12 @@ type TimelineStoreState = {
   savedLogZoom: number | null;
   spatialMapping: SpatialMappingConfig;
   lastOpenedView: TimelineAppView;
+  /**
+   * True once the first-run default collection has been seeded (or the user
+   * has downloaded/created anything themselves). Guards against re-seeding for
+   * a user who deliberately emptied their library.
+   */
+  hasSeededDefaultCollection: boolean;
   hasHydrated: boolean;
   isRulerActive: boolean;
   isEventInfoCollapsed: boolean;
@@ -193,6 +199,7 @@ type TimelineStoreState = {
   startSpatialAnchorPickMode: () => void;
   stopSpatialAnchorPickMode: () => void;
   setLastOpenedView: (view: TimelineAppView) => void;
+  markDefaultCollectionSeeded: () => void;
   setHasHydrated: (value: boolean) => void;
   setIsRulerActive: (value: boolean) => void;
   toggleEventInfoCollapsed: () => void;
@@ -290,6 +297,7 @@ type TimelinePersistedState = Pick<
   | "spatialMapping"
   | "lastOpenedView"
   | "isToolbarExpanded"
+  | "hasSeededDefaultCollection"
 >;
 
 const STORE_KEY = "time-horizon:timeline-store:v1";
@@ -345,10 +353,14 @@ const sanitizeLastOpenedView = (value: unknown): TimelineAppView | undefined =>
 
 const sanitizeNavigationPanelTab = (
   value: unknown,
-): NavigationPanelTab | undefined =>
-  value === "view" || value === "zoom" || value === "jump" || value === "fit"
-    ? value
-    : undefined;
+): NavigationPanelTab | undefined => {
+  if (value === "goto" || value === "display") return value;
+  // Migrate the four legacy tabs: jump/fit merged into one destination form,
+  // view/zoom merged into display settings.
+  if (value === "jump" || value === "fit") return "goto";
+  if (value === "view" || value === "zoom") return "display";
+  return undefined;
+};
 
 const sanitizeTimelineOrientation = (
   value: unknown,
@@ -817,6 +829,12 @@ export const sanitizeImportedEvents = (
 
     const candidate = event as Partial<ImportedEvent>;
     const time = sanitizeImportedEventTime(candidate.time);
+    // A malformed endTime degrades the event to a point rather than rejecting
+    // it — the start time is the part that must be trustworthy.
+    const endTime =
+      candidate.endTime != null
+        ? sanitizeImportedEventTime(candidate.endTime)
+        : null;
     const title = normalizeLocalizedText(candidate.title);
     const description = normalizeLocalizedText(candidate.description) ?? "";
     if (!title || !isNonEmptyString(candidate.emoji) || !time) {
@@ -829,6 +847,7 @@ export const sanitizeImportedEvents = (
         description,
         emoji: candidate.emoji.trim(),
         time,
+        ...(endTime ? { endTime } : {}),
         priority:
           typeof candidate.priority === "number" &&
           Number.isFinite(candidate.priority)
@@ -1045,6 +1064,12 @@ const sanitizePersistedTimelineState = (
     isToolbarExpanded:
       typeof candidate.isToolbarExpanded === "boolean"
         ? candidate.isToolbarExpanded
+        : undefined,
+    hasSeededDefaultCollection:
+      typeof (candidate as { hasSeededDefaultCollection?: unknown })
+        .hasSeededDefaultCollection === "boolean"
+        ? (candidate as { hasSeededDefaultCollection: boolean })
+            .hasSeededDefaultCollection
         : undefined,
   };
 };
@@ -1613,7 +1638,7 @@ export const useStore = create<TimelineStoreState>()(
           collectionColorPreferences: {},
           selectedEventId: null,
           mobileInfoPanelReopenFlag: 0,
-        navigationPanelTab: "zoom",
+        navigationPanelTab: "goto",
         timelineOrientation: "horizontal",
         verticalWheelBehavior: "pan",
         verticalTimeDirection: "down",
@@ -1621,6 +1646,7 @@ export const useStore = create<TimelineStoreState>()(
           savedLogZoom: null,
           spatialMapping: DEFAULT_SPATIAL_MAPPING,
           lastOpenedView: "landing",
+          hasSeededDefaultCollection: false,
           hasHydrated: false,
           isRulerActive: false,
           isEventInfoCollapsed: getInitialEventInfoCollapsed(),
@@ -2479,6 +2505,10 @@ export const useStore = create<TimelineStoreState>()(
             set({
               lastOpenedView: view,
             }),
+          markDefaultCollectionSeeded: () =>
+            set({
+              hasSeededDefaultCollection: true,
+            }),
           setHasHydrated: (value) =>
             set({
               hasHydrated: value,
@@ -2596,6 +2626,7 @@ export const useStore = create<TimelineStoreState>()(
           spatialMapping: state.spatialMapping,
           lastOpenedView: state.lastOpenedView,
           isToolbarExpanded: state.isToolbarExpanded,
+          hasSeededDefaultCollection: state.hasSeededDefaultCollection,
         }),
       },
     ),

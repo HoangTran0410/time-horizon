@@ -151,13 +151,10 @@ export {
 // WeakMap avoids memory leaks — entries disappear when Event is GC'd.
 const _timelineYearCache = new WeakMap<Event, number>();
 
-export const getEventTimelineYear = (event: Event): number => {
-  const cached = _timelineYearCache.get(event);
-  if (cached !== undefined) return cached;
-
-  const [year, month, day, hour, minute, seconds] = normalizeEventTimeParts(
-    event.time,
-  );
+/** Fractional-year position for any EventTime. Pure; callers add caching. */
+export const eventTimeToTimelineYear = (time: EventTime): number => {
+  const [year, month, day, hour, minute, seconds] =
+    normalizeEventTimeParts(time);
 
   if (
     month == null &&
@@ -166,7 +163,6 @@ export const getEventTimelineYear = (event: Event): number => {
     minute == null &&
     seconds == null
   ) {
-    _timelineYearCache.set(event, year);
     return year;
   }
 
@@ -180,7 +176,6 @@ export const getEventTimelineYear = (event: Event): number => {
   );
 
   if (isNaN(d.getTime())) {
-    _timelineYearCache.set(event, year);
     return year;
   }
 
@@ -188,11 +183,60 @@ export const getEventTimelineYear = (event: Event): number => {
   const start = new Date(y, 0, 1).getTime();
   const end = new Date(y + 1, 0, 1).getTime();
   const frac = (d.getTime() - start) / (end - start);
-  const result = y + frac;
+  return y + frac;
+};
 
+export const getEventTimelineYear = (event: Event): number => {
+  const cached = _timelineYearCache.get(event);
+  if (cached !== undefined) return cached;
+
+  const result = eventTimeToTimelineYear(event.time);
   _timelineYearCache.set(event, result);
   return result;
 };
+
+const _timelineEndYearCache = new WeakMap<Event, number | null>();
+
+/**
+ * Fractional end year for a span event, or null for a point event.
+ * Always >= the start year: a reversed pair is treated as a span, not an error,
+ * since imported data routinely gets the two columns the wrong way round.
+ */
+export const getEventTimelineEndYear = (event: Event): number | null => {
+  const cached = _timelineEndYearCache.get(event);
+  if (cached !== undefined) return cached;
+
+  if (event.endTime == null) {
+    _timelineEndYearCache.set(event, null);
+    return null;
+  }
+
+  const startYear = getEventTimelineYear(event);
+  const endYear = eventTimeToTimelineYear(event.endTime);
+  // Returned as authored, which may be earlier than the start — callers that
+  // need an ordered pair go through getEventTimelineRange.
+  const result = endYear === startYear ? null : endYear;
+
+  _timelineEndYearCache.set(event, result);
+  return result;
+};
+
+/** Ordered inclusive [start, end]; end === start for point events. */
+export const getEventTimelineRange = (
+  event: Event,
+): { startYear: number; endYear: number } => {
+  const startYear = getEventTimelineYear(event);
+  const endYear = getEventTimelineEndYear(event);
+  return endYear === null
+    ? { startYear, endYear: startYear }
+    : {
+        startYear: Math.min(startYear, endYear),
+        endYear: Math.max(startYear, endYear),
+      };
+};
+
+export const isSpanEvent = (event: Event): boolean =>
+  getEventTimelineEndYear(event) !== null;
 
 // Cache: event time is immutable — label only varies by locale.
 // WeakMap avoids memory leaks. undefined = locale not yet computed.
@@ -819,6 +863,9 @@ const normalizeStoredEventPayload = (
   title: normalizeLocalizedText(event.title) ?? "",
   description: normalizeLocalizedText(event.description) ?? "",
   time: normalizeEventTimeParts(event.time),
+  ...(event.endTime != null
+    ? { endTime: normalizeEventTimeParts(event.endTime) }
+    : {}),
   emoji: event.emoji,
   priority: event.priority,
   duration: event.duration,
@@ -838,6 +885,7 @@ const getStoredEventSignature = (
     normalizeLocalizedText(normalized.description) ?? "",
     normalized.emoji.trim(),
     normalizeEventTimeParts(normalized.time),
+    normalized.endTime ? normalizeEventTimeParts(normalized.endTime) : null,
     normalized.priority,
     normalized.duration ?? null,
     normalized.color ?? null,
@@ -934,6 +982,13 @@ export const stripRuntimeEventId = (event: Event): StoredEvent => ({
   title: event.title,
   description: event.description,
   time: [...normalizeEventTimeParts(event.time)] as Event["time"],
+  ...(event.endTime != null
+    ? {
+        endTime: [
+          ...normalizeEventTimeParts(event.endTime),
+        ] as Event["time"],
+      }
+    : {}),
   emoji: event.emoji,
   priority: event.priority,
   duration: event.duration,

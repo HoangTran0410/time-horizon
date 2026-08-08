@@ -7,7 +7,7 @@ import {
   SUPPORTED_LANGUAGES,
   SupportedLanguage,
 } from "../constants/types";
-import { ChevronDown, Play, X } from "lucide-react";
+import { ChevronDown, Clock, MoveHorizontal, Play, X } from "lucide-react";
 
 // Lazy-load the heavy emoji picker — only loaded when user opens the picker UI
 const EmojiPicker = lazy(() =>
@@ -15,6 +15,7 @@ const EmojiPicker = lazy(() =>
 );
 type EmojiPickerTheme = import("emoji-picker-react").Theme;
 import {
+  formatYear,
   normalizeEmbedVideoUrl,
   normalizeEventTimeParts,
   normalizeExternalLinkUrl,
@@ -34,18 +35,29 @@ interface EventEditorProps {
   onSave: (event: Event, collectionId?: string | null) => void;
   onClose: () => void;
   availableCollections?: EventCollectionMeta[];
+  /** Editing will turn a tracked catalog collection into a local fork. */
+  willForkCollection?: boolean;
+  /** Create mode: lets the editor warn once a catalog target is picked. */
+  isCatalogCollection?: (collectionId: string) => boolean;
   initialCollectionId?: string | null;
   onAddCollection?: () => void;
 }
 
-const getMaxDay = (year: number, month: number): number => {
-  const date = new Date(Date.UTC(0, month, 0));
-  date.setUTCFullYear(year, month, 0);
-  return date.getUTCDate();
-};
+const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-const supportsDateInputYear = (year: number): boolean =>
-  Number.isInteger(year) && year >= 0 && year <= 9999;
+const isLeapYear = (year: number): boolean =>
+  (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+
+/**
+ * Proleptic Gregorian day count. The previous implementation went through
+ * `Date.setUTCFullYear`, which returns NaN outside ±273,790 years — so every
+ * deep-time event silently wrote NaN into the day slot.
+ */
+const getMaxDay = (year: number, month: number): number => {
+  if (!Number.isFinite(year) || month < 1 || month > 12) return 31;
+  if (month === 2) return isLeapYear(year) ? 29 : 28;
+  return DAYS_PER_MONTH[month - 1];
+};
 
 const normalizeEventTime = (time: Event["time"]): Event["time"] => {
   const nextTime = [...normalizeEventTimeParts(time)] as Event["time"];
@@ -81,33 +93,6 @@ const normalizeEventTime = (time: Event["time"]): Event["time"] => {
   return nextTime;
 };
 
-const toDateInputValue = (time: Event["time"]): string => {
-  const [year, month, day] = normalizeEventTime(time);
-  if (!supportsDateInputYear(year) || month == null || day == null) {
-    return "";
-  }
-
-  const pad = (n: number, len = 2) => String(n).padStart(len, "0");
-  const padYear = (n: number) => String(n).padStart(4, "0");
-  return `${padYear(year)}-${pad(month)}-${pad(day)}`;
-};
-
-const parseDateInputValue = (
-  value: string,
-  prev: Event["time"],
-): Event["time"] => {
-  if (!value) return prev;
-  const [y, m, d] = value.split("-").map(Number);
-  return normalizeEventTime([
-    y ?? prev[0],
-    m ?? prev[1],
-    d ?? prev[2],
-    prev[3],
-    prev[4],
-    prev[5],
-  ]);
-};
-
 const COLOR_SWATCHES = [
   { label: "None", value: null },
   { label: "Red", value: "#ef4444" },
@@ -126,6 +111,9 @@ const COLOR_SWATCHES = [
   { label: "Rose", value: "#f43f5e" },
   { label: "Zinc", value: "#71717a" },
 ];
+
+const NO_COLOR_SWATCH_BACKGROUND =
+  "linear-gradient(135deg, #fff 45%, transparent 45%, transparent 55%, #fff 55%)";
 
 const createEditableLocalizedTextDraft = (
   value: LocalizedText | null | undefined,
@@ -234,12 +222,40 @@ const normalizeEventForSave = (
   link: normalizeExternalLinkUrl(event.link) ?? undefined,
 });
 
+/** Which of the two dates on a span event a control is editing. */
+type TimeTarget = "start" | "end";
+
+/** Everything after the year: month, day, hour, minute, second. */
+type EventTimeTail = [
+  number | null,
+  number | null,
+  number | null,
+  number | null,
+  number | null,
+];
+
+const getEventTimeTail = (time: Event["time"] | null | undefined): EventTimeTail => [
+  time?.[1] ?? null,
+  time?.[2] ?? null,
+  time?.[3] ?? null,
+  time?.[4] ?? null,
+  time?.[5] ?? null,
+];
+
+/** Shared shape for the compact month/day/hour number boxes. */
+const TIME_INPUT_CLASS =
+  "w-full rounded-xl border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-sm text-white transition-colors focus:border-emerald-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40";
+const TIME_SUBLABEL_CLASS =
+  "mb-1 block text-[0.68rem] font-medium tracking-wide text-zinc-500";
+
 export const EventEditor: React.FC<EventEditorProps> = ({
   event,
   mode,
   onSave,
   onClose,
   availableCollections = [],
+  willForkCollection = false,
+  isCatalogCollection,
   initialCollectionId = null,
   onAddCollection,
 }) => {
@@ -259,12 +275,44 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     initialCollectionId ?? availableCollections[0]?.id ?? "",
   );
   const [dateError, setDateError] = useState<string | null>(null);
+  const [pendingLanguageRemoval, setPendingLanguageRemoval] =
+    useState<SupportedLanguage | null>(null);
+  /**
+   * The year field is held as raw text so it can legitimately be empty or a
+   * lone "-" mid-typing. Coercing with Number() turned "" into 0, which the
+   * timeline renders as "1 BC" — a silent wrong date rather than a validation
+   * error.
+   */
+  const [yearInput, setYearInput] = useState<string>(() =>
+    event.time[0] === undefined || event.time[0] === null
+      ? ""
+      : String(event.time[0]),
+  );
+  const [endYearInput, setEndYearInput] = useState<string>(() =>
+    event.endTime?.[0] === undefined || event.endTime?.[0] === null
+      ? ""
+      : String(event.endTime[0]),
+  );
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  /** Optional fields start collapsed; auto-opened below when already in use. */
+  const [showAdvancedFields, setShowAdvancedFields] = useState(
+    () => Boolean(event.image || event.video || event.link),
+  );
+  /** Hour/minute/second are rare — kept out of the way unless already used. */
+  const [showTimeOfDay, setShowTimeOfDay] = useState(
+    () => event.time[3] != null || event.endTime?.[3] != null,
+  );
+  const [showSpan, setShowSpan] = useState(() => event.endTime?.[0] != null);
+  /**
+   * Month/day/time of the end date live here as well as on the event, because
+   * an empty end year has to null out `endTime` entirely — without this,
+   * backspacing over the year to retype it would silently drop the rest.
+   */
+  const endTimeTailRef = useRef<EventTimeTail>(getEventTimeTail(event.endTime));
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isVideoPreviewOpen, setIsVideoPreviewOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [languageToAdd, setLanguageToAdd] = useState<SupportedLanguage | "">("");
 
   useEffect(() => {
     setEditedEvent({
@@ -274,6 +322,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       time: [...event.time] as Event["time"],
     });
     setVisibleLanguages(getInitialVisibleLanguages(event, language));
+    endTimeTailRef.current = getEventTimeTail(event.endTime);
   }, [event.id]);
 
   useEffect(() => {
@@ -285,21 +334,57 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     );
   }, [availableCollections, initialCollectionId, mode]);
 
-  const [year, month, day, hour, minute, seconds] = editedEvent.time;
+  const [year, month, day] = editedEvent.time;
   const imagePreviewUrl = normalizeImageUrl(editedEvent.image) ?? null;
   const videoPreviewUrl = normalizeEmbedVideoUrl(editedEvent.video) ?? null;
   const previewTitle =
     getLocalizedText(editedEvent.title, language, {
       emptyFallback: t("newEvent"),
     }) || t("newEvent");
-  const hasMonth = month != null;
   const hasDay = day != null;
-  const hasHour = hour != null;
-  const hasMinute = minute != null;
-  const canUseDateInput = supportsDateInputYear(year);
+  const hasValidYear =
+    yearInput.trim() !== "" && Number.isInteger(Number(yearInput));
+  const hasValidEndYear =
+    endYearInput.trim() !== "" && Number.isInteger(Number(endYearInput));
+  const missingLanguages = LANGUAGE_OPTIONS.filter(
+    (option) => !visibleLanguages.includes(option.value),
+  );
+
+  const getTargetTime = (target: TimeTarget) =>
+    target === "start" ? editedEvent.time : editedEvent.endTime ?? null;
+
+  /**
+   * Echoes back how the entered numbers will actually be read — the bare boxes
+   * never communicated that a negative year means BCE, nor which box was which.
+   */
+  const buildDateReadout = (target: TimeTarget): string => {
+    const rawYear = target === "start" ? yearInput : endYearInput;
+    const isValid = target === "start" ? hasValidYear : hasValidEndYear;
+    if (!isValid) return t("yearBceHint");
+
+    const readableYear = formatYear(Number(rawYear));
+    const time = getTargetTime(target);
+    const targetMonth = time?.[1] ?? null;
+    const targetDay = time?.[2] ?? null;
+    if (targetMonth == null) return readableYear;
+    if (targetDay == null)
+      return t("dateReadoutMonth", { month: targetMonth, year: readableYear });
+    return t("dateReadoutFull", {
+      day: targetDay,
+      month: targetMonth,
+      year: readableYear,
+    });
+  };
 
   const validateDate = (): boolean => {
     setDateError(null);
+
+    const trimmedYear = yearInput.trim();
+    if (!trimmedYear || !Number.isInteger(Number(trimmedYear))) {
+      setDateError(t("yearRequired"));
+      return false;
+    }
+
     if (month == null || day == null) return true;
     const maxDay = getMaxDay(year, month);
     if (day > maxDay) {
@@ -337,17 +422,30 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     editedEvent.description,
     language,
   );
-  const handleAddLanguageVariant = (nextLanguage: SupportedLanguage | "") => {
-    setLanguageToAdd(nextLanguage);
-    if (!nextLanguage || visibleLanguages.includes(nextLanguage)) {
+
+  const handleAddLanguageVariant = (nextLanguage: SupportedLanguage) => {
+    if (visibleLanguages.includes(nextLanguage)) return;
+    setVisibleLanguages((prev) => [...prev, nextLanguage]);
+  };
+
+  /**
+   * Removing a variant drops that language from the saved payload, so it is a
+   * destructive edit. When the language actually has content the button asks
+   * for a second click first — previously the text was gone with no warning
+   * and no undo.
+   */
+  const handleRemoveLanguageVariant = (localizedLanguage: SupportedLanguage) => {
+    const hasContent = Boolean(
+      normalizeLocalizedText(titleDraft[localizedLanguage]) ||
+        normalizeLocalizedText(descriptionDraft[localizedLanguage]),
+    );
+
+    if (hasContent && pendingLanguageRemoval !== localizedLanguage) {
+      setPendingLanguageRemoval(localizedLanguage);
       return;
     }
 
-    setVisibleLanguages((prev) => [...prev, nextLanguage]);
-    setLanguageToAdd("");
-  };
-
-  const handleRemoveLanguageVariant = (localizedLanguage: SupportedLanguage) => {
+    setPendingLanguageRemoval(null);
     setVisibleLanguages((prev) => {
       if (prev.length === 1) return prev;
       return prev.filter((languageOption) => languageOption !== localizedLanguage);
@@ -360,36 +458,87 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     e.stopPropagation();
   };
 
-  const handleTimeChange = (index: 1 | 2 | 3 | 4 | 5, raw: string) => {
+  const TIME_PART_RANGES: Record<1 | 2 | 3 | 4 | 5, [number, number]> = {
+    1: [1, 12],
+    2: [1, 31],
+    3: [0, 23],
+    4: [0, 59],
+    5: [0, 59],
+  };
+
+  const handleTimePartChange = (
+    target: TimeTarget,
+    index: 1 | 2 | 3 | 4 | 5,
+    raw: string,
+  ) => {
     if (raw !== "" && isNaN(Number(raw))) return;
     const value = raw === "" ? null : Number(raw);
 
     if (value !== null) {
-      if (index === 1 && (value < 1 || value > 12)) return;
-      if (index === 2 && (value < 1 || value > 31)) return;
-      if (index === 3 && (value < 0 || value > 23)) return;
-      if (index === 4 && (value < 0 || value > 59)) return;
-      if (index === 5 && (value < 0 || value > 59)) return;
+      const [min, max] = TIME_PART_RANGES[index];
+      if (value < min || value > max) return;
     }
 
     setEditedEvent((prev) => {
-      const nextTime = [...prev.time] as Event["time"];
+      const current = target === "start" ? prev.time : prev.endTime;
+      // No end year yet means there is no tuple to write into.
+      if (!current) return prev;
+
+      const nextTime = [...current] as Event["time"];
       if (value === null) {
         for (let i = index; i <= 5; i += 1) nextTime[i] = null;
       } else {
         nextTime[index] = value;
       }
-      return { ...prev, time: normalizeEventTime(nextTime) };
+
+      const normalized = normalizeEventTime(nextTime);
+      if (target === "start") return { ...prev, time: normalized };
+
+      endTimeTailRef.current = getEventTimeTail(normalized);
+      return { ...prev, endTime: normalized };
     });
     setDateError(null);
   };
 
-  const handleDateInputChange = (value: string) => {
-    setEditedEvent((prev) => ({
-      ...prev,
-      time: parseDateInputValue(value, prev.time),
-    }));
+  const handleYearChange = (target: TimeTarget, raw: string) => {
+    if (target === "start") setYearInput(raw);
+    else setEndYearInput(raw);
     setDateError(null);
+
+    // "" and "-" are valid intermediate text but not valid years, so they must
+    // never reach the event tuple.
+    const parsed = Number(raw);
+    const isValidYear = raw.trim() !== "" && Number.isInteger(parsed);
+
+    setEditedEvent((prev) => {
+      if (target === "start") {
+        if (!isValidYear) return prev;
+        return {
+          ...prev,
+          time: normalizeEventTime([parsed, ...getEventTimeTail(prev.time)]),
+        };
+      }
+
+      if (!isValidYear) return { ...prev, endTime: null };
+      return {
+        ...prev,
+        endTime: normalizeEventTime([parsed, ...endTimeTailRef.current]),
+      };
+    });
+  };
+
+  const handleToggleTimeOfDay = () => {
+    // Collapsing discards hour/minute/second, matching what the user sees.
+    if (showTimeOfDay) {
+      handleTimePartChange("start", 3, "");
+      handleTimePartChange("end", 3, "");
+    }
+    setShowTimeOfDay((prev) => !prev);
+  };
+
+  const handleToggleSpan = () => {
+    if (showSpan) handleYearChange("end", "");
+    setShowSpan((prev) => !prev);
   };
 
   useEffect(() => {
@@ -420,15 +569,6 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     closeTimeoutRef.current = window.setTimeout(() => {
       onClose();
     }, 180);
-  };
-
-  const handleClearTimeField = (index: 1 | 2 | 3 | 4 | 5) => {
-    setEditedEvent((prev) => {
-      const nextTime = [...prev.time] as Event["time"];
-      for (let i = index; i <= 5; i += 1) nextTime[i] = null;
-      return { ...prev, time: normalizeEventTime(nextTime) };
-    });
-    setDateError(null);
   };
 
   const handleColorChange = (color: string | null) => {
@@ -476,6 +616,30 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     onSave(normalizedEvent);
   };
 
+  /**
+   * Capture phase, because the text inputs stop propagation on keydown to keep
+   * the timeline's single-letter shortcuts from firing while typing — a bubble
+   * listener here would never see Escape from inside a field.
+   */
+  const handleEditorKeyDownCapture = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      if (showEmojiPicker || showColorPicker) {
+        setShowEmojiPicker(false);
+        setShowColorPicker(false);
+        return;
+      }
+      requestClose();
+      return;
+    }
+
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSave();
+    }
+  };
+
   const handleBackdropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     shouldCloseOnPointerUpRef.current = e.target === e.currentTarget;
   };
@@ -487,6 +651,150 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
     shouldCloseOnPointerUpRef.current = false;
   };
+
+  /**
+   * Year / month / day for one end of the event. Number boxes rather than
+   * dropdowns: on a keyboard, typing "3" then tabbing beats opening a select,
+   * and a span needs two of these rows.
+   */
+  const renderDateRow = (target: TimeTarget) => {
+    const isStart = target === "start";
+    const time = getTargetTime(target);
+    const rawYear = isStart ? yearInput : endYearInput;
+    const isYearValid = isStart ? hasValidYear : hasValidEndYear;
+    const rowMonth = time?.[1] ?? null;
+    const rowDay = time?.[2] ?? null;
+    const maxDay =
+      isYearValid && rowMonth != null
+        ? getMaxDay(Number(rawYear), rowMonth)
+        : 31;
+
+    return (
+      <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
+        <div>
+          <span className={TIME_SUBLABEL_CLASS}>
+            {t("year")}
+            {isStart ? " *" : ""}
+          </span>
+          <input
+            type="number"
+            value={rawYear}
+            onChange={(e) => handleYearChange(target, e.target.value)}
+            onKeyDown={stopEditorShortcutPropagation}
+            className={TIME_INPUT_CLASS}
+            placeholder={isStart ? "2026" : yearInput || "2026"}
+          />
+        </div>
+        <div>
+          <span className={TIME_SUBLABEL_CLASS}>{t("month")}</span>
+          <input
+            type="number"
+            min={1}
+            max={12}
+            value={rowMonth ?? ""}
+            disabled={!isYearValid}
+            onChange={(e) => handleTimePartChange(target, 1, e.target.value)}
+            onKeyDown={stopEditorShortcutPropagation}
+            className={TIME_INPUT_CLASS}
+            placeholder="—"
+          />
+        </div>
+        <div>
+          <span className={TIME_SUBLABEL_CLASS}>{t("day")}</span>
+          <input
+            type="number"
+            min={1}
+            max={maxDay}
+            value={rowDay ?? ""}
+            disabled={rowMonth == null}
+            onChange={(e) => handleTimePartChange(target, 2, e.target.value)}
+            onKeyDown={stopEditorShortcutPropagation}
+            className={TIME_INPUT_CLASS}
+            placeholder="—"
+            title={rowMonth == null ? t("dayNeedsMonth") : undefined}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderTimeOfDayRow = (target: TimeTarget) => {
+    const time = getTargetTime(target);
+    const rowDay = time?.[2] ?? null;
+    const rowHour = time?.[3] ?? null;
+    const rowMinute = time?.[4] ?? null;
+
+    const fields: Array<{
+      index: 3 | 4 | 5;
+      label: string;
+      max: number;
+      value: number | null;
+      disabled: boolean;
+    }> = [
+      { index: 3, label: t("hour"), max: 23, value: rowHour, disabled: rowDay == null },
+      { index: 4, label: t("minute"), max: 59, value: rowMinute, disabled: rowHour == null },
+      {
+        index: 5,
+        label: t("seconds"),
+        max: 59,
+        value: time?.[5] ?? null,
+        disabled: rowMinute == null,
+      },
+    ];
+
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        {fields.map((field) => (
+          <div key={field.index}>
+            <span className={TIME_SUBLABEL_CLASS}>{field.label}</span>
+            <input
+              type="number"
+              min={0}
+              max={field.max}
+              value={field.value ?? ""}
+              disabled={field.disabled}
+              onChange={(e) =>
+                handleTimePartChange(target, field.index, e.target.value)
+              }
+              onKeyDown={stopEditorShortcutPropagation}
+              className={TIME_INPUT_CLASS}
+              placeholder="—"
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderLanguageBadge = (option: (typeof LANGUAGE_OPTIONS)[number]) => (
+    <div className="flex items-center justify-between gap-2">
+      <span className="inline-flex items-center gap-1.5 text-[0.66rem] font-semibold tracking-[0.12em] text-zinc-400">
+        <span aria-hidden="true">{option.flag}</span>
+        {option.shortLabel}
+      </span>
+      {visibleLanguages.length > 1 &&
+        (pendingLanguageRemoval === option.value ? (
+          <button
+            type="button"
+            onClick={() => handleRemoveLanguageVariant(option.value)}
+            onBlur={() => setPendingLanguageRemoval(null)}
+            className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[0.62rem] font-semibold text-red-200 transition hover:bg-red-500/25"
+          >
+            <X width={10} height={10} />
+            {t("confirmDeleteTranslation")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleRemoveLanguageVariant(option.value)}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-800 hover:text-white"
+            aria-label={t("removeLanguageVariant", { language: option.label })}
+          >
+            <X width={12} height={12} />
+          </button>
+        ))}
+    </div>
+  );
 
   return (
     <div
@@ -500,612 +808,466 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="ui-modal-surface ui-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] p-4 md:p-8"
+        className="ui-modal-surface ui-panel flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.9rem]"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
+        onKeyDownCapture={handleEditorKeyDownCapture}
       >
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            {/* <div className="ui-kicker mb-2">
-              {mode === "create" ? "Collection Entry" : "Event Details"}
-            </div> */}
-            <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
-              {mode === "create" ? t("newEvent") : t("editEvent")}
-            </h2>
-          </div>
+        {/* Header stays put so the title/close never scroll away. */}
+        <div className="flex shrink-0 items-center justify-between gap-4 px-5 pb-3 pt-5 md:px-8 md:pt-6">
+          <h2 className="ui-display-title text-[1.5rem] leading-none text-white md:text-[1.75rem]">
+            {mode === "create" ? t("newEvent") : t("editEvent")}
+          </h2>
           <button
             onClick={requestClose}
-            className="ui-icon-button h-10 w-10"
+            className="ui-icon-button h-9 w-9 shrink-0"
             aria-label={t("close")}
           >
-            <X width={20} height={20} />
+            <X width={18} height={18} />
           </button>
         </div>
 
-        {mode === "create" && (
-          <div className="mb-6">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="ui-label mb-0">{t("saveToCollection")}</label>
-              {onAddCollection && (
-                <button
-                  type="button"
-                  onClick={onAddCollection}
-                  className="ui-button ui-button-secondary px-3 py-2 text-[0.72rem]"
-                >
-                  {t("createNewCollection")}
-                </button>
-              )}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-8">
+          {/* The store promotes a catalog collection to a local fork on the first
+              edit. That used to happen with no indication at all — the only clue
+              was a "LOCAL" badge appearing afterwards. */}
+          {(mode === "create"
+            ? Boolean(
+                selectedCollectionId && isCatalogCollection?.(selectedCollectionId),
+              )
+            : willForkCollection) && (
+            <div className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
+              <p className="text-xs leading-5 text-amber-200">
+                {t("catalogForkNotice")}
+              </p>
             </div>
-            {availableCollections.length === 0 ? (
-              <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2">
-                <p className="text-xs text-rose-300">
-                  {t("noCollectionsAvailable")}
-                </p>
-              </div>
-            ) : (
-              <>
-                <select
-                  value={selectedCollectionId}
-                  onChange={(e) => {
-                    setSelectedCollectionId(e.target.value);
-                    setCollectionError(null);
-                  }}
-                  className="ui-field"
-                >
-                  {availableCollections.map((collection) => (
-                    <option key={collection.id} value={collection.id}>
-                      {collection.emoji} {collection.name}
-                    </option>
-                  ))}
-                </select>
-                {collectionError && (
-                  <p className="mt-2 text-xs text-red-400">{collectionError}</p>
-                )}
-              </>
-            )}
-          </div>
-        )}
+          )}
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <div className="space-y-5">
-            <section className="space-y-3 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/45 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300">
-                    {t("title")}
-                  </label>
-                </div>
-                <div className="md:flex md:justify-end">
-                  <select
-                    value={languageToAdd}
-                    onChange={(e) =>
-                      handleAddLanguageVariant(
-                        e.target.value as SupportedLanguage | "",
-                      )
-                    }
-                    className="h-9 w-auto min-w-[8.5rem] rounded-full border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 focus:border-emerald-500 focus:outline-none"
+          {mode === "create" && (
+            <div className="mb-5">
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <label className="ui-label mb-0">{t("saveToCollection")}</label>
+                {onAddCollection && (
+                  <button
+                    type="button"
+                    onClick={onAddCollection}
+                    className="ui-button ui-button-secondary ui-button-compact"
                   >
-                    <option value="">{t("addLanguageVariant")}</option>
-                    {LANGUAGE_OPTIONS.map((option) => (
-                      <option
-                        key={`add-language-${option.value}`}
-                        value={option.value}
-                        disabled={visibleLanguages.includes(option.value)}
-                      >
-                        {option.label}
+                    {t("createNewCollection")}
+                  </button>
+                )}
+              </div>
+              {availableCollections.length === 0 ? (
+                <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2">
+                  <p className="text-xs text-rose-300">
+                    {t("noCollectionsAvailable")}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={selectedCollectionId}
+                    onChange={(e) => {
+                      setSelectedCollectionId(e.target.value);
+                      setCollectionError(null);
+                    }}
+                    className="ui-field"
+                  >
+                    {availableCollections.map((collection) => (
+                      <option key={collection.id} value={collection.id}>
+                        {collection.emoji} {collection.name}
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-              <div className="grid gap-4">
-                {visibleLanguages.map((visibleLanguage) => {
-                  const option = LANGUAGE_OPTIONS.find(
-                    (languageOption) => languageOption.value === visibleLanguage,
-                  );
-                  if (!option) return null;
-
-                  return (
-                    <div
-                      key={`title-${option.value}`}
-                      className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
-                    >
-                      <div className="absolute left-3 right-3 top-0 flex -translate-y-1/2 items-center justify-between">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
-                          <span aria-hidden="true">{option.flag}</span>
-                          <span>{option.label}</span>
-                        </div>
-                        {visibleLanguages.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLanguageVariant(option.value)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-zinc-500 hover:text-white"
-                            aria-label={t("removeLanguageVariant", {
-                              language: option.label,
-                            })}
-                          >
-                            <X width={14} height={14} />
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        value={titleDraft[option.value]}
-                        onChange={handleLocalizedFieldChange("title", option.value)}
-                        onKeyDown={stopEditorShortcutPropagation}
-                        placeholder={`${t("title")} • ${option.label}`}
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="space-y-2 rounded-[1.4rem] border border-zinc-800/70 bg-zinc-950/35 p-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-zinc-300">
-                  {t("description")}
-                </label>
-              </div>
-              <div className="grid gap-3">
-                {visibleLanguages.map((visibleLanguage) => {
-                  const option = LANGUAGE_OPTIONS.find(
-                    (languageOption) => languageOption.value === visibleLanguage,
-                  );
-                  if (!option) return null;
-
-                  return (
-                    <div
-                      key={`description-${option.value}`}
-                      className="relative rounded-[1.1rem] border border-zinc-800 bg-zinc-950/70 px-3 pb-3 pt-5"
-                    >
-                      <div className="absolute left-3 top-0 inline-flex -translate-y-1/2 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[0.64rem] font-semibold tracking-[0.14em] text-zinc-300">
-                        <span aria-hidden="true">{option.flag}</span>
-                        <span>{option.label}</span>
-                      </div>
-                      <textarea
-                        value={descriptionDraft[option.value]}
-                        onChange={handleLocalizedFieldChange(
-                          "description",
-                          option.value,
-                        )}
-                        onKeyDown={stopEditorShortcutPropagation}
-                        rows={3}
-                        placeholder={`${t("description")} • ${option.label}`}
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium text-zinc-400">
-                  {t("icon")}
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    className="emoji-trigger flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
-                    onClick={() => setShowEmojiPicker((value) => !value)}
-                  >
-                    <span className="text-lg">{editedEvent.emoji}</span>
-                    <ChevronDown
-                      width={14}
-                      height={14}
-                      className="text-zinc-500"
-                    />
-                  </button>
-                  {showEmojiPicker && (
-                    <div className="emoji-trigger absolute z-10 mt-1">
-                      <Suspense
-                        fallback={
-                          <div className="flex h-\[400px\] w-\[320px\] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900">
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
-                          </div>
-                        }
-                      >
-                        <EmojiPicker
-                          theme={"dark" as EmojiPickerTheme}
-                          onEmojiClick={(emojiData) => {
-                            setEditedEvent((prev) => ({
-                              ...prev,
-                              emoji: emojiData.emoji,
-                            }));
-                            setShowEmojiPicker(false);
-                          }}
-                          height={400}
-                          width={320}
-                        />
-                      </Suspense>
-                    </div>
+                  {collectionError && (
+                    <p className="mt-2 text-xs text-red-400">{collectionError}</p>
                   )}
-                </div>
-              </div>
+                </>
+              )}
+            </div>
+          )}
 
-              <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium text-zinc-400">
-                  {t("color")}
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    className="color-trigger flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-left text-white transition-colors hover:border-zinc-600"
-                    onClick={() => setShowColorPicker((value) => !value)}
-                  >
-                    <span
-                      className="h-5 w-5 shrink-0 rounded border border-zinc-600"
-                      style={{
-                        backgroundColor: editedEvent.color ?? "transparent",
-                      }}
-                    />
-                    <span className="text-sm text-zinc-300">
-                      {COLOR_SWATCHES.find(
-                        (swatch) =>
-                          swatch.value === (editedEvent.color ?? null),
-                      )?.label ?? t("none")}
-                    </span>
-                    <ChevronDown
-                      width={14}
-                      height={14}
-                      className="ml-auto text-zinc-500"
-                    />
-                  </button>
-
-                  {showColorPicker && (
-                    <div className="color-trigger absolute z-10 mt-1 rounded-xl border border-zinc-700 bg-zinc-800 p-3">
-                      <div className="grid grid-cols-4 gap-2">
-                        {COLOR_SWATCHES.map((swatch) => (
-                          <button
-                            key={swatch.value ?? "none"}
-                            type="button"
-                            title={swatch.label}
-                            onClick={() => {
-                              handleColorChange(swatch.value);
-                              setShowColorPicker(false);
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.85fr)]">
+            <div className="space-y-4">
+              {/* Emoji and colour sit on the title row rather than owning a
+                  labelled row each — they are one-tap choices, not fields. */}
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      className="emoji-trigger flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-950 text-xl transition-colors hover:border-zinc-500"
+                      onClick={() => setShowEmojiPicker((value) => !value)}
+                      aria-label={t("icon")}
+                      title={t("icon")}
+                    >
+                      {editedEvent.emoji}
+                    </button>
+                    {showEmojiPicker && (
+                      <div className="emoji-trigger absolute left-0 top-full z-20 mt-2 w-max">
+                        <Suspense
+                          fallback={
+                            <div className="flex h-[400px] w-[320px] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900">
+                              <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
+                            </div>
+                          }
+                        >
+                          <EmojiPicker
+                            theme={"dark" as EmojiPickerTheme}
+                            onEmojiClick={(emojiData) => {
+                              setEditedEvent((prev) => ({
+                                ...prev,
+                                emoji: emojiData.emoji,
+                              }));
+                              setShowEmojiPicker(false);
                             }}
-                            className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
-                              (swatch.value ?? null) ===
-                              (editedEvent.color ?? null)
-                                ? "scale-110 border-white"
-                                : "border-zinc-600"
-                            }`}
-                            style={{
-                              backgroundColor: swatch.value ?? "transparent",
-                              backgroundImage:
-                                swatch.value === null
-                                  ? "linear-gradient(135deg, #fff 45%, transparent 45%, transparent 55%, #fff 55%)"
-                                  : undefined,
-                            }}
+                            height={400}
+                            width={320}
                           />
-                        ))}
+                        </Suspense>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-sm font-medium text-zinc-400">
-                  {t("time")}
-                </label>
-                {canUseDateInput && (
-                  <input
-                    type="date"
-                    value={toDateInputValue(editedEvent.time)}
-                    onChange={(e) => handleDateInputChange(e.target.value)}
-                    className="cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-zinc-500">
-                  {t("year")} *
-                </label>
-                <input
-                  type="number"
-                  value={year}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setEditedEvent((prev) => ({
-                      ...prev,
-                      time: normalizeEventTime([
-                        value,
-                        prev.time[1],
-                        prev.time[2],
-                        prev.time[3],
-                        prev.time[4],
-                        prev.time[5],
-                      ]),
-                    }));
-                    setDateError(null);
-                  }}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              {year !== null && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
-                      {t("month")}
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={12}
-                      value={month ?? ""}
-                      onChange={(e) => handleTimeChange(1, e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      placeholder="null"
-                    />
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleClearTimeField(1)}
-                    title={t("clearMonthAndBelow")}
-                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                  >
-                    <X width={14} height={14} />
-                  </button>
-                </div>
-              )}
 
-              {hasMonth && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
-                      {t("day")}
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={31}
-                      value={day ?? ""}
-                      onChange={(e) => handleTimeChange(2, e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      placeholder="null"
-                    />
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      className="color-trigger flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-950 transition-colors hover:border-zinc-500"
+                      onClick={() => setShowColorPicker((value) => !value)}
+                      aria-label={t("color")}
+                      title={`${t("color")}: ${
+                        COLOR_SWATCHES.find(
+                          (swatch) => swatch.value === (editedEvent.color ?? null),
+                        )?.label ?? t("none")
+                      }`}
+                    >
+                      <span
+                        className="h-5 w-5 rounded-full border border-zinc-600"
+                        style={{
+                          backgroundColor: editedEvent.color ?? "transparent",
+                          backgroundImage: editedEvent.color
+                            ? undefined
+                            : NO_COLOR_SWATCH_BACKGROUND,
+                        }}
+                      />
+                    </button>
+
+                    {/* w-max on the popover: its containing block is the 44px
+                        trigger, so without it the swatch grid sizes its columns
+                        against 44px and the colours stack on top of each other. */}
+                    {showColorPicker && (
+                      <div className="color-trigger absolute left-0 top-full z-20 mt-2 w-max rounded-xl border border-zinc-700 bg-zinc-800 p-3">
+                        <div className="grid grid-cols-4 gap-2">
+                          {COLOR_SWATCHES.map((swatch) => (
+                            <button
+                              key={swatch.value ?? "none"}
+                              type="button"
+                              title={swatch.label}
+                              onClick={() => {
+                                handleColorChange(swatch.value);
+                                setShowColorPicker(false);
+                              }}
+                              className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                                (swatch.value ?? null) ===
+                                (editedEvent.color ?? null)
+                                  ? "scale-110 border-white"
+                                  : "border-zinc-600"
+                              }`}
+                              style={{
+                                backgroundColor: swatch.value ?? "transparent",
+                                backgroundImage:
+                                  swatch.value === null
+                                    ? NO_COLOR_SWATCH_BACKGROUND
+                                    : undefined,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleClearTimeField(2)}
-                    title={t("clearDayAndBelow")}
-                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                  >
-                    <X width={14} height={14} />
-                  </button>
-                </div>
-              )}
 
-              {hasDay && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
-                      {t("hour")}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={hour ?? ""}
-                      onChange={(e) => handleTimeChange(3, e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      placeholder="null"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleClearTimeField(3)}
-                    title={t("clearHourAndBelow")}
-                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                  >
-                    <X width={14} height={14} />
-                  </button>
-                </div>
-              )}
-
-              {hasHour && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
-                      {t("minute")}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={minute ?? ""}
-                      onChange={(e) => handleTimeChange(4, e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      placeholder="null"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleClearTimeField(4)}
-                    title={t("clearMinuteAndBelow")}
-                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                  >
-                    <X width={14} height={14} />
-                  </button>
-                </div>
-              )}
-
-              {hasMinute && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
-                      {t("seconds")}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={seconds ?? ""}
-                      onChange={(e) => handleTimeChange(5, e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      placeholder="null"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleClearTimeField(5)}
-                    title={t("clearSeconds")}
-                    className="mt-5 text-ink-subtle transition-colors hover:text-zinc-300"
-                  >
-                    <X width={14} height={14} />
-                  </button>
-                </div>
-              )}
-
-              {dateError && (
-                <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-400">
-                  {dateError}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4">
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-sm font-medium text-zinc-400">
-                  {t("mediaLinks")}
-                </label>
-                <span className="text-xs text-zinc-500">{t("optional")}</span>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-zinc-500">
-                  {t("imageUrl")}
-                </label>
-                <input
-                  type="text"
-                  value={editedEvent.image ?? ""}
-                  onChange={handleOptionalFieldChange("image")}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  placeholder="https://upload.wikimedia.org/..."
-                />
-                {imagePreviewUrl && (
-                  <div className="mt-3 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70">
-                    <img
-                      src={imagePreviewUrl}
-                      alt={previewTitle}
-                      className="max-h-64 w-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                )}
-                {/* <p className="mt-1 text-xs text-zinc-500">
-                Paste any direct image URL.
-              </p> */}
-              </div>
-
-              <div>
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <label className="block text-xs text-zinc-500">
-                    {t("video")}
+                  <label className="ui-label mb-0 min-w-0 flex-1 truncate">
+                    {t("title")}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsVideoPreviewOpen(true)}
-                    disabled={!videoPreviewUrl}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label={t("previewVideo")}
-                    title={t("previewVideo")}
-                  >
-                    <Play width={12} height={12} className="translate-x-[1px]" />
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={editedEvent.video ?? ""}
-                  onChange={handleOptionalFieldChange("video")}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  placeholder="id or https://youtu.be/<id>"
-                />
-                {/* <p className="mt-1 text-xs text-zinc-500">
-                Supports YouTube IDs, `youtu.be`, and full YouTube links. Other
-                video URLs still work as-is.
-              </p> */}
-              </div>
 
-              <div>
-                <label className="mb-1 block text-xs text-zinc-500">
-                  {t("externalLink")}
-                </label>
-                <input
-                  type="text"
-                  value={editedEvent.link ?? ""}
-                  onChange={handleOptionalFieldChange("link")}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  placeholder="Apollo_11 or https://en.wikipedia.org/wiki/Apollo_11"
-                />
-                {/* <p className="mt-1 text-xs text-zinc-500">
-                Paste any URL, or enter a Wikipedia article name and it will be
-                expanded automatically when you save.
-              </p> */}
-              </div>
+                  {missingLanguages.map((option) => (
+                    <button
+                      key={`add-language-${option.value}`}
+                      type="button"
+                      onClick={() => handleAddLanguageVariant(option.value)}
+                      className="ui-chip shrink-0 px-2.5 py-1"
+                      title={t("addLanguageVariant")}
+                    >
+                      <span aria-hidden="true">{option.flag}</span>
+                      <span>+ {option.shortLabel}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  {visibleLanguages.map((visibleLanguage) => {
+                    const option = LANGUAGE_OPTIONS.find(
+                      (languageOption) =>
+                        languageOption.value === visibleLanguage,
+                    );
+                    if (!option) return null;
+
+                    return (
+                      <div key={`title-${option.value}`} className="space-y-1">
+                        {/* A single-language event needs no label at all — the
+                            badge row only earns its space once there are two. */}
+                        {visibleLanguages.length > 1 &&
+                          renderLanguageBadge(option)}
+                        <input
+                          type="text"
+                          value={titleDraft[option.value]}
+                          onChange={handleLocalizedFieldChange(
+                            "title",
+                            option.value,
+                          )}
+                          onKeyDown={stopEditorShortcutPropagation}
+                          autoFocus={
+                            mode === "create" &&
+                            visibleLanguage === visibleLanguages[0]
+                          }
+                          placeholder={
+                            visibleLanguages.length > 1
+                              ? `${t("title")} • ${option.label}`
+                              : t("title")
+                          }
+                          className="ui-field"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <label className="ui-label mb-0">{t("description")}</label>
+                <div className="space-y-2">
+                  {visibleLanguages.map((visibleLanguage) => {
+                    const option = LANGUAGE_OPTIONS.find(
+                      (languageOption) =>
+                        languageOption.value === visibleLanguage,
+                    );
+                    if (!option) return null;
+
+                    return (
+                      <div
+                        key={`description-${option.value}`}
+                        className="space-y-1"
+                      >
+                        {visibleLanguages.length > 1 && (
+                          <span className="inline-flex items-center gap-1.5 text-[0.66rem] font-semibold tracking-[0.12em] text-zinc-400">
+                            <span aria-hidden="true">{option.flag}</span>
+                            {option.shortLabel}
+                          </span>
+                        )}
+                        <textarea
+                          value={descriptionDraft[option.value]}
+                          onChange={handleLocalizedFieldChange(
+                            "description",
+                            option.value,
+                          )}
+                          onKeyDown={stopEditorShortcutPropagation}
+                          rows={visibleLanguages.length > 1 ? 3 : 4}
+                          placeholder={
+                            visibleLanguages.length > 1
+                              ? `${t("description")} • ${option.label}`
+                              : t("description")
+                          }
+                          className="ui-field resize-y"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             </div>
 
-            {/* <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-400">
-              Duration (years, optional)
-            </label>
-            <input
-              type="number"
-              step="0.000001"
-              value={editedEvent.duration ?? ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                setEditedEvent((prev) => ({
-                  ...prev,
-                  duration: raw === "" ? undefined : Number(raw),
-                }));
-              }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-              placeholder="e.g. 1"
-            />
-            <p className="mt-1 text-xs text-zinc-500">
-              Used for auto-zoom when focusing this event.
-            </p>
-          </div> */}
+            <div className="space-y-4">
+              {/* Year / month / day on one row, all three always present, all
+                  typed rather than picked — they used to be a chained cascade
+                  where the day box did not exist until a month was entered, so
+                  most users only ever saw a year. */}
+              <div className="space-y-3 rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4">
+                <label className="ui-label mb-0">{t("time")}</label>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-400">
-                {t("priority")}
-              </label>
-              <input
-                type="number"
-                name="priority"
-                value={editedEvent.priority}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-              />
+                {renderDateRow("start")}
+                {showTimeOfDay && renderTimeOfDayRow("start")}
+                <p className="text-[0.72rem] text-zinc-500">
+                  {buildDateReadout("start")}
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleTimeOfDay}
+                    data-active={showTimeOfDay}
+                    disabled={!hasDay}
+                    className="ui-chip px-2.5 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={hasDay ? undefined : t("timeOfDayNeedsDay")}
+                  >
+                    <Clock width={12} height={12} />
+                    {t("timeOfDay")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleSpan}
+                    data-active={showSpan}
+                    className="ui-chip px-2.5 py-1"
+                  >
+                    <MoveHorizontal width={12} height={12} />
+                    {t("timeSpan")}
+                  </button>
+                </div>
+
+                {/* An end date turns the event into a span, drawn as a bar
+                    covering the range instead of a single marker. It takes the
+                    same precision as the start — year through seconds. */}
+                {showSpan && (
+                  <div className="space-y-3 border-t border-zinc-800/70 pt-3">
+                    <span className="ui-label mb-0 block">{t("endDate")}</span>
+                    {renderDateRow("end")}
+                    {showTimeOfDay && renderTimeOfDayRow("end")}
+                    <p className="text-[0.72rem] text-zinc-500">
+                      {hasValidYear && hasValidEndYear
+                        ? `${buildDateReadout("start")} → ${buildDateReadout("end")}`
+                        : t("endYearSpanHint")}
+                    </p>
+                  </div>
+                )}
+
+                {dateError && (
+                  <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-400">
+                    {dateError}
+                  </p>
+                )}
+              </div>
+
+              {/* Everything below is optional. Collapsed by default so a first
+                  event is emoji + title + year rather than a wall of inputs. */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFields((value) => !value)}
+                className="flex w-full items-center justify-between rounded-2xl border border-zinc-800/60 bg-zinc-950/50 px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:border-zinc-700 hover:text-zinc-200"
+                aria-expanded={showAdvancedFields}
+              >
+                <span>{t("advancedFields")}</span>
+                <ChevronDown
+                  width={14}
+                  height={14}
+                  className={`transition-transform ${
+                    showAdvancedFields ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {showAdvancedFields && (
+                <div className="space-y-3 rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-zinc-400">
+                      {t("mediaLinks")}
+                    </label>
+                    <span className="text-xs text-zinc-500">{t("optional")}</span>
+                  </div>
+
+                  <div>
+                    <span className={TIME_SUBLABEL_CLASS}>{t("imageUrl")}</span>
+                    <input
+                      type="text"
+                      value={editedEvent.image ?? ""}
+                      onChange={handleOptionalFieldChange("image")}
+                      onKeyDown={stopEditorShortcutPropagation}
+                      className={TIME_INPUT_CLASS}
+                      placeholder="https://upload.wikimedia.org/..."
+                    />
+                    {imagePreviewUrl && (
+                      <div className="mt-2 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70">
+                        <img
+                          src={imagePreviewUrl}
+                          alt={previewTitle}
+                          className="max-h-48 w-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={TIME_SUBLABEL_CLASS}>{t("video")}</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsVideoPreviewOpen(true)}
+                        disabled={!videoPreviewUrl}
+                        className="mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label={t("previewVideo")}
+                        title={t("previewVideo")}
+                      >
+                        <Play width={11} height={11} className="translate-x-[1px]" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editedEvent.video ?? ""}
+                      onChange={handleOptionalFieldChange("video")}
+                      onKeyDown={stopEditorShortcutPropagation}
+                      className={TIME_INPUT_CLASS}
+                      placeholder="id or https://youtu.be/<id>"
+                    />
+                  </div>
+
+                  <div>
+                    <span className={TIME_SUBLABEL_CLASS}>
+                      {t("externalLink")}
+                    </span>
+                    <input
+                      type="text"
+                      value={editedEvent.link ?? ""}
+                      onChange={handleOptionalFieldChange("link")}
+                      onKeyDown={stopEditorShortcutPropagation}
+                      className={TIME_INPUT_CLASS}
+                      placeholder="Apollo_11 or https://en.wikipedia.org/wiki/Apollo_11"
+                    />
+                  </div>
+
+                  <div>
+                    <span className={TIME_SUBLABEL_CLASS}>{t("priority")}</span>
+                    <input
+                      type="number"
+                      name="priority"
+                      value={editedEvent.priority}
+                      onChange={handleChange}
+                      onKeyDown={stopEditorShortcutPropagation}
+                      className={TIME_INPUT_CLASS}
+                    />
+                    <p className="mt-1 text-[0.7rem] text-zinc-500">
+                      {t("priorityHelp")}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="mt-8 flex justify-end gap-3">
+        {/* Pinned so Save is one click away no matter how far the body scrolls. */}
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-zinc-800/70 px-5 py-4 md:px-8">
           <button
             onClick={requestClose}
-            className="ui-button ui-button-secondary px-6 py-3"
+            className="ui-button ui-button-secondary px-5 py-2.5"
           >
             {t("cancel")}
           </button>
           <button
             onClick={handleSave}
             disabled={mode === "create" && availableCollections.length === 0}
-            className="ui-button ui-button-primary px-6 py-3 disabled:cursor-not-allowed disabled:opacity-40"
+            className="ui-button ui-button-primary px-5 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {mode === "create" ? t("addEvent") : t("save")}
           </button>

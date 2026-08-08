@@ -1,6 +1,7 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { LandingPage } from "./components/LandingPage";
 import { Timeline } from "./components/Timeline";
+import { DEFAULT_SEED_COLLECTION_ID } from "./constants";
 import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
 import { useCatalogCollections } from "./hooks/useCatalogCollections";
 import { useTimelineShareUrl } from "./hooks/useTimelineShareUrl";
@@ -35,28 +36,72 @@ export default function App() {
     }
   }, [isCatalogLoading, catalogCollections, setCatalogMeta]);
 
-  const { shouldShowLanding, clearTimelineView } =
+  /**
+   * First-run seeding: give a brand-new visitor something on the canvas instead
+   * of an empty timeline. Runs at most once ever — `hasSeededDefaultCollection`
+   * is persisted, so a user who deliberately empties their library stays empty.
+   */
+  useEffect(() => {
+    if (isCatalogLoading || catalogCollections.length === 0) return;
+
+    const state = useStore.getState();
+    if (state.hasSeededDefaultCollection) return;
+
+    // Someone with existing data is not a first-run user — just mark it done.
+    if (Object.keys(state.collectionLibrary).length > 0) {
+      state.markDefaultCollectionSeeded();
+      return;
+    }
+
+    let cancelled = false;
+    void state.downloadCollection(DEFAULT_SEED_COLLECTION_ID).then((ok) => {
+      // Only latch on success, so a failed fetch retries on the next visit.
+      if (ok && !cancelled) {
+        useStore.getState().markDefaultCollectionSeeded();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCatalogLoading, catalogCollections.length]);
+
+  const { shouldShowLanding, shouldOpenTimeline, clearTimelineView } =
     useTimelineShareUrl();
-  const [view, setView] = useState<AppView>(() =>
-    shouldShowLanding ? "landing" : "timeline",
-  );
+
+  /**
+   * Initial route. Share params win; otherwise fall back to the view the user
+   * last had open (defaults to "landing", so first-time visitors get the intro).
+   * localStorage persist is synchronous, so this is already hydrated here.
+   */
+  const [view, setView] = useState<AppView>(() => {
+    if (shouldShowLanding) return "landing";
+    if (shouldOpenTimeline) return "timeline";
+    return useStore.getState().lastOpenedView;
+  });
 
   useEffect(() => {
     applyThemeToDocument(resolvedTheme);
   }, [resolvedTheme]);
 
+  // React to later URL changes only — the initial route is resolved above, and
+  // re-applying it here would stomp on in-app navigation.
+  const hasResolvedInitialRoute = useRef(false);
   useEffect(() => {
+    if (!hasResolvedInitialRoute.current) {
+      hasResolvedInitialRoute.current = true;
+      return;
+    }
+
     if (shouldShowLanding) {
       setView("landing");
       return;
     }
 
-    if (!hasHydrated) {
-      return;
+    if (shouldOpenTimeline) {
+      setView("timeline");
     }
-
-    setView("timeline");
-  }, [hasHydrated, shouldShowLanding]);
+  }, [shouldShowLanding, shouldOpenTimeline]);
 
   useEffect(() => {
     if (!hasHydrated) {

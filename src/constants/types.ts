@@ -38,8 +38,17 @@ export interface Event {
    */
   time: EventTime;
   /**
+   * Optional end of a time span, same shape as `time`. When present the event
+   * covers a range ("Roman Empire, -27 to 476") and is drawn as a bar rather
+   * than a point. Must be later than `time`; normalization swaps them if not.
+   */
+  endTime?: EventTime | null;
+  /**
    * Optional duration in years. Used to auto-zoom when focusing this event.
    * Example: 1 => show ~20 years around event; 0.01 => show month/day neighborhood.
+   *
+   * Superseded by `endTime` wherever both are present — kept because it is
+   * still the zoom hint for point events.
    */
   duration?: number;
   emoji: string;

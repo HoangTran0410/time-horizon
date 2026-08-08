@@ -6,7 +6,7 @@ import {
   TimelineOrientation,
   VerticalTimeDirection,
 } from "../constants/types";
-import { BIG_BANG_YEAR } from "../constants";
+import { BIG_BANG_YEAR, SPAN_MIN_RENDER_PX } from "../constants";
 import { resolveThemeMode, ThemeMode } from "../constants/theme";
 import { CANVAS_FONT_PRESETS } from "../constants/typography";
 import {
@@ -15,6 +15,7 @@ import {
   formatTimelineTick,
   withAlpha,
   getCollapsedGroupOffset,
+  getEventTimelineEndYear,
   getEventTimelineYear,
 } from "../helpers";
 import { getLocalizedEventTitle } from "../helpers/localization";
@@ -68,6 +69,8 @@ type HitTarget =
 interface VisibleCanvasEvent {
   event: Event;
   year: number;
+  /** End of a span event, or null when the event is a point in time. */
+  endYear: number | null;
   label: string;
 }
 
@@ -76,7 +79,46 @@ interface VisibleCanvasTick {
   label: string;
 }
 
+/**
+ * A tick being drawn, plus the two values that ease over time: `opacity` for
+ * appear/disappear and `highlight` (0..1) for the bold/major transition.
+ *
+ * Deliberately plain numbers advanced inside the existing render loop rather
+ * than MotionValues — one animation instance and subscription per tick showed
+ * up on low-end mobile, and ticks churn constantly while zooming.
+ */
+interface AnimatedCanvasTick extends VisibleCanvasTick {
+  opacity: number;
+  opacityTarget: number;
+  highlight: number;
+  highlightTarget: number;
+}
+
+/** Time constants (ms) for tick easing. Short, so extra frames stay bounded. */
+const TICK_FADE_MS = 190;
+const TICK_HIGHLIGHT_MS = 220;
+/** Below this the value is treated as settled, so the loop can stop. */
+const TICK_ANIM_EPSILON = 0.004;
+
+/**
+ * Frame-rate independent exponential approach. Returns the target exactly once
+ * within epsilon so transitions terminate instead of asymptoting forever.
+ */
+const approach = (
+  current: number,
+  target: number,
+  durationMs: number,
+  deltaMs: number,
+): number => {
+  if (Math.abs(target - current) <= TICK_ANIM_EPSILON) return target;
+  const t = 1 - Math.exp((-deltaMs * 5) / Math.max(1, durationMs));
+  return current + (target - current) * t;
+};
+
 const EVENT_RADIUS = 24;
+/** Thickness of a span bar, and how far past the viewport edge it may extend. */
+const SPAN_BAR_THICKNESS = 10;
+const SPAN_CLAMP_MARGIN_PX = 40;
 const COLLAPSED_RADIUS = 22;
 const EXPANDED_COLLAPSED_EVENT_RADIUS = 18;
 const EXPANDED_COLLAPSED_MIN_SPACING = 42;
@@ -330,7 +372,6 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   const currentTimeLabel = t("rightNow");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const latestRef = useRef({
-    ticks: [] as VisibleCanvasTick[],
     timelineEvents,
     collapsedGroups,
     expandedCollapsedGroup,
@@ -365,6 +406,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   });
   const hoverFrameRef = useRef<number | null>(null);
   const pendingPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const tickTransitionsRef = useRef(new Map<number, AnimatedCanvasTick>());
+  const lastTickAnimTimeRef = useRef<number | null>(null);
+  const prefersReducedMotionRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      prefersReducedMotionRef.current = query.matches;
+    };
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     onRenderFrameRef.current = onRenderFrame;
@@ -393,6 +448,33 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     onRenderFrameRef.current(now);
   }, []);
 
+  /**
+   * Is any canvas-owned animation still in flight? Only visible events are
+   * checked — an off-screen event easing into place needs no frames — so this
+   * stays far cheaper than the repaint it guards.
+   */
+  const hasPendingCanvasAnimation = useCallback(() => {
+    const { visibleEvents, eventLayouts: layouts } = latestRef.current;
+
+    for (const { event } of visibleEvents) {
+      const layout = layouts[event.id];
+      if (!layout) continue;
+      // Epsilons, not equality: a spring approaches its target asymptotically
+      // and equality could keep the loop spinning forever.
+      if (Math.abs(layout.opacity.get() - layout.targetOpacity) > 0.002) {
+        return true;
+      }
+      if (Math.abs(layout.y.get() - layout.targetY) > 0.05) return true;
+    }
+
+    for (const entry of tickTransitionsRef.current.values()) {
+      if (entry.opacity !== entry.opacityTarget) return true;
+      if (entry.highlight !== entry.highlightTarget) return true;
+    }
+
+    return false;
+  }, []);
+
   const updateCursor = (nextCursor: "grab" | "grabbing" | "pointer") => {
     if (cursorRef.current === nextCursor) return;
     cursorRef.current = nextCursor;
@@ -413,29 +495,60 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     const nextVisibleEvents: VisibleCanvasEvent[] = [];
     for (const event of timelineEvents) {
       const year = getEventTimelineYear(event);
+      const endYear = getEventTimelineEndYear(event);
+      // Overlap test so a span crossing the whole viewport is not culled for
+      // having both of its endpoints off screen.
       if (
         event.id !== focusedEventId &&
-        (year < minVisibleYear || year > maxVisibleYear)
+        ((endYear ?? year) < minVisibleYear || year > maxVisibleYear)
       ) {
         continue;
       }
       nextVisibleEvents.push({
         event,
         year,
+        endYear,
         label: getEventDisplayLabel(event, language),
       });
     }
 
-    const nextTicks: VisibleCanvasTick[] = [];
+    // Reconcile the animated tick map. Ticks that left the incoming set are
+    // kept around with opacityTarget 0 so they fade out instead of vanishing;
+    // the render loop drops them once they reach zero.
+    const animated = tickTransitionsRef.current;
+    const incomingYears = new Set<number>();
+
     for (const tick of ticks) {
-      nextTicks.push({
-        tick,
-        label: formatTimelineTick(tick.year, tick.interval, language),
-      });
+      incomingYears.add(tick.year);
+      const label = formatTimelineTick(tick.year, tick.interval, language);
+      const highlightTarget = tick.isHighlighted ? 1 : 0;
+      const existing = animated.get(tick.year);
+
+      if (existing) {
+        existing.tick = tick;
+        existing.label = label;
+        existing.opacityTarget = 1;
+        existing.highlightTarget = highlightTarget;
+      } else {
+        animated.set(tick.year, {
+          tick,
+          label,
+          // Appear from transparent, but snap when motion is unwanted.
+          opacity: prefersReducedMotionRef.current ? 1 : 0,
+          opacityTarget: 1,
+          highlight: highlightTarget,
+          highlightTarget,
+        });
+      }
+    }
+
+    for (const [year, entry] of animated) {
+      if (!incomingYears.has(year)) {
+        entry.opacityTarget = 0;
+      }
     }
 
     latestRef.current = {
-      ticks: nextTicks,
       timelineEvents,
       collapsedGroups,
       expandedCollapsedGroup,
@@ -682,12 +795,42 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       }
     }
 
+    const hitPrimarySize = getPrimarySize(width, height);
+
     for (let index = currentVisibleEvents.length - 1; index >= 0; index -= 1) {
       const visibleEvent = currentVisibleEvents[index];
       const layout = currentEventLayouts[visibleEvent.event.id];
       if (!layout || layout.opacity.get() < 0.35) continue;
+
+      // Mirror the draw path: the marker of a span sits at the middle of the
+      // clamped bar, not at its start, so the circle test must use the same
+      // anchor or the clickable area drifts away from what is drawn.
+      const startPrimary = getPrimaryScreenPosition(visibleEvent.year);
+      const endPrimary =
+        visibleEvent.endYear === null
+          ? null
+          : getPrimaryScreenPosition(visibleEvent.endYear);
+      const hasVisibleSpan =
+        endPrimary !== null &&
+        Math.abs(endPrimary - startPrimary) >= SPAN_MIN_RENDER_PX;
+
+      let markerPrimary = startPrimary;
+      let barStartPrimary = startPrimary;
+      let barEndPrimary = startPrimary;
+      if (hasVisibleSpan && endPrimary !== null) {
+        barStartPrimary = Math.max(
+          Math.min(startPrimary, endPrimary),
+          -SPAN_CLAMP_MARGIN_PX,
+        );
+        barEndPrimary = Math.min(
+          Math.max(startPrimary, endPrimary),
+          hitPrimarySize + SPAN_CLAMP_MARGIN_PX,
+        );
+        markerPrimary = (barStartPrimary + barEndPrimary) / 2;
+      }
+
       const { x: eventX, y: eventY } = toCanvasPoint(
-        getPrimaryScreenPosition(visibleEvent.year),
+        markerPrimary,
         layout.y.get(),
         width,
         height,
@@ -695,9 +838,38 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       if (Math.hypot(x - eventX, y - eventY) <= EVENT_RADIUS) {
         return { type: "event", event: visibleEvent.event };
       }
+
+      // Anywhere along the bar is a valid target too.
+      if (hasVisibleSpan) {
+        const barStart = toCanvasPoint(
+          barStartPrimary,
+          layout.y.get(),
+          width,
+          height,
+        );
+        const barEnd = toCanvasPoint(
+          barEndPrimary,
+          layout.y.get(),
+          width,
+          height,
+        );
+        const halfThickness = SPAN_BAR_THICKNESS / 2 + 4;
+        const withinBar =
+          orientation === "horizontal"
+            ? x >= Math.min(barStart.x, barEnd.x) &&
+              x <= Math.max(barStart.x, barEnd.x) &&
+              Math.abs(y - barStart.y) <= halfThickness
+            : y >= Math.min(barStart.y, barEnd.y) &&
+              y <= Math.max(barStart.y, barEnd.y) &&
+              Math.abs(x - barStart.x) <= halfThickness;
+
+        if (withinBar) {
+          return { type: "event", event: visibleEvent.event };
+        }
+      }
     }
 
-    const primarySize = getPrimarySize(width, height);
+    const primarySize = hitPrimarySize;
     const bigBangPrimary = getPrimaryScreenPosition(BIG_BANG_YEAR);
     const shouldRenderBigBangBadge =
       axisDirection === 1 ? bigBangPrimary > primarySize : bigBangPrimary < 0;
@@ -728,7 +900,6 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       if (width <= 0 || height <= 0) return;
 
       const {
-        ticks: currentTicks,
         visibleEvents: currentVisibleEvents,
         collapsedGroups: currentCollapsedGroups,
         expandedCollapsedGroup: currentExpandedCollapsedGroup,
@@ -870,34 +1041,79 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         ctx.fillText(currentTimeLabel, snappedCurrentTimeX, snappedCurrentTimeY);
       }
 
-      for (const { tick, label } of currentTicks) {
+      // Advance tick easing once per frame, then draw. `hasActiveTickAnimation`
+      // decides whether we need to keep the loop alive after this frame.
+      const animatedTicks = tickTransitionsRef.current;
+      const nowMs = performance.now();
+      const lastAnimTime = lastTickAnimTimeRef.current;
+      // Clamp dt so a backgrounded tab does not resume with one giant step.
+      const deltaMs =
+        lastAnimTime === null ? 16.7 : Math.min(64, nowMs - lastAnimTime);
+      lastTickAnimTimeRef.current = nowMs;
+      const skipTickAnimation = prefersReducedMotionRef.current;
+      let hasActiveTickAnimation = false;
+
+      for (const [year, entry] of animatedTicks) {
+        if (skipTickAnimation) {
+          entry.opacity = entry.opacityTarget;
+          entry.highlight = entry.highlightTarget;
+        } else {
+          entry.opacity = approach(
+            entry.opacity,
+            entry.opacityTarget,
+            TICK_FADE_MS,
+            deltaMs,
+          );
+          entry.highlight = approach(
+            entry.highlight,
+            entry.highlightTarget,
+            TICK_HIGHLIGHT_MS,
+            deltaMs,
+          );
+        }
+
+        if (entry.opacity <= 0 && entry.opacityTarget === 0) {
+          animatedTicks.delete(year);
+          continue;
+        }
+
+        if (
+          entry.opacity !== entry.opacityTarget ||
+          entry.highlight !== entry.highlightTarget
+        ) {
+          hasActiveTickAnimation = true;
+        }
+
+        const { tick, label, opacity, highlight } = entry;
         const primary = getPrimaryScreenPosition(tick.year);
         if (primary < -120 || primary > primarySize + 120) continue;
         const tickPoint = toCanvasPoint(primary, 0, width, height);
-        ctx.strokeStyle = tick.isHighlighted
+
+        // Geometry eases continuously; font and colour swap at the midpoint,
+        // where the moving length already carries the change.
+        const isMostlyHighlighted = highlight >= 0.5;
+        const tickLength = 9 + highlight * 5;
+        const labelShift = highlight * 5;
+
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = isMostlyHighlighted
           ? canvasTheme.tickHighlighted
           : canvasTheme.tick;
         ctx.beginPath();
         if (orientation === "horizontal") {
           ctx.moveTo(snap(tickPoint.x), snap(crossCenter - 6));
-          ctx.lineTo(
-            snap(tickPoint.x),
-            snap(crossCenter + (tick.isHighlighted ? 14 : 9)),
-          );
+          ctx.lineTo(snap(tickPoint.x), snap(crossCenter + tickLength));
         } else {
           ctx.moveTo(snap(crossCenter - 6), snap(tickPoint.y));
-          ctx.lineTo(
-            snap(crossCenter + (tick.isHighlighted ? 14 : 9)),
-            snap(tickPoint.y),
-          );
+          ctx.lineTo(snap(crossCenter + tickLength), snap(tickPoint.y));
         }
         ctx.stroke();
 
         setTextStyle({
-          font: tick.isHighlighted
+          font: isMostlyHighlighted
             ? CANVAS_FONT_PRESETS.tickHighlighted
             : CANVAS_FONT_PRESETS.tick,
-          fillStyle: tick.isHighlighted
+          fillStyle: isMostlyHighlighted
             ? canvasTheme.tickTextHighlighted
             : canvasTheme.tickText,
           textAlign: "center",
@@ -907,17 +1123,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           orientation === "horizontal"
             ? {
                 x: snap(tickPoint.x),
-                y: snap(
-                  crossCenter + TICK_LABEL_OFFSET_Y + (tick.isHighlighted ? 5 : 0),
-                ),
+                y: snap(crossCenter + TICK_LABEL_OFFSET_Y + labelShift),
               }
             : {
-                x: snap(
-                  crossCenter + TICK_LABEL_OFFSET_Y + (tick.isHighlighted ? 5 : 0),
-                ),
+                x: snap(crossCenter + TICK_LABEL_OFFSET_Y + labelShift),
                 y: snap(tickPoint.y),
               };
         ctx.fillText(label, labelPoint.x, labelPoint.y);
+        ctx.globalAlpha = 1;
       }
 
       for (const group of currentCollapsedGroups) {
@@ -1059,14 +1272,40 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       }
 
       for (const visibleEvent of currentVisibleEvents) {
-        const { event, year, label } = visibleEvent;
+        const { event, year, endYear, label } = visibleEvent;
         const layout = currentEventLayouts[event.id];
         if (!layout) continue;
         const alpha = layout.opacity.get();
         if (alpha <= 0.02) continue;
 
+        // Span geometry. The bar is clamped to the viewport before drawing —
+        // at high zoom the untruncated rect is millions of pixels wide, which
+        // some canvas implementations refuse to fill at all.
+        const spanStartPrimary = getPrimaryScreenPosition(year);
+        const spanEndPrimary =
+          endYear === null ? null : getPrimaryScreenPosition(endYear);
+        const hasVisibleSpan =
+          spanEndPrimary !== null &&
+          Math.abs(spanEndPrimary - spanStartPrimary) >= SPAN_MIN_RENDER_PX;
+
+        // Anchor the marker to the middle of whatever part of the bar is on
+        // screen, so the label of a long era stays readable while panning.
+        let markerPrimary = spanStartPrimary;
+        let clampedSpanStart = spanStartPrimary;
+        let clampedSpanEnd = spanStartPrimary;
+        if (hasVisibleSpan && spanEndPrimary !== null) {
+          const rawStart = Math.min(spanStartPrimary, spanEndPrimary);
+          const rawEnd = Math.max(spanStartPrimary, spanEndPrimary);
+          clampedSpanStart = Math.max(rawStart, -SPAN_CLAMP_MARGIN_PX);
+          clampedSpanEnd = Math.min(
+            rawEnd,
+            primarySize + SPAN_CLAMP_MARGIN_PX,
+          );
+          markerPrimary = (clampedSpanStart + clampedSpanEnd) / 2;
+        }
+
         const point = toCanvasPoint(
-          getPrimaryScreenPosition(year),
+          markerPrimary,
           layout.y.get(),
           width,
           height,
@@ -1091,6 +1330,57 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
         ctx.save();
         ctx.globalAlpha = isHovered ? Math.max(alpha, 0.95) : alpha;
+
+        // The span bar sits behind the stem and marker so the circle still
+        // reads as the event's handle.
+        if (hasVisibleSpan) {
+          const barStart = toCanvasPoint(
+            clampedSpanStart,
+            layout.y.get(),
+            width,
+            height,
+          );
+          const barEnd = toCanvasPoint(
+            clampedSpanEnd,
+            layout.y.get(),
+            width,
+            height,
+          );
+          const barFill = accentColor
+            ? withAlpha(accentColor, isHighlighted ? 0.42 : 0.26)
+            : withAlpha(canvasTheme.defaultActiveLine, isHighlighted ? 0.36 : 0.22);
+          const barStroke = accentColor
+            ? withAlpha(accentColor, isHighlighted ? 0.95 : 0.6)
+            : idleBorderColor;
+
+          ctx.fillStyle = barFill;
+          ctx.strokeStyle = barStroke;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          if (orientation === "horizontal") {
+            const left = Math.min(barStart.x, barEnd.x);
+            const barWidth = Math.abs(barEnd.x - barStart.x);
+            ctx.roundRect(
+              snap(left),
+              snap(eventY - SPAN_BAR_THICKNESS / 2),
+              barWidth,
+              SPAN_BAR_THICKNESS,
+              SPAN_BAR_THICKNESS / 2,
+            );
+          } else {
+            const top = Math.min(barStart.y, barEnd.y);
+            const barHeight = Math.abs(barEnd.y - barStart.y);
+            ctx.roundRect(
+              snap(eventX - SPAN_BAR_THICKNESS / 2),
+              snap(top),
+              SPAN_BAR_THICKNESS,
+              barHeight,
+              SPAN_BAR_THICKNESS / 2,
+            );
+          }
+          ctx.fill();
+          ctx.stroke();
+        }
 
         ctx.strokeStyle = isHighlighted ? activeLineColor : idleLineColor;
         ctx.beginPath();
@@ -1447,6 +1737,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         });
         ctx.fillText("Big Bang", badgeX, badgeY);
       }
+
+      // Keep the loop alive only while a tick is still easing. When everything
+      // has settled this stops, so an idle timeline costs no frames.
+      if (hasActiveTickAnimation) {
+        requestRender();
+      } else {
+        lastTickAnimTimeRef.current = null;
+      }
     };
 
     requestRender();
@@ -1491,11 +1789,18 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       return;
     }
 
-    // Canvas needs an explicit RAF loop while Motion animates event layout values.
+    // Canvas needs an explicit RAF loop while Motion animates event layout
+    // values — those are mutated outside React, so there is no other signal.
     // Camera-only movement is handled by the MotionValue subscriptions above.
+    //
+    // The loop keeps ticking, but only *renders* when something is actually
+    // moving. It previously redrew unconditionally, which meant a full canvas
+    // repaint every frame forever as soon as a single event was loaded.
     let frameId = 0;
     const loop = (now: number) => {
-      renderNow(now);
+      if (hasPendingCanvasAnimation()) {
+        renderNow(now);
+      }
       frameId = requestAnimationFrame(loop);
     };
     frameId = requestAnimationFrame(loop);
@@ -1506,6 +1811,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   }, [
     collapsedGroups.length,
     expandedCollapsedGroup,
+    hasPendingCanvasAnimation,
     renderNow,
     rulerEvent,
     timelineEvents.length,

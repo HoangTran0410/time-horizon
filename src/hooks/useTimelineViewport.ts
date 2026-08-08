@@ -35,6 +35,7 @@ import {
 } from "../constants/types";
 import {
   generateCalendarTimelineTickYears,
+  getEventTimelineRange,
   getEventTimelineYear,
   getNiceInterval,
   getTimelineHighlightStep,
@@ -48,10 +49,12 @@ import {
   FPS_SAMPLE_WINDOW_MS,
   LAYOUT_MARGIN_RATIO,
   LAYOUT_MIN_DISTANCE_PX,
+  LAYOUT_REFRESH_SHIFT_RATIO,
   LAYOUT_ROW_OFFSET,
   LONG_TRAVEL_VIEWPORT_MULTIPLIER,
   MAX_ZOOM,
   MIN_ZOOM,
+  SPAN_MIN_RENDER_PX,
   TICK_OVERSCAN_INTERVALS,
   ZOOM_LAYOUT_THROTTLE_MS,
   ZOOM_SETTLE_DELAY_MS,
@@ -86,6 +89,35 @@ type UseTimelineViewportParams = {
 
 const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
 const WHEEL_PINCH_GESTURE_GAP_MS = 140;
+
+/**
+ * How far the ideal tick spacing must drift from the interval already on screen
+ * before we snap to a different one. `getNiceInterval` picks the nearest nice
+ * value with no memory, so while zooming across a boundary it flips back and
+ * forth every frame — and because adjacent nice intervals differ by 2x or 2.5x,
+ * each flip adds or removes half the ticks, which reads as flickering.
+ *
+ * The nearest-value boundary sits at ~1.41x (the geometric midpoint of a 2x
+ * step), so a band slightly inside it gives stickiness without ever trapping
+ * the interval on a stale value.
+ */
+const TICK_INTERVAL_HYSTERESIS = 1.35;
+
+const stabilizeTickInterval = (
+  candidate: number,
+  previous: number | null,
+  ideal: number,
+): number => {
+  if (previous === null || candidate === previous || previous <= 0) {
+    return candidate;
+  }
+
+  const ratio = ideal / previous;
+  const isStillCloseToPrevious =
+    ratio > 1 / TICK_INTERVAL_HYSTERESIS && ratio < TICK_INTERVAL_HYSTERESIS;
+
+  return isStillCloseToPrevious ? previous : candidate;
+};
 
 export const useTimelineViewport = ({
   containerRef,
@@ -145,6 +177,10 @@ export const useTimelineViewport = ({
   const zoomLayoutTimeoutRef = useRef<number | null>(null);
   const zoomLabelTimeoutRef = useRef<number | null>(null);
   const zoomSettleTimeoutRef = useRef<number | null>(null);
+  const panSettleTimeoutRef = useRef<number | null>(null);
+  const layoutBoundsRef = useRef<{ startYear: number; endYear: number } | null>(
+    null,
+  );
   const persistViewportTimeoutRef = useRef<number | null>(null);
   const pendingZoomLabelRef = useRef(DEFAULT_LOG_ZOOM);
   const hasBootstrappedRef = useRef(false);
@@ -358,10 +394,14 @@ export const useTimelineViewport = ({
 
     const focusedId = focusedEventIdRef.current;
     const visibleEvents = renderedTimelineEvents.filter((event) => {
-      const timelineYear = getEventTimelineYear(event);
-      if (timelineYear < BIG_BANG_YEAR) return false;
+      const range = getEventTimelineRange(event);
+      if (range.endYear < BIG_BANG_YEAR) return false;
       if (event.id === focusedId) return true;
-      if (timelineYear < layoutStart || timelineYear > layoutEnd) return false;
+      // Overlap, not containment: a span wider than the viewport has both
+      // endpoints outside it and would otherwise be culled away entirely.
+      if (range.endYear < layoutStart || range.startYear > layoutEnd) {
+        return false;
+      }
       return true;
     });
     const visibleEventIds = new Set(visibleEvents.map((event) => event.id));
@@ -372,30 +412,57 @@ export const useTimelineViewport = ({
       return b.priority - a.priority;
     });
 
-    const occupied: { year: number; level: number }[] = [];
+    const occupied: { startYear: number; endYear: number; level: number }[] = [];
     const nextCollapsedGroups: CollapsedEventGroup[] = [];
 
     sortedEvents.forEach((event) => {
       const layout = eventLayouts.current[event.id];
       if (!layout) return;
 
+      const { startYear: eventStart, endYear: eventEnd } =
+        getEventTimelineRange(event);
       const eventYear = getEventTimelineYear(event);
       const originalIndex = timelineEventIndexMap.get(event.id) as number;
       const side = originalIndex % 2 === 0 ? 1 : -1;
 
+      // A span only deserves its own row once it is actually wide on screen.
+      // Below that it is visually a point and may collapse like one.
+      const spanWidthPx = (eventEnd - eventStart) * currentZoom;
+      const isWideSpan = spanWidthPx >= SPAN_MIN_RENDER_PX;
+
       let placedLevel: number | null = null;
       for (const level of layoutLevels) {
         const actualLevel = level * side;
+        // Interval overlap with the same padding the point test used. For two
+        // points this reduces exactly to |a - b| < minDistYears.
         const collision = occupied.some(
           (occupiedEvent) =>
             occupiedEvent.level === actualLevel &&
-            Math.abs(occupiedEvent.year - eventYear) < minDistYears,
+            eventStart < occupiedEvent.endYear + minDistYears &&
+            occupiedEvent.startYear < eventEnd + minDistYears,
         );
         if (!collision) {
           placedLevel = actualLevel;
-          occupied.push({ year: eventYear, level: actualLevel });
+          occupied.push({
+            startYear: eventStart,
+            endYear: eventEnd,
+            level: actualLevel,
+          });
           break;
         }
+      }
+
+      // Collapsing a visibly wide bar into a dot loses the very thing it is
+      // meant to show, so a wide span takes the outermost row instead.
+      if (placedLevel === null && isWideSpan) {
+        const fallbackLevel =
+          (layoutLevels[layoutLevels.length - 1] ?? 1) * side;
+        placedLevel = fallbackLevel;
+        occupied.push({
+          startYear: eventStart,
+          endYear: eventEnd,
+          level: fallbackLevel,
+        });
       }
 
       if (placedLevel !== null) {
@@ -467,6 +534,9 @@ export const useTimelineViewport = ({
         ? prevGroups
         : nextCollapsedGroups,
     );
+
+    // Remember the window this pass covered so panning can tell how stale it is.
+    layoutBoundsRef.current = { startYear, endYear };
   };
 
   const updateTicks = () => {
@@ -480,7 +550,11 @@ export const useTimelineViewport = ({
 
     const maxTicks = Math.max(2, Math.floor(primarySize / estimatedWidthPx));
     const idealInterval = visibleYears / maxTicks;
-    const interval = getNiceInterval(idealInterval);
+    const interval = stabilizeTickInterval(
+      getNiceInterval(idealInterval),
+      tickStateRef.current?.interval ?? null,
+      idealInterval,
+    );
     const targetHighlightedTicks = Math.max(
       2,
       Math.min(5, Math.round(primarySize / 320)),
@@ -582,9 +656,11 @@ export const useTimelineViewport = ({
     if (!container || events.length === 0) return;
 
     const primarySize = getViewportPrimarySize();
-    const years = events.map((event) => getEventTimelineYear(event));
-    const minYear = Math.min(...years);
-    const maxYear = Math.max(...years);
+    // Spans must be fitted by their whole extent, otherwise focusing an era
+    // frames only the instant it began.
+    const ranges = events.map((event) => getEventTimelineRange(event));
+    const minYear = Math.min(...ranges.map((range) => range.startYear));
+    const maxYear = Math.max(...ranges.map((range) => range.endYear));
 
     if (Math.abs(maxYear - minYear) < 1e-9) {
       const targetYear = minYear;
@@ -691,12 +767,16 @@ export const useTimelineViewport = ({
 
   const handleAutoFit = (immediate = false) => {
     const visible = renderedTimelineEvents.filter(
-      (event) => getEventTimelineYear(event) >= BIG_BANG_YEAR,
+      (event) => getEventTimelineRange(event).endYear >= BIG_BANG_YEAR,
     );
     if (visible.length === 0) return;
 
-    const years = visible.map((event) => getEventTimelineYear(event));
-    animateCameraToYearRange(Math.min(...years), Math.max(...years), immediate);
+    const ranges = visible.map((event) => getEventTimelineRange(event));
+    animateCameraToYearRange(
+      Math.min(...ranges.map((range) => range.startYear)),
+      Math.max(...ranges.map((range) => range.endYear)),
+      immediate,
+    );
   };
 
   const handleAutoFitRange = ({ startYear, endYear }: AutoFitRangeTarget) => {
@@ -790,6 +870,14 @@ export const useTimelineViewport = ({
     const container = containerRef.current;
     if (!container) return;
     const primarySize = getViewportPrimarySize();
+
+    // A span is framed by its own extent, which is more precise than the
+    // duration zoom hint and is what the user means by "focus this era".
+    const focusRange = getEventTimelineRange(event);
+    if (focusRange.endYear > focusRange.startYear) {
+      animateCameraToYearRange(focusRange.startYear, focusRange.endYear);
+      return;
+    }
 
     const eventYear = getEventTimelineYear(event);
     const currentZoom = Math.exp(logZoom.get());
@@ -1353,6 +1441,22 @@ export const useTimelineViewport = ({
     }, ZOOM_LAYOUT_THROTTLE_MS);
   };
 
+  /**
+   * A pan that was skipped for being too small still has to land eventually,
+   * otherwise the last fraction of a drag never gets a layout pass.
+   */
+  const schedulePanSettle = () => {
+    if (panSettleTimeoutRef.current !== null) {
+      window.clearTimeout(panSettleTimeoutRef.current);
+    }
+
+    panSettleTimeoutRef.current = window.setTimeout(() => {
+      panSettleTimeoutRef.current = null;
+      updateVisibleBounds();
+      updateLayout();
+    }, ZOOM_SETTLE_DELAY_MS);
+  };
+
   const scheduleZoomSettle = () => {
     if (zoomSettleTimeoutRef.current !== null) {
       window.clearTimeout(zoomSettleTimeoutRef.current);
@@ -1569,18 +1673,50 @@ export const useTimelineViewport = ({
   useMotionValueEvent(panX, "change", () => {
     const bounds = updateVisibleBounds();
     const tickState = tickStateRef.current;
+
+    // panX derives from zoom, so it changes on every zoom frame too. Running a
+    // full re-layout here during a zoom bypassed ZOOM_LAYOUT_THROTTLE_MS and
+    // restarted every event's 0.2s opacity tween each frame, so nothing ever
+    // finished fading in. While a zoom is in flight the throttled zoom path
+    // plus the settle pass own layout; panning alone still relayouts per frame.
+    const isZoomInFlight = zoomSettleTimeoutRef.current !== null;
+
     if (!bounds || !tickState) {
-      scheduleLayoutUpdate();
-      scheduleTickUpdate();
+      if (!isZoomInFlight) {
+        scheduleLayoutUpdate();
+        scheduleTickUpdate();
+      }
       return;
     }
 
-    scheduleLayoutUpdate();
+    // Panning keeps zoom fixed, so existing row assignments remain valid and a
+    // full re-layout per frame is wasted work — with thousands of events it was
+    // the single most expensive thing in a drag. Relayout only once the
+    // viewport has drifted meaningfully, and debounce the remainder.
+    if (!isZoomInFlight) {
+      const lastLayoutBounds = layoutBoundsRef.current;
+      const visibleSpan = bounds.endYear - bounds.startYear;
+      const hasDriftedEnough =
+        lastLayoutBounds === null ||
+        visibleSpan <= 0 ||
+        Math.abs(bounds.startYear - lastLayoutBounds.startYear) >
+          visibleSpan * LAYOUT_REFRESH_SHIFT_RATIO;
+
+      if (hasDriftedEnough) {
+        scheduleLayoutUpdate();
+      } else {
+        schedulePanSettle();
+      }
+    }
     scheduleViewportPersistence();
 
+    // Zooming out grows the bounds past the generated tick range on almost
+    // every frame, so without this guard ticks were regenerated per frame while
+    // zooming. The throttled zoom path plus the settle pass cover that case.
     if (
-      bounds.startYear < tickState.firstTick + tickState.interval ||
-      bounds.endYear > tickState.lastTick - tickState.interval
+      !isZoomInFlight &&
+      (bounds.startYear < tickState.firstTick + tickState.interval ||
+        bounds.endYear > tickState.lastTick - tickState.interval)
     ) {
       scheduleTickUpdate();
     }
@@ -1727,6 +1863,10 @@ export const useTimelineViewport = ({
       }
       if (zoomLabelTimeoutRef.current !== null) {
         window.clearTimeout(zoomLabelTimeoutRef.current);
+      }
+      if (panSettleTimeoutRef.current !== null) {
+        window.clearTimeout(panSettleTimeoutRef.current);
+        panSettleTimeoutRef.current = null;
       }
       if (zoomSettleTimeoutRef.current !== null) {
         window.clearTimeout(zoomSettleTimeoutRef.current);

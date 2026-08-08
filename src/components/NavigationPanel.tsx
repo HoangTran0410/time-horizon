@@ -1,5 +1,5 @@
 import React from "react";
-import { AnimatePresence, motion, MotionValue } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDown,
   ArrowDownUp,
@@ -28,11 +28,6 @@ interface NavigationPanelProps {
   onJumpToDate: (target: DateJumpTarget) => void;
   onAutoFitRange: (target: AutoFitRangeTarget) => void;
   onAutoFitAll: () => void;
-  zoomTrackRef: React.RefObject<HTMLDivElement | null>;
-  zoomThumbY: MotionValue<number>;
-  onZoomDragStart: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onZoomDragMove: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onZoomDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void;
   timelineOrientation: TimelineOrientation;
   onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
   verticalWheelBehavior: VerticalWheelBehavior;
@@ -55,11 +50,6 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   onJumpToDate,
   onAutoFitRange,
   onAutoFitAll,
-  zoomTrackRef,
-  zoomThumbY,
-  onZoomDragStart,
-  onZoomDragMove,
-  onZoomDragEnd,
   timelineOrientation,
   onTimelineOrientationChange,
   verticalWheelBehavior,
@@ -74,15 +64,12 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   const [yearInput, setYearInput] = React.useState("");
   const [monthInput, setMonthInput] = React.useState("");
   const [dayInput, setDayInput] = React.useState("");
-  const [jumpError, setJumpError] = React.useState<string | null>(null);
-  const [startYearInput, setStartYearInput] = React.useState("");
   const [endYearInput, setEndYearInput] = React.useState("");
-  const [fitError, setFitError] = React.useState<string | null>(null);
+  const [jumpError, setJumpError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (isOpen) return;
     setJumpError(null);
-    setFitError(null);
   }, [isOpen]);
 
   const verticalSettingsTransition = {
@@ -92,6 +79,11 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     transition: { duration: 0.18, ease: "easeOut" as const },
   };
 
+  /**
+   * One destination form for both cases: a bare year jumps to that moment, and
+   * filling the optional end year fits the range instead. Previously these were
+   * two separate tabs asking for the same thing.
+   */
   const handleJumpSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -104,6 +96,23 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     const year = Number(trimmedYear);
     if (!Number.isFinite(year) || !Number.isInteger(year)) {
       setJumpError(t("yearMustBeInteger"));
+      return;
+    }
+
+    const trimmedEnd = endYearInput.trim();
+    if (trimmedEnd) {
+      const endYear = Number(trimmedEnd);
+      if (!Number.isFinite(endYear)) {
+        setJumpError(t("yearsMustBeValid"));
+        return;
+      }
+
+      setJumpError(null);
+      onAutoFitRange({
+        startYear: Math.min(year, endYear),
+        endYear: Math.max(year, endYear),
+      });
+      onComplete?.();
       return;
     }
 
@@ -134,32 +143,6 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     onComplete?.();
   };
 
-  const handleFitSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const trimmedStart = startYearInput.trim();
-    const trimmedEnd = endYearInput.trim();
-
-    if (!trimmedStart || !trimmedEnd) {
-      setFitError(t("startEndRequired"));
-      return;
-    }
-
-    const startYear = Number(trimmedStart);
-    const endYear = Number(trimmedEnd);
-    if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) {
-      setFitError(t("yearsMustBeValid"));
-      return;
-    }
-
-    setFitError(null);
-    onAutoFitRange({
-      startYear: Math.min(startYear, endYear),
-      endYear: Math.max(startYear, endYear),
-    });
-    onComplete?.();
-  };
-
   return (
     <div
       className="ui-popover"
@@ -174,41 +157,23 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
           <button
             type="button"
             className="ui-tab whitespace-nowrap"
-            data-active={activeTab === "view"}
-            onClick={() => setActiveTab("view" as NavigationPanelTab)}
-          >
-            <Eye size={15} className="icon" />
-            {t("viewTab")}
-          </button>
-          <button
-            type="button"
-            className="ui-tab whitespace-nowrap"
-            data-active={activeTab === "zoom"}
-            onClick={() => setActiveTab("zoom" as NavigationPanelTab)}
-          >
-            <ZoomIn size={15} className="icon" />
-            {t("zoom")}
-          </button>
-          <button
-            type="button"
-            className="ui-tab whitespace-nowrap"
-            data-active={activeTab === "jump"}
-            onClick={() => setActiveTab("jump" as NavigationPanelTab)}
+            data-active={activeTab === "goto"}
+            onClick={() => setActiveTab("goto" as NavigationPanelTab)}
           >
             <Crosshair size={15} className="icon" />
-            {t("jump")}
+            {t("gotoTab")}
           </button>
           <button
             type="button"
             className="ui-tab whitespace-nowrap"
-            data-active={activeTab === "fit"}
-            onClick={() => setActiveTab("fit" as NavigationPanelTab)}
+            data-active={activeTab === "display"}
+            onClick={() => setActiveTab("display" as NavigationPanelTab)}
           >
-            <Scan size={15} className="icon" />
-            {t("fit")}
+            <Eye size={15} className="icon" />
+            {t("displayTab")}
           </button>
         </div>
-        {activeTab === "view" ? (
+        {activeTab === "display" ? (
           <div className="ui-panel-soft rounded-[1.15rem] p-3">
             <div className="text-sm font-semibold text-zinc-100">
               {t("timelineOrientation")}
@@ -320,70 +285,50 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             </AnimatePresence>
           </div>
         ) : null}
-        {activeTab === "zoom" ? (
-          <div className="ui-panel-soft rounded-[1.15rem] p-3">
-            <div className="flex flex-row">
-              <div className="flex-1">
-                <div className="mb-2.5">
-                  <div className="text-sm font-semibold text-zinc-100">
-                    {t("zoom")}
-                  </div>
-                  <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
-                    {t("pickScaleThenSlider")}
-                  </p>
-                </div>
-                <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-3">
-                  <div className="relative">
-                    <select
-                      value="current"
-                      onChange={onQuickZoom}
-                      className="ui-field w-full cursor-pointer appearance-none py-2.5 pl-3.5 pr-10 text-center text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-zinc-300"
-                    >
-                      <option value="current">
-                        {zoomRangeLabel || t("currentZoom")}
-                      </option>
-                      <option disabled>──────────</option>
-                      <option value="1000000000">1B Years</option>
-                      <option value="100000000">100M Years</option>
-                      <option value="1000000">1M Years</option>
-                      <option value="100000">100K Years</option>
-                      <option value="10000">10K Years</option>
-                      <option value="1000">1K Years</option>
-                      <option value="100">100 Years</option>
-                      <option value="10">10 Years</option>
-                      <option value="1">1 Year</option>
-                      <option value={(1 / 12).toString()}>1 Month</option>
-                      <option value={(7 / 365.25).toString()}>1 Week</option>
-                      <option value={(1 / 365.25).toString()}>1 Day</option>
-                    </select>
-                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
-                      <ChevronDown width={12} height={12} />
-                    </div>
-                  </div>
-                </div>
+        {/* Zoom scale lives with the other display settings now. The drag
+            slider that used to sit beside it was a third way to do what the
+            select and the canvas wheel/pinch already do. */}
+        {activeTab === "display" ? (
+          <div className="ui-panel-soft mt-3 rounded-[1.15rem] p-3">
+            <div className="mb-2.5">
+              <div className="text-sm font-semibold text-zinc-100">
+                {t("zoom")}
               </div>
-              <div
-                ref={zoomTrackRef}
-                className="relative mx-auto flex h-24 w-9 touch-none cursor-ns-resize items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/70"
-                onPointerDown={onZoomDragStart}
-                onPointerMove={onZoomDragMove}
-                onPointerUp={onZoomDragEnd}
-                onPointerCancel={onZoomDragEnd}
+              <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
+                {t("pickScale")}
+              </p>
+            </div>
+            <div className="relative">
+              <select
+                value="current"
+                onChange={onQuickZoom}
+                className="ui-field w-full cursor-pointer appearance-none py-2.5 pl-3.5 pr-10 text-center text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-zinc-300"
               >
-                <motion.div
-                  className="absolute flex h-8 w-8 flex-col items-center justify-center gap-0.5 rounded-full border border-zinc-600 bg-zinc-700 shadow-lg hover:bg-zinc-600"
-                  style={{ y: zoomThumbY }}
-                >
-                  <div className="h-px w-3 rounded-full bg-zinc-400" />
-                  <div className="h-px w-3 rounded-full bg-zinc-400" />
-                  <div className="h-px w-3 rounded-full bg-zinc-400" />
-                </motion.div>
+                <option value="current">
+                  {zoomRangeLabel || t("currentZoom")}
+                </option>
+                <option disabled>──────────</option>
+                <option value="1000000000">1B Years</option>
+                <option value="100000000">100M Years</option>
+                <option value="1000000">1M Years</option>
+                <option value="100000">100K Years</option>
+                <option value="10000">10K Years</option>
+                <option value="1000">1K Years</option>
+                <option value="100">100 Years</option>
+                <option value="10">10 Years</option>
+                <option value="1">1 Year</option>
+                <option value={(1 / 12).toString()}>1 Month</option>
+                <option value={(7 / 365.25).toString()}>1 Week</option>
+                <option value={(1 / 365.25).toString()}>1 Day</option>
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                <ChevronDown width={12} height={12} />
               </div>
             </div>
           </div>
         ) : null}
 
-        {activeTab === "jump" ? (
+        {activeTab === "goto" ? (
           <form
             className="ui-panel-soft rounded-[1.15rem] p-3"
             onSubmit={handleJumpSubmit}
@@ -393,7 +338,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                 {t("jumpTo")}
               </div>
               <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
-                {t("jumpToHelp")}
+                {t("gotoHelp")}
               </p>
             </div>
             <div className="space-y-2">
@@ -415,6 +360,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   onChange={(e) => setMonthInput(e.target.value)}
                   placeholder={t("month")}
                   className="ui-field"
+                  disabled={endYearInput.trim() !== ""}
                 />
                 <input
                   type="number"
@@ -425,8 +371,23 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                   onChange={(e) => setDayInput(e.target.value)}
                   placeholder={t("day")}
                   className="ui-field"
+                  disabled={endYearInput.trim() !== ""}
                 />
               </div>
+
+              {/* Filling this turns the jump into a range fit. Keeping it in the
+                  same form means one destination concept instead of two tabs. */}
+              <div className="border-t border-zinc-800/80 pt-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={endYearInput}
+                  onChange={(e) => setEndYearInput(e.target.value)}
+                  placeholder={t("endYearOptional")}
+                  className="ui-field"
+                />
+              </div>
+
               {jumpError ? (
                 <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[0.8rem] leading-5 text-red-300">
                   {jumpError}
@@ -436,67 +397,19 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                 type="submit"
                 className="ui-button ui-button-primary w-full"
               >
-                {t("goToDate")}
+                {endYearInput.trim() ? t("fitRange") : t("goToDate")}
               </button>
-            </div>
-          </form>
-        ) : null}
-
-        {activeTab === "fit" ? (
-          <form
-            className="ui-panel-soft rounded-[1.15rem] p-3"
-            onSubmit={handleFitSubmit}
-          >
-            <div className="mb-2.5">
-              <div className="text-sm font-semibold text-zinc-100">
-                {t("fit")}
-              </div>
-              <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
-                {t("fitRangeHelp")}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={startYearInput}
-                  onChange={(e) => setStartYearInput(e.target.value)}
-                  placeholder={`${t("year")} ${t("fromDate").toLowerCase()}`}
-                  className="ui-field"
-                />
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={endYearInput}
-                  onChange={(e) => setEndYearInput(e.target.value)}
-                  placeholder={`${t("year")} ${t("toDate").toLowerCase()}`}
-                  className="ui-field"
-                />
-              </div>
-              {fitError ? (
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[0.8rem] leading-5 text-red-300">
-                  {fitError}
-                </div>
-              ) : null}
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button
-                  type="submit"
-                  className="ui-button ui-button-primary w-full"
-                >
-                  {t("fitRange")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAutoFitAll();
-                    onComplete?.();
-                  }}
-                  className="ui-button ui-button-secondary w-full"
-                >
-                  {t("fitAllVisible")}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onAutoFitAll();
+                  onComplete?.();
+                }}
+                className="ui-button ui-button-secondary w-full"
+              >
+                <Scan size={15} className="icon" />
+                {t("fitAllVisible")}
+              </button>
             </div>
           </form>
         ) : null}

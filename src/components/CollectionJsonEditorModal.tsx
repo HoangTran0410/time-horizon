@@ -20,9 +20,20 @@ interface CollectionJsonEditorModalProps {
   collectionId: string;
   collectionName: string;
   jsonData: string;
-  onSave: (json: string) => void;
+  /** Returns an error message to display, or null when the save succeeded. */
+  onSave: (json: string) => string | null;
   onClose: () => void;
 }
+
+/** Events in the original payload, used to warn before a lossy replace. */
+const countEventsInJson = (json: string): number => {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+};
 
 export const CollectionJsonEditorModal: React.FC<
   CollectionJsonEditorModalProps
@@ -30,6 +41,7 @@ export const CollectionJsonEditorModal: React.FC<
   const { t } = useI18n();
   const [draft, setDraft] = useState(jsonData);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [hasConfirmedReplace, setHasConfirmedReplace] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
@@ -45,19 +57,63 @@ export const CollectionJsonEditorModal: React.FC<
     }, 160);
   }, [isClosing, onClose]);
 
+  /**
+   * Saving here replaces every event in the collection. It used to close the
+   * modal the moment JSON.parse succeeded, so structurally valid JSON with the
+   * wrong shape wiped the collection and swallowed the error. Now the shape is
+   * checked, a lossy replace needs confirming, and failures keep the modal open.
+   */
   const handleSave = useCallback(() => {
     if (parseError) return;
+
+    let parsed: unknown;
     try {
-      JSON.parse(draft);
-      setParseError(null);
-      onSave(draft);
-      requestClose();
+      parsed = JSON.parse(draft);
     } catch {
       setParseError(t("invalidJsonFixBeforeSaving"));
+      return;
     }
-  }, [draft, onSave, parseError, requestClose, t]);
+
+    if (!Array.isArray(parsed)) {
+      setParseError(t("jsonMustBeArray"));
+      return;
+    }
+
+    const originalCount = countEventsInJson(jsonData);
+    const isLossy = originalCount > 0 && parsed.length < originalCount;
+    if (isLossy && !hasConfirmedReplace) {
+      setHasConfirmedReplace(true);
+      setParseError(
+        t("jsonReplaceWarning", {
+          from: originalCount,
+          to: parsed.length,
+        }),
+      );
+      return;
+    }
+
+    const saveError = onSave(draft);
+    if (saveError) {
+      setParseError(saveError);
+      setHasConfirmedReplace(false);
+      return;
+    }
+
+    setParseError(null);
+    requestClose();
+  }, [
+    draft,
+    hasConfirmedReplace,
+    jsonData,
+    onSave,
+    parseError,
+    requestClose,
+    t,
+  ]);
 
   const handleValidate = useCallback((value: string) => {
+    // Any edit invalidates a pending replace confirmation.
+    setHasConfirmedReplace(false);
     if (!value.trim()) {
       setParseError(null);
       return;

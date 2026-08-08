@@ -81,6 +81,7 @@ export function exportCollectionToCsv(
     "title",
     "description",
     "time",
+    "endTime",
     "duration",
     "emoji",
     "color",
@@ -98,6 +99,7 @@ export function exportCollectionToCsv(
         escapeCsvValue(serializeLocalizedText(ev.title)),
         escapeCsvValue(serializeLocalizedText(ev.description)),
         escapeCsvValue(eventTimeToStr(ev.time)),
+        escapeCsvValue(ev.endTime ? eventTimeToStr(ev.endTime) : ""),
         escapeCsvValue(ev.duration ?? ""),
         escapeCsvValue(ev.emoji),
         escapeCsvValue(ev.color ?? ""),
@@ -196,6 +198,28 @@ export function parseCsvEventRow(
     ...(timeParts.slice(1, 6) as [number | null, number | null, number | null, number | null, number | null]),
   ];
 
+  // Optional span end, same "year month day ..." encoding as `time`.
+  const endTimeStr = row.endTime ?? row.end_time ?? row.endYear ?? "";
+  const endTimeParts = endTimeStr
+    .split(/\s+/)
+    .map((v) => (v ? Number(v) : null))
+    .filter((v): v is number | null => v === null || Number.isFinite(v));
+  const endTime: EventTime | undefined =
+    endTimeParts.length > 0 &&
+    endTimeParts[0] !== null &&
+    Number.isFinite(endTimeParts[0])
+      ? [
+          endTimeParts[0] as number,
+          ...(endTimeParts.slice(1, 6) as [
+            number | null,
+            number | null,
+            number | null,
+            number | null,
+            number | null,
+          ]),
+        ]
+      : undefined;
+
   return {
     ...(row.id || row.event_id
       ? { id: row.id ?? row.event_id }
@@ -204,6 +228,7 @@ export function parseCsvEventRow(
     description,
     emoji,
     time,
+    ...(endTime ? { endTime } : {}),
     priority: row.priority ? Number(row.priority) : 50,
     duration: row.duration ? Number(row.duration) : undefined,
     color: row.color || null,

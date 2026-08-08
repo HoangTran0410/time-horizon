@@ -169,10 +169,7 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => {
-                      // onClose();
-                      onOpenSyncPanel();
-                    }}
+                    onClick={onOpenSyncPanel}
                     className="ui-button ui-button-secondary relative w-full items-start justify-start rounded-[1rem] px-4 py-3 text-left"
                   >
                     <span className="flex items-center gap-2">
@@ -192,10 +189,7 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => {
-                      // onClose();
-                      onOpenSpatialPanel();
-                    }}
+                    onClick={onOpenSpatialPanel}
                     className="ui-button ui-button-secondary relative w-full items-start justify-start rounded-[1rem] px-4 py-3 text-left"
                   >
                     <span className="flex items-center gap-2">

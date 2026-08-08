@@ -71,6 +71,9 @@ interface TimelineProps {
   onBackToLanding: () => void;
 }
 
+/** The full-screen overlay panels, of which at most one is open at a time. */
+type OverlayPanel = "settings" | "spatial" | "sync" | "share" | null;
+
 type CollectionTransferPayload = {
   version: number;
   source: "time-horizon";
@@ -92,7 +95,6 @@ export const Timeline = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [confirmDialog, setConfirmDialog] =
     useState<ConfirmDialogOptions | null>(null);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingImportEvents, setPendingImportEvents] = useState<
     Event[] | null
@@ -101,10 +103,16 @@ export const Timeline = ({
   const [editingCollection, setEditingCollection] =
     useState<EventCollectionMeta | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [isSpatialSettingsPanelOpen, setIsSpatialSettingsPanelOpen] =
-    useState(false);
-  const [isSyncPanelOpen, setIsSyncPanelOpen] = useState(false);
+  /**
+   * Only one full-screen overlay panel may be open at a time. A single value
+   * (rather than one boolean each) makes that mutual exclusion structural —
+   * previously all four could be true at once, stacking their dim layers.
+   */
+  const [overlayPanel, setOverlayPanel] = useState<OverlayPanel>(null);
+  const isSettingsPanelOpen = overlayPanel === "settings";
+  const isSpatialSettingsPanelOpen = overlayPanel === "spatial";
+  const isSyncPanelOpen = overlayPanel === "sync";
+  const shareModalOpen = overlayPanel === "share";
   const [isSyncBusy, setIsSyncBusy] = useState(false);
   const [syncProgressStep, setSyncProgressStep] = useState<string | null>(null);
   const [backupModeDialog, setBackupModeDialog] = useState<{
@@ -212,6 +220,50 @@ export const Timeline = ({
   const setCollectionColor = useStore((s) => s.setCollectionColor);
   const openSidebar = useStore((s) => s.openSidebar);
   const openSidebarExplore = useStore((s) => s.openSidebarExplore);
+  const isSidebarOpen = useStore((s) => s.isSidebarOpen);
+  const closeSidebar = useStore((s) => s.closeSidebar);
+
+  /**
+   * True when editing this collection would promote it from a tracked catalog
+   * copy to a local fork. The promotion is silent in the store, so the editors
+   * surface it before the user commits an edit.
+   */
+  const willForkCollection = (collectionId: string | null | undefined) =>
+    Boolean(
+      collectionId && collectionLibrary[collectionId]?.origin === "catalog",
+    );
+
+  /** Open an overlay panel, closing the sidebar so the two never stack. */
+  const openOverlayPanel = (panel: NonNullable<OverlayPanel>) => {
+    closeSidebar();
+    setOverlayPanel(panel);
+  };
+  const closeOverlayPanel = () => setOverlayPanel(null);
+
+  // The sidebar and the overlay panels are separate surfaces; opening the
+  // sidebar dismisses whichever panel was up rather than hiding behind it.
+  useEffect(() => {
+    if (isSidebarOpen) {
+      setOverlayPanel(null);
+    }
+  }, [isSidebarOpen]);
+
+  // Escape closes the active overlay panel. Individual panels previously had
+  // no key handling at all, so there was no way out but the close button.
+  useEffect(() => {
+    if (!overlayPanel) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setOverlayPanel(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [overlayPanel]);
+
   const {
     sharedCollectionIds: sharedCollectionIdsFromUrlRaw,
     sharedEventId: sharedEventIdFromUrl,
@@ -1259,7 +1311,7 @@ export const Timeline = ({
           collections={collections}
           syncableCollectionIds={Array.from(catalogCollectionIds)}
           editableCollectionIds={editableCollectionIds}
-          onOpenSyncPanel={() => setIsSyncPanelOpen(true)}
+          onOpenSyncPanel={() => openOverlayPanel("sync")}
           onEditEvent={(event) => {
             openEventEditor(event.id);
           }}
@@ -1393,21 +1445,24 @@ export const Timeline = ({
         <Toolbar
           logicFps={logicFps}
           renderFps={renderFps}
-          onOpenControlCenter={() => setIsSettingsPanelOpen(true)}
+          zoomRangeLabel={zoomRangeLabel}
+          visibleCollectionCount={visibleCollectionIds.length}
+          onOpenCollections={openSidebar}
+          onOpenControlCenter={() => openOverlayPanel("settings")}
         />
         <ControlCenterPanel
           isOpen={isSettingsPanelOpen}
           theme={theme}
-          onOpenSyncPanel={() => setIsSyncPanelOpen(true)}
-          onShare={() => setShareModalOpen(true)}
+          onOpenSyncPanel={() => setOverlayPanel("sync")}
+          onShare={() => setOverlayPanel("share")}
           onToggleTheme={onToggleTheme}
-          onOpenSpatialPanel={() => setIsSpatialSettingsPanelOpen(true)}
-          onClose={() => setIsSettingsPanelOpen(false)}
+          onOpenSpatialPanel={() => setOverlayPanel("spatial")}
+          onClose={closeOverlayPanel}
         />
         <SpatialSettingsPanel
           isOpen={isSpatialSettingsPanelOpen}
           currentFocusYear={focusYear.get()}
-          onClose={() => setIsSpatialSettingsPanelOpen(false)}
+          onClose={closeOverlayPanel}
         />
         <SyncPanel
           isOpen={isSyncPanelOpen}
@@ -1417,7 +1472,7 @@ export const Timeline = ({
           onDisconnect={handleDisconnectSync}
           onBackupToDrive={handleBackupToDrive}
           onRestoreFromDrive={handleRestoreFromDrive}
-          onClose={() => setIsSyncPanelOpen(false)}
+          onClose={closeOverlayPanel}
         />
 
         <Controller
@@ -1458,11 +1513,6 @@ export const Timeline = ({
           }}
           onCloseSelectedEvent={clearFocusedEventFromViewport}
           onStartAddEvent={() => handleStartAddEvent()}
-          zoomTrackRef={zoomTrackRef}
-          zoomThumbY={zoomThumbY}
-          onZoomDragStart={handleZoomDragStart}
-          onZoomDragMove={handleZoomDragMove}
-          onZoomDragEnd={handleZoomDragEnd}
           timelineOrientation={effectiveTimelineOrientation}
           onTimelineOrientationChange={setTimelineOrientation}
           verticalWheelBehavior={verticalWheelBehavior}
@@ -1510,6 +1560,9 @@ export const Timeline = ({
           <EventEditor
             mode="edit"
             event={editingEvent}
+            willForkCollection={willForkCollection(
+              findEventCollectionId(editingEvent.id),
+            )}
             onSave={handleUpdateEvent}
             onClose={closeEventEditor}
           />
@@ -1520,6 +1573,7 @@ export const Timeline = ({
             mode="create"
             event={draftEventForCreate}
             availableCollections={writableCollections}
+            isCatalogCollection={willForkCollection}
             initialCollectionId={addingCollectionId}
             onAddCollection={openCollectionCreator}
             onSave={handleCreateEvent}
@@ -1583,7 +1637,7 @@ export const Timeline = ({
                   : null,
               })
             }
-            onClose={() => setShareModalOpen(false)}
+            onClose={closeOverlayPanel}
           />
         )}
 
