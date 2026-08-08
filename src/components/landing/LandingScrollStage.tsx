@@ -9,6 +9,7 @@ import {
   LANDING_REFERENCE_AXIS_PX,
   resolveLandingAxisLogZoom,
 } from "./landingCamera";
+import { LandingZoomGauge } from "./LandingZoomGauge";
 import { useLandingCamera } from "./useLandingCamera";
 import {
   buildLandingEvents,
@@ -280,6 +281,20 @@ function LandingCanvasStage({
   const active = LANDING_WAYPOINTS[activeIndex];
   const scrollHeight = `${LANDING_WAYPOINTS.length * SEGMENT_VH}vh`;
 
+  // The gauge arc spans the tour's own zoom range, rescaled onto this axis the
+  // same way the camera is — otherwise a phone would start the arc off-scale.
+  const gaugeRange = useMemo(
+    () =>
+      [
+        resolveLandingAxisLogZoom(LANDING_WAYPOINTS[0].logZoom, axisPx),
+        resolveLandingAxisLogZoom(
+          LANDING_WAYPOINTS[LANDING_WAYPOINTS.length - 1].logZoom,
+          axisPx,
+        ),
+      ] as const,
+    [axisPx],
+  );
+
   return (
     <div
       ref={scrollRef}
@@ -333,6 +348,14 @@ function LandingCanvasStage({
           >
             <div className="landing-scroll-hint">{t("landingScrollHint")}</div>
           </LandingHeroContent>
+        </div>
+
+        <div className="landing-zoom-gauge-layer">
+          <LandingZoomGauge
+            logZoom={currentLogZoom}
+            axisPx={axisPx}
+            range={gaugeRange}
+          />
         </div>
 
         <div className="landing-caption-layer" aria-hidden={activeIndex === 0}>

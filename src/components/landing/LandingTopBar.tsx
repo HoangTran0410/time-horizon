@@ -47,11 +47,11 @@ export function LandingTopBar({ theme, onToggleTheme }: LandingTopBarProps) {
         <span className="landing-mark" aria-hidden="true">
           <MoonStar size={17} strokeWidth={1.8} />
         </span>
-        <span className="landing-topbar-brand-text">
-          <span className="ui-kicker text-[0.58rem]">
-            {t("chronologyEngine")}
-          </span>
-          <span className="landing-brand-title">Time Horizon</span>
+        <span className="landing-brand-title">Time Horizon</span>
+        {/* Trailing rather than stacked above: a two-line block in a pill this
+            short left the mark floating between lines and squeezed both. */}
+        <span className="landing-topbar-brand-tag ui-kicker" aria-hidden="true">
+          {t("chronologyEngine")}
         </span>
       </a>
 

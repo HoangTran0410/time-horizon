@@ -393,9 +393,17 @@ select {
   animation-delay: -8s;
 }
 
+/* The wordmark borrows the hero's display face — in the body sans it read as
+   ordinary running text rather than as a name. */
 .landing-brand-title {
-  font-size: 1rem;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-optical-sizing: auto;
+  letter-spacing: -0.012em;
   line-height: 1.1;
+  white-space: nowrap;
+  color: var(--ui-zinc-050);
 }
 
 .landing-mark {
@@ -592,6 +600,9 @@ select {
   --landing-topbar-control: calc(
     var(--landing-topbar-height) - 2 * var(--landing-topbar-inset) - 2px
   );
+  /* Deeper than the control inset: the mark is a lone square rather than one
+     of a row, so at the same inset it looked pinned against the pill edge. */
+  --landing-topbar-brand-inset: 0.5rem;
 
   position: fixed;
   top: 0;
@@ -622,24 +633,36 @@ select {
 .landing-topbar-brand {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
   /* Asymmetric on purpose: the mark is a filled square that already carries its
      own visual edge, while the wordmark needs real breathing room on the right. */
-  padding-inline: var(--landing-topbar-inset) 1rem;
+  padding-inline: var(--landing-topbar-brand-inset) 1.15rem;
   text-decoration: none;
   color: inherit;
+  white-space: nowrap;
 }
 
 .landing-topbar-brand .landing-mark {
-  width: var(--landing-topbar-control);
-  height: var(--landing-topbar-control);
+  width: calc(
+    var(--landing-topbar-height) - 2 * var(--landing-topbar-brand-inset) - 2px
+  );
+  height: calc(
+    var(--landing-topbar-height) - 2 * var(--landing-topbar-brand-inset) - 2px
+  );
 }
 
-.landing-topbar-brand-text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  line-height: 1.15;
+/* Reads as a caption after the name, on the same line, behind a hairline. */
+.landing-topbar-brand-tag {
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--ui-border-zinc-800);
+  font-size: 0.56rem;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .landing-topbar-brand-tag {
+    display: none;
+  }
 }
 
 .landing-topbar-actions {
@@ -688,12 +711,12 @@ select {
 @media (max-width: 640px) {
   .landing-topbar {
     --landing-topbar-height: 2.75rem;
+    --landing-topbar-brand-inset: 0.4rem;
     padding: 0.6rem 0.75rem;
   }
 
-  /* The kicker above the wordmark is the first thing to go when space is tight. */
-  .landing-topbar-brand-text .ui-kicker {
-    display: none;
+  .landing-brand-title {
+    font-size: 1rem;
   }
 }
 
@@ -810,7 +833,8 @@ select {
      same element did not hold — the caption stayed at opacity 1 on the first
      screen — so the scroll reveal gets its own wrapper instead. */
   .landing-stage-canvas,
-  .landing-caption-layer {
+  .landing-caption-layer,
+  .landing-zoom-gauge-layer {
     animation: landing-stage-reveal linear both;
     animation-timeline: scroll();
     animation-range: 14vh 78vh;
@@ -870,6 +894,122 @@ select {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--ui-zinc-400);
+}
+
+/* Positioning layer for the zoom dial, mirroring the caption layer so both can
+   carry the scroll reveal without touching what sits inside them. */
+.landing-zoom-gauge-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.landing-zoom-gauge {
+  --landing-gauge-size: 5.5rem;
+
+  position: absolute;
+  left: 2rem;
+  bottom: 8vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  width: var(--landing-gauge-size);
+}
+
+.landing-zoom-gauge-ring {
+  display: block;
+  width: var(--landing-gauge-size);
+  height: var(--landing-gauge-size);
+  overflow: visible;
+  /* The dial floats over drawn event cards, so it carries the same frosted
+     disc the top bar's pills use rather than reading as loose strokes. */
+  border-radius: 50%;
+  border: 1px solid var(--ui-border-zinc-800-50);
+  background: var(--ui-zinc-950-70);
+  backdrop-filter: blur(10px);
+}
+
+.landing-zoom-gauge-track,
+.landing-zoom-gauge-arc {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.landing-zoom-gauge-track {
+  stroke: var(--ui-border-zinc-800);
+}
+
+.landing-zoom-gauge-arc {
+  stroke: var(--ui-emerald-500);
+}
+
+/* Overlaid on the ring rather than following it in flow, so the dial reads as
+   one object and the number stays put as its digit count changes. */
+.landing-zoom-gauge-readout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  width: var(--landing-gauge-size);
+  height: var(--landing-gauge-size);
+  text-align: center;
+}
+
+.landing-zoom-gauge-value {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ui-zinc-100);
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-zoom-gauge-unit {
+  font-family: var(--font-mono);
+  font-size: 0.44rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--ui-zinc-400);
+}
+
+.landing-zoom-gauge-caption {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ui-zinc-500);
+  text-align: center;
+}
+
+/* The caption band owns the bottom of a phone screen, so the dial moves up
+   under the top bar instead of sitting on top of the copy. */
+@media (max-width: 767px) {
+  .landing-zoom-gauge {
+    --landing-gauge-size: 4.25rem;
+    left: 0.85rem;
+    bottom: auto;
+    /* Clears the bar: 2.75rem pill + 2 × 0.6rem bar padding, plus a gap. */
+    top: 4.5rem;
+  }
+
+  .landing-zoom-gauge-value {
+    font-size: 0.95rem;
+  }
+
+  /* Wraps to two lines at this size and adds nothing the dial does not
+     already say. */
+  .landing-zoom-gauge-caption {
+    display: none;
+  }
 }
 
 /* Reduced-motion counterpart of the hero overlay: same content, ordinary flow. */
