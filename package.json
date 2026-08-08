@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "rm -rf assets && vite build",
-    "build:pages": "vite build --outDir ../dist --emptyOutDir && cp privacy.html terms.html favicon.svg dist/",
+    "build": "vite build && cp privacy.html terms.html favicon.svg dist/",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",

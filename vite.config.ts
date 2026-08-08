@@ -8,8 +8,8 @@ export default defineConfig(({ mode }) => {
     base: "./",
     root: "src",
     build: {
-      outDir: "../",
-      emptyOutDir: false,
+      outDir: "../dist",
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks: (id) => {

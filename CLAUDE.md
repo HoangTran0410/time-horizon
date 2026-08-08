@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Scripts live in `package.json` — read them there. What it can't tell you:
 
 - `npm run lint` (tsc, no ESLint) + `npm test` (vitest) are the gate before committing.
-- `npm run build` emits into the **repo root** and that output is committed (see "Build output is
-  committed" below). `npm run build:pages` emits into gitignored `dist/` for the Pages workflow.
+- Deploys are automatic: pushing `main` runs `.github/workflows/deploy.yml` (lint → test → build →
+  GitHub Pages). Never commit build output; `dist/` is gitignored.
 - Tests are pure-logic only (node environment, no jsdom), colocated as `src/**/*.test.ts`.
   `vitest.config.ts` is standalone on purpose — `vite.config.ts` sets `root: "src"`, which would
   wreck include paths and drag the build plugins into unit runs. Browser globals the store touches
@@ -30,15 +30,17 @@ In dev the app fetches from `http://localhost:5500/data`; in production from
 `https://hoangtran99.is-a.dev/time-horizon-data` (`src/hooks/useCatalogCollections.ts`).
 Without a server on :5500 the catalog is empty and the Explore panel shows nothing.
 
-### Build output is committed
+### Deployment
 
-`vite.config.ts` sets `root: "src"`, `outDir: "../"`, `emptyOutDir: false`, `base: "./"` — the build
-writes `index.html` + `assets/` into the repo root, and those files are **committed** (GitHub Pages
-serves `main`). Hence the alternating `feature` / `build` commits in history.
+GitHub Pages is fed by `.github/workflows/deploy.yml` (Pages source = "GitHub Actions"): every push
+to `main` builds into `dist/` and deploys the artifact to `https://hoangtran99.is-a.dev/time-horizon/`.
+The old scheme of committing `index.html` + `assets/` to the repo root (the `build` commits in
+history) is gone — do not resurrect it.
 
-- Edit `src/index.html`, never the generated root `index.html`.
-- `privacy.html`, `terms.html`, `favicon.svg` at the root are hand-maintained, not build output.
-- Ship a `npm run build` commit when the deployed site should change.
+- `privacy.html`, `terms.html`, `favicon.svg` at the repo root are hand-maintained **source** files;
+  the build script copies them into `dist/`, so they must stay at the root.
+- `vite.config.ts` sets `root: "src"`, so the app's HTML entry is `src/index.html`.
+- The custom domain lives on the user-site repo, not here — nothing in this repo configures it.
 
 ## Architecture
 
