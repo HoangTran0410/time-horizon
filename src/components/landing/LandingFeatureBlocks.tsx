@@ -1,30 +1,33 @@
-import { Layers3, MapPin, Telescope } from "lucide-react";
 import { useI18n } from "../../i18n";
 
 /**
  * Three alternating blocks. Illustrations are inline SVG/CSS on purpose: the
  * spatial block must not pull maplibre-gl into the main chunk.
+ *
+ * Emoji rather than icon components, so the page speaks the same visual
+ * language as the timeline it is advertising — every event in the catalog is
+ * marked by one.
  */
 export function LandingFeatureBlocks() {
   const { t } = useI18n();
 
   const blocks = [
     {
-      icon: Telescope,
+      icon: "🔭",
       eyebrow: t("scaleShift"),
       title: t("featureZoomTitle"),
       copy: t("featureZoomCopy"),
       art: "zoom" as const,
     },
     {
-      icon: Layers3,
+      icon: "🗂️",
       eyebrow: t("curatedLayers"),
       title: t("featureLayersTitle"),
       copy: t("featureLayersCopy"),
       art: "layers" as const,
     },
     {
-      icon: MapPin,
+      icon: "🗺️",
       eyebrow: t("landingSpatialEyebrow"),
       title: t("landingFeatureSpatialTitle"),
       copy: t("landingFeatureSpatialCopy"),
@@ -35,7 +38,6 @@ export function LandingFeatureBlocks() {
   return (
     <section className="landing-features">
       {blocks.map((block, index) => {
-        const Icon = block.icon;
         return (
           <article
             key={block.title}
@@ -44,8 +46,8 @@ export function LandingFeatureBlocks() {
             }`}
           >
             <div className="landing-feature-body">
-              <div className="landing-feature-icon">
-                <Icon size={18} strokeWidth={1.8} />
+              <div className="landing-feature-icon" aria-hidden="true">
+                {block.icon}
               </div>
               <div className="ui-kicker">{block.eyebrow}</div>
               <h2 className="landing-feature-title">{block.title}</h2>

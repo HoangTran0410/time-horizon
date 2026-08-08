@@ -94,7 +94,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpBigBangTitle",
     captionKey: "landingWpBigBangCaption",
     timeLabelKey: "landingTimeBigBang",
-    emoji: "✦",
+    emoji: "💥",
     priority: 100,
   },
   {
@@ -103,7 +103,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpFirstStarsTitle",
     captionKey: "landingWpFirstStarsCaption",
     timeLabelKey: "landingTimeFirstStars",
-    emoji: "★",
+    emoji: "✨",
     priority: 95,
   },
   {
@@ -112,7 +112,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpEarthTitle",
     captionKey: "landingWpEarthCaption",
     timeLabelKey: "landingTimeEarth",
-    emoji: "🜨",
+    emoji: "🌍",
     priority: 90,
   },
   {
@@ -121,7 +121,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpLifeTitle",
     captionKey: "landingWpLifeCaption",
     timeLabelKey: "landingTimeLife",
-    emoji: "◍",
+    emoji: "🦠",
     priority: 85,
   },
   {
@@ -130,7 +130,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpCambrianTitle",
     captionKey: "landingWpCambrianCaption",
     timeLabelKey: "landingTimeCambrian",
-    emoji: "🜛",
+    emoji: "🦀",
     priority: 80,
   },
   {
@@ -139,7 +139,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpAsteroidTitle",
     captionKey: "landingWpAsteroidCaption",
     timeLabelKey: "landingTimeAsteroid",
-    emoji: "☄",
+    emoji: "☄️",
     priority: 75,
   },
   {
@@ -148,7 +148,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpSapiensTitle",
     captionKey: "landingWpSapiensCaption",
     timeLabelKey: "landingTimeSapiens",
-    emoji: "◈",
+    emoji: "🧠",
     priority: 70,
   },
   {
@@ -157,7 +157,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpWritingTitle",
     captionKey: "landingWpWritingCaption",
     timeLabelKey: "landingTimeWriting",
-    emoji: "𓂀",
+    emoji: "📜",
     priority: 65,
   },
   {
@@ -166,7 +166,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpMoonTitle",
     captionKey: "landingWpMoonCaption",
     timeLabelKey: "landingTimeMoon",
-    emoji: "☾",
+    emoji: "🚀",
     priority: 60,
   },
   {
@@ -175,7 +175,7 @@ const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
     titleKey: "landingWpNowTitle",
     captionKey: "landingWpNowCaption",
     timeLabelKey: "landingTimeNow",
-    emoji: "✚",
+    emoji: "📌",
     priority: 55,
   },
 ];
@@ -189,7 +189,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = (() => {
     logZoom: logZooms[index],
   }));
 })();
-
 
 /** Camera-only projection, so landingCamera stays unaware of copy and emoji. */
 export const LANDING_CAMERA_WAYPOINTS: readonly LandingCameraWaypoint[] =

@@ -1266,84 +1266,37 @@ export const getStableTickLabelWidthEstimate = (
   return estimate;
 };
 
-/** The scale bucket a zoom level falls into, largest first. */
-export type ZoomRangeUnit =
-  | "billionYears"
-  | "millionYears"
-  | "thousandYears"
-  | "years"
-  | "months"
-  | "days"
-  | "hours"
-  | "minutes"
-  | "seconds";
-
-/**
- * How much time the viewport spans, split into a rounded number and the unit
- * it is counted in.
- *
- * Split rather than pre-joined because the landing page renders the two apart
- * — number large, unit small underneath — and translates the unit, while the
- * in-app readout wants the single English string `formatZoomRangeLabel` builds.
- */
-export const getZoomRangeParts = (
-  currentLogZoom: number,
-  viewportSize: number,
-): { value: number; unit: ZoomRangeUnit } => {
-  const rangeInYears = viewportSize / Math.exp(currentLogZoom);
-
-  if (rangeInYears >= 1e9) {
-    return { value: Math.round(rangeInYears / 1e9), unit: "billionYears" };
-  }
-  if (rangeInYears >= 1e6) {
-    return { value: Math.round(rangeInYears / 1e6), unit: "millionYears" };
-  }
-  if (rangeInYears >= 1000) {
-    return { value: Math.round(rangeInYears / 1000), unit: "thousandYears" };
-  }
-  if (rangeInYears >= 1) {
-    return { value: Math.round(rangeInYears), unit: "years" };
-  }
-  if (rangeInYears >= 1 / 12) {
-    return { value: Math.round(rangeInYears * 12), unit: "months" };
-  }
-  if (rangeInYears >= DAY_IN_YEARS) {
-    return { value: Math.round(rangeInYears * 365.25), unit: "days" };
-  }
-  if (rangeInYears >= HOUR_IN_YEARS) {
-    return { value: Math.round(rangeInYears / HOUR_IN_YEARS), unit: "hours" };
-  }
-  if (rangeInYears >= MINUTE_IN_YEARS) {
-    return {
-      value: Math.round(rangeInYears / MINUTE_IN_YEARS),
-      unit: "minutes",
-    };
-  }
-  return {
-    value: Math.max(1, Math.round(rangeInYears / SECOND_IN_YEARS)),
-    unit: "seconds",
-  };
-};
-
-/** Suffixes carry their own leading space, matching the original strings. */
-const ZOOM_RANGE_UNIT_SUFFIX: Record<ZoomRangeUnit, string> = {
-  billionYears: "B Yrs",
-  millionYears: "M Yrs",
-  thousandYears: "K Yrs",
-  years: " Yrs",
-  months: " Mos",
-  days: " Days",
-  hours: " Hrs",
-  minutes: " Min",
-  seconds: " Sec",
-};
-
 export const formatZoomRangeLabel = (
   currentLogZoom: number,
   viewportWidth: number,
 ): string => {
-  const { value, unit } = getZoomRangeParts(currentLogZoom, viewportWidth);
-  return `${value}${ZOOM_RANGE_UNIT_SUFFIX[unit]}`;
+  const currentZoom = Math.exp(currentLogZoom);
+  const rangeInYears = viewportWidth / currentZoom;
+  if (rangeInYears >= 1e9) {
+    return `${(rangeInYears / 1e9).toFixed(0)}B Yrs`;
+  }
+  if (rangeInYears >= 1e6) {
+    return `${(rangeInYears / 1e6).toFixed(0)}M Yrs`;
+  }
+  if (rangeInYears >= 1000) {
+    return `${(rangeInYears / 1000).toFixed(0)}K Yrs`;
+  }
+  if (rangeInYears >= 1) {
+    return `${rangeInYears.toFixed(0)} Yrs`;
+  }
+  if (rangeInYears >= 1 / 12) {
+    return `${(rangeInYears * 12).toFixed(0)} Mos`;
+  }
+  if (rangeInYears >= DAY_IN_YEARS) {
+    return `${(rangeInYears * 365.25).toFixed(0)} Days`;
+  }
+  if (rangeInYears >= HOUR_IN_YEARS) {
+    return `${(rangeInYears / HOUR_IN_YEARS).toFixed(0)} Hrs`;
+  }
+  if (rangeInYears >= MINUTE_IN_YEARS) {
+    return `${(rangeInYears / MINUTE_IN_YEARS).toFixed(0)} Min`;
+  }
+  return `${Math.max(1, Math.round(rangeInYears / SECOND_IN_YEARS))} Sec`;
 };
 
 export const getTimelineLayoutLevelCount = (viewportHeight: number): number => {
