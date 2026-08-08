@@ -1358,6 +1358,58 @@ export const resolveZoomFixedPointPixel = (
   return Number.isFinite(pixel) ? pixel : null;
 };
 
+/** Below this, the last move sample is noise from the finger leaving the glass. */
+export const DRAG_INERTIA_MIN_VELOCITY = 0.1;
+/** A finger that has already come to rest is not a flick, whatever it last read. */
+export const DRAG_INERTIA_MAX_IDLE_MS = 90;
+/** How long a post-pinch drag must run before it can fling. */
+export const PINCH_TAIL_INERTIA_MIN_MS = 140;
+/** How far a post-pinch drag must travel before it can fling. */
+export const PINCH_TAIL_INERTIA_MIN_PX = 24;
+
+export type DragInertiaRelease = {
+  /** px/ms, signed, from the last flushed drag sample. */
+  velocity: number;
+  /** Age of that sample at release time. */
+  msSinceLastMove: number;
+  /** True when this drag is the tail of a pinch — the finger left over after
+   * the other one lifted, rather than a drag the user started deliberately. */
+  isPinchTail: boolean;
+  dragDurationMs: number;
+  dragDistancePx: number;
+};
+
+/**
+ * Whether releasing a drag should launch the inertia fling.
+ *
+ * Lifting two fingers off a pinch is never simultaneous: the survivor keeps
+ * emitting pointermoves for a few milliseconds while it rolls off the glass,
+ * and over a 2ms sample even a 3px slide reads as a hard flick. That is what
+ * threw the camera across the timeline every time a pinch ended, so a drag
+ * inherited from a pinch has to prove it is a real pan first.
+ */
+export const shouldStartDragInertia = ({
+  velocity,
+  msSinceLastMove,
+  isPinchTail,
+  dragDurationMs,
+  dragDistancePx,
+}: DragInertiaRelease): boolean => {
+  if (!Number.isFinite(velocity)) return false;
+  if (Math.abs(velocity) < DRAG_INERTIA_MIN_VELOCITY) return false;
+  if (msSinceLastMove > DRAG_INERTIA_MAX_IDLE_MS) return false;
+
+  if (
+    isPinchTail &&
+    (dragDurationMs < PINCH_TAIL_INERTIA_MIN_MS ||
+      dragDistancePx < PINCH_TAIL_INERTIA_MIN_PX)
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 export const areCollapsedGroupsEqual = (
   prevGroups: CollapsedEventGroup[],
   nextGroups: CollapsedEventGroup[],

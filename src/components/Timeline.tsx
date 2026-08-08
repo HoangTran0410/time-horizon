@@ -670,6 +670,7 @@ export const Timeline = ({
     warpMode,
     warpDirection,
     warpPivot,
+    isWarpPivotExact,
     recordRenderFrame,
     handleWheel,
     handlePointerDown,
@@ -1784,6 +1785,7 @@ export const Timeline = ({
           zoom={zoom}
           orientation={effectiveTimelineOrientation}
           zoomPivot={warpPivot}
+          zoomPivotIsExact={isWarpPivotExact}
         />
       </div>
     </>

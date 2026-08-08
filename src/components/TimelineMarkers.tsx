@@ -109,6 +109,9 @@ interface WarpOverlayProps {
   zoom: MotionValue<number>;
   orientation: TimelineOrientation;
   zoomPivot: MotionValue<number>;
+  /** Set when the pivot is a measured point rather than one derived from the
+   * camera — a touch pinch knows exactly where its centre is. */
+  zoomPivotIsExact?: boolean;
 }
 
 interface ZoomReferenceRingProps {
@@ -190,6 +193,7 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
   zoom,
   orientation,
   zoomPivot,
+  zoomPivotIsExact = false,
 }) => {
   const maxVisibleDiameter = useMemo(() => {
     if (typeof window === "undefined") return 1280;
@@ -213,6 +217,16 @@ export const WarpOverlay: React.FC<WarpOverlayProps> = ({
     if (Math.abs(nextPivot - pivotTargetRef.current) < 0.5) return;
 
     pivotTargetRef.current = nextPivot;
+
+    // An exact pivot has nothing to smooth, and smoothing it actively hurts:
+    // it moves with the hand every frame, so the spring above would spend the
+    // whole gesture restarting into its slowest milliseconds and the rings
+    // would crawl after the fingers from wherever the last gesture left them.
+    if (zoomPivotIsExact) {
+      pivot.set(nextPivot);
+      return;
+    }
+
     // Animating a motion value stops whatever was already animating it, so the
     // superseded spring needs no explicit teardown here.
     animate(pivot, nextPivot, {

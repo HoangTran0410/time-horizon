@@ -74,6 +74,7 @@ import {
   getTickIntervalThatFitsLabels,
   getTimelineLayoutLevels,
   resolveZoomFixedPointPixel,
+  shouldStartDragInertia,
   type TimelineCameraSample,
 } from "../helpers";
 import { getSearchableLocalizedText } from "../helpers/localization";
@@ -98,6 +99,8 @@ type UseTimelineViewportParams = {
 
 const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
 const WHEEL_PINCH_GESTURE_GAP_MS = 140;
+/** Shortest gap a drag sample may claim, so a near-zero one cannot fake speed. */
+const DRAG_VELOCITY_MIN_DT_MS = 8;
 
 /**
  * Extra headroom a finer tick rung must clear before it is adopted. Keeping
@@ -131,6 +134,13 @@ export const useTimelineViewport = ({
   const [isWarping, setIsWarping] = useState(false);
   const [warpMode, setWarpMode] = useState<WarpOverlayMode>("travel");
   const [warpDirection, setWarpDirection] = useState<1 | -1>(1);
+  /**
+   * True while a touch pinch is feeding `warpPivot` the literal point between
+   * the fingers. The overlay smooths the pivot because the camera-derived one
+   * is noisy; an exact one must not be smoothed, or the rings crawl after the
+   * hand instead of sitting under it.
+   */
+  const [isWarpPivotExact, setIsWarpPivotExact] = useState(false);
   const [logicFps, setLogicFps] = useState(0);
   const [renderFps, setRenderFps] = useState(0);
   const [zoomRangeLabel, setZoomRangeLabel] = useState("");
@@ -214,7 +224,19 @@ export const useTimelineViewport = ({
   const velocity = useRef(0);
   const inertiaFrame = useRef<number | null>(null);
   const activePointersRef = useRef(new Map<number, ActivePointer>());
+  const dragStartTimeRef = useRef(0);
+  /** This drag is what a pinch left behind, not one the user started. */
+  const isPinchTailDragRef = useRef(false);
   const pinchGestureRef = useRef<PinchGestureState | null>(null);
+  /**
+   * While a touch pinch runs, the warp rings take their centre and direction
+   * straight from the gesture instead of the camera-derived fixed point — see
+   * the logZoom listener for why the derived one is unusable here.
+   */
+  const pinchWarpPivotRef = useRef<number | null>(null);
+  const pinchWarpModeRef = useRef<Exclude<WarpOverlayMode, "travel"> | null>(
+    null,
+  );
   const wheelPinchGestureRef = useRef<{
     anchorPixel: number;
     anchorYear: number;
@@ -1249,16 +1271,30 @@ export const useTimelineViewport = ({
     return iterator.done ? null : (iterator.value as ActivePointer);
   };
 
-  const getPinchMetrics = (first: ActivePointer, second: ActivePointer) => ({
-    centerPrimary:
-      orientation === "horizontal"
-        ? (first.clientX + second.clientX) / 2
-        : (first.clientY + second.clientY) / 2,
-    distance: Math.hypot(
-      first.clientX - second.clientX,
-      first.clientY - second.clientY,
-    ),
-  });
+  /**
+   * `centerPrimary` comes back in *container* pixels — the space focusPixel and
+   * getYearAtPixel work in. Raw client coordinates offset the pinch anchor by
+   * the container's rect, and at a wide zoom that offset is worth hundreds of
+   * millions of years. `distance` stays in client space; only its ratio matters.
+   */
+  const getPinchMetrics = (first: ActivePointer, second: ActivePointer) => {
+    const rect = containerRef.current?.getBoundingClientRect() ?? null;
+    const toPrimary = (clientX: number, clientY: number) =>
+      rect
+        ? getPrimaryPixelFromClient(rect, clientX, clientY)
+        : getPrimaryPointerValue(clientX, clientY);
+
+    return {
+      centerPrimary:
+        (toPrimary(first.clientX, first.clientY) +
+          toPrimary(second.clientX, second.clientY)) /
+        2,
+      distance: Math.hypot(
+        first.clientX - second.clientX,
+        first.clientY - second.clientY,
+      ),
+    };
+  };
 
   const startDragAt = (clientPrimary: number) => {
     isDragging.current = true;
@@ -1266,6 +1302,7 @@ export const useTimelineViewport = ({
     dragDistanceRef.current = 0;
     const now = performance.now();
     lastDragTime.current = now;
+    dragStartTimeRef.current = now;
     lastX.current = clientPrimary;
     pendingDragX.current = null;
     pendingDragTime.current = now;
@@ -1293,6 +1330,9 @@ export const useTimelineViewport = ({
       startLogZoom: logZoom.get(),
     };
 
+    pinchWarpPivotRef.current = centerPrimary;
+    pinchWarpModeRef.current = null;
+    setIsWarpPivotExact(true);
     focusPixel.set(centerPrimary);
     focusYear.set(pinchGestureRef.current.anchorYear);
     suppressNextClickRef.current = true;
@@ -1316,10 +1356,28 @@ export const useTimelineViewport = ({
       ),
     );
 
+    // Both refs have to land before logZoom.set, which notifies its listener
+    // synchronously — that listener is what reads them.
+    pinchWarpPivotRef.current = centerPrimary;
+    const netLogZoomDelta = nextLogZoom - pinchGesture.startLogZoom;
+    if (Math.abs(netLogZoomDelta) >= ZOOM_WARP_MIN_LOG_DELTA) {
+      // Net delta, not frame-to-frame: fingers wobble by a pixel or two every
+      // frame, and a per-frame sign flipped the rings between zoom-in and
+      // zoom-out for the whole gesture.
+      pinchWarpModeRef.current = netLogZoomDelta > 0 ? "zoom-in" : "zoom-out";
+    }
+
     focusPixel.set(centerPrimary);
     focusYear.set(pinchGesture.anchorYear);
     targetLogZoom.current = nextLogZoom;
     logZoom.set(nextLogZoom);
+  };
+
+  const endPinchGesture = () => {
+    pinchGestureRef.current = null;
+    pinchWarpPivotRef.current = null;
+    pinchWarpModeRef.current = null;
+    setIsWarpPivotExact(false);
   };
 
   const consumeClickSuppression = () => {
@@ -1336,7 +1394,13 @@ export const useTimelineViewport = ({
     const deltaX = nextX - lastX.current;
     const dt = now - lastDragTime.current;
 
-    if (dt > 0) velocity.current = deltaX / dt;
+    // flushPendingDrag also runs straight off pointerdown/pointerup, which can
+    // land a millisecond after the last rAF flush. Dividing by that raw gap
+    // turns a 3px slide into a 3px/ms "flick"; the floor keeps a sample honest
+    // without touching real 8-16ms frames.
+    if (dt > 0) {
+      velocity.current = deltaX / Math.max(dt, DRAG_VELOCITY_MIN_DT_MS);
+    }
     dragDistanceRef.current += Math.abs(deltaX);
     if (dragDistanceRef.current > 6) {
       suppressNextClickRef.current = true;
@@ -1382,8 +1446,9 @@ export const useTimelineViewport = ({
       return;
     }
 
-    pinchGestureRef.current = null;
+    endPinchGesture();
     suppressNextClickRef.current = false;
+    isPinchTailDragRef.current = false;
     startDragAt(getPrimaryPointerValue(event.clientX, event.clientY));
   };
 
@@ -1424,12 +1489,13 @@ export const useTimelineViewport = ({
         return;
       }
 
-      pinchGestureRef.current = null;
+      endPinchGesture();
 
       if (activePointersRef.current.size === 1) {
-        // Second finger lifted — transition to single-finger drag.
-        // startDragAt resets velocity=0; the pending finger's eventual
-        // pointer-up will read velocity≈0 and skip inertia naturally.
+        // Second finger lifted — transition to single-finger drag. The
+        // survivor is still rolling off the glass, so mark the drag as a pinch
+        // tail: shouldStartDragInertia makes it earn a fling rather than
+        // trusting velocity, which the two-millisecond slide inflates wildly.
         resetDragState();
         const remainingPointer = getFirstActivePointer();
         if (remainingPointer) {
@@ -1439,11 +1505,13 @@ export const useTimelineViewport = ({
               remainingPointer.clientY,
             ),
           );
+          isPinchTailDragRef.current = true;
           return;
         }
       }
 
       resetDragState();
+      isPinchTailDragRef.current = false;
       return;
     }
 
@@ -1451,9 +1519,18 @@ export const useTimelineViewport = ({
     // velocity, THEN reset state so inertia can use the captured value.
     flushPendingDrag();
     const finalVelocity = velocity.current;
+    const releaseTime = performance.now();
+    const inertiaRelease = {
+      velocity: finalVelocity,
+      msSinceLastMove: releaseTime - lastDragTime.current,
+      isPinchTail: isPinchTailDragRef.current,
+      dragDurationMs: releaseTime - dragStartTimeRef.current,
+      dragDistancePx: dragDistanceRef.current,
+    };
     resetDragState();
+    isPinchTailDragRef.current = false;
 
-    if (Math.abs(finalVelocity) < 0.1) return;
+    if (!shouldStartDragInertia(inertiaRelease)) return;
 
     const startVelocity =
       Math.sign(finalVelocity) * Math.min(Math.abs(finalVelocity) * 20, 80);
@@ -1703,7 +1780,8 @@ export const useTimelineViewport = ({
     wheelPanResidualRef.current = 0;
     wheelPanAnchorPixelRef.current = null;
     resetDragState();
-    pinchGestureRef.current = null;
+    endPinchGesture();
+    isPinchTailDragRef.current = false;
     wheelPinchGestureRef.current = null;
     activePointersRef.current.clear();
     stopCameraAnimations();
@@ -1822,32 +1900,27 @@ export const useTimelineViewport = ({
       panPixel: focusPixel.get() - focusYear.get() * nextZoom * axisDirection,
       zoom: nextZoom,
     };
-    // A sample from before the last pause belongs to an earlier gesture, and
-    // whatever panning happened in between would poison the pivot it derives.
-    const prevZoomSample =
-      prevZoomWarpSampleRef.current &&
-      now - prevZoomWarpSampleRef.current.time <= ZOOM_WARP_SAMPLE_STALE_MS
-        ? prevZoomWarpSampleRef.current
-        : null;
-
-    if (
-      prevZoomSample &&
-      Math.abs(value - prevZoomSample.logZoom) >= ZOOM_WARP_MIN_LOG_DELTA
-    ) {
-      const pivot = resolveZoomFixedPointPixel(
-        prevZoomSample.camera,
-        nextCamera,
-        axisDirection,
-      );
-      // A pivot outside the viewport means the pan is outrunning the zoom by
-      // enough that there is no useful centre on screen; the last one stays.
+    const pinchWarpPivot = pinchWarpPivotRef.current;
+    if (pinchWarpPivot !== null) {
+      /**
+       * A touch pinch already knows its centre exactly — it is the point
+       * between the fingers — and the derived fixed point cannot be used here.
+       * The pinch centre travels with the hand, so between two frames the
+       * camera both pans and zooms; solving for the fixed point of that pair
+       * divides the pan by a per-frame zoom step near zero, and the answer
+       * lands hundreds of pixels off, or off screen entirely, on a different
+       * side every frame. That is the warp skittering around mid-pinch. Wheel
+       * and trackpad never hit it because they pin focusPixel for the whole
+       * gesture, which leaves the pan term at zero.
+       */
       const primarySize = getViewportPrimarySize();
-      if (pivot !== null && pivot >= 0 && pivot <= primarySize) {
-        warpPivot.set(pivot);
-      }
+      warpPivot.set(Math.max(0, Math.min(primarySize, pinchWarpPivot)));
 
-      if (!(isWarping && warpMode === "travel")) {
-        triggerZoomWarp(value > prevZoomSample.logZoom ? "zoom-in" : "zoom-out");
+      // Null until the gesture has actually changed zoom, so a two-finger pan
+      // does not raise zoom rings.
+      const pinchWarpMode = pinchWarpModeRef.current;
+      if (pinchWarpMode && !(isWarping && warpMode === "travel")) {
+        triggerZoomWarp(pinchWarpMode);
       }
 
       prevZoomWarpSampleRef.current = {
@@ -1855,12 +1928,49 @@ export const useTimelineViewport = ({
         camera: nextCamera,
         time: now,
       };
-    } else if (!prevZoomSample) {
-      prevZoomWarpSampleRef.current = {
-        logZoom: value,
-        camera: nextCamera,
-        time: now,
-      };
+    } else {
+      // A sample from before the last pause belongs to an earlier gesture, and
+      // whatever panning happened in between would poison the pivot it derives.
+      const prevZoomSample =
+        prevZoomWarpSampleRef.current &&
+        now - prevZoomWarpSampleRef.current.time <= ZOOM_WARP_SAMPLE_STALE_MS
+          ? prevZoomWarpSampleRef.current
+          : null;
+
+      if (
+        prevZoomSample &&
+        Math.abs(value - prevZoomSample.logZoom) >= ZOOM_WARP_MIN_LOG_DELTA
+      ) {
+        const pivot = resolveZoomFixedPointPixel(
+          prevZoomSample.camera,
+          nextCamera,
+          axisDirection,
+        );
+        // A pivot outside the viewport means the pan is outrunning the zoom by
+        // enough that there is no useful centre on screen; the last one stays.
+        const primarySize = getViewportPrimarySize();
+        if (pivot !== null && pivot >= 0 && pivot <= primarySize) {
+          warpPivot.set(pivot);
+        }
+
+        if (!(isWarping && warpMode === "travel")) {
+          triggerZoomWarp(
+            value > prevZoomSample.logZoom ? "zoom-in" : "zoom-out",
+          );
+        }
+
+        prevZoomWarpSampleRef.current = {
+          logZoom: value,
+          camera: nextCamera,
+          time: now,
+        };
+      } else if (!prevZoomSample) {
+        prevZoomWarpSampleRef.current = {
+          logZoom: value,
+          camera: nextCamera,
+          time: now,
+        };
+      }
     }
 
     prevLogZoom.current = value;
@@ -2049,6 +2159,7 @@ export const useTimelineViewport = ({
     warpMode,
     warpDirection,
     warpPivot,
+    isWarpPivotExact,
     recordRenderFrame,
     handleWheel,
     handlePointerDown,
