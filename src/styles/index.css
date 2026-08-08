@@ -399,6 +399,16 @@ select {
 }
 
 .landing-mark {
+  /* Sized here rather than by each caller: the glyph inside is 16–17px, so
+     without a box of its own the mark collapsed onto the icon and the brand
+     pill read as cramped next to the round controls beside it. */
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.7rem;
   border: 1px solid var(--ui-border-zinc-800);
   background:
     radial-gradient(
@@ -574,6 +584,15 @@ select {
 }
 
 .landing-topbar {
+  /* One height for both pills and one inset for the controls inside them, so
+     the two sides of the bar read as a matched pair instead of two unrelated
+     chips. Everything below sizes off these. */
+  --landing-topbar-height: 3rem;
+  --landing-topbar-inset: 0.3rem;
+  --landing-topbar-control: calc(
+    var(--landing-topbar-height) - 2 * var(--landing-topbar-inset) - 2px
+  );
+
   position: fixed;
   top: 0;
   left: 0;
@@ -592,58 +611,83 @@ select {
    width and would otherwise swallow clicks across the top of the page. */
 .landing-topbar-brand,
 .landing-topbar-actions {
+  height: var(--landing-topbar-height);
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-zinc-800-50);
+  background: var(--ui-zinc-950-70);
+  backdrop-filter: blur(10px);
   pointer-events: auto;
 }
 
 .landing-topbar-brand {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
-  border-radius: 999px;
-  border: 1px solid var(--ui-border-zinc-800-50);
-  background: var(--ui-zinc-950-70);
-  backdrop-filter: blur(10px);
+  gap: 0.55rem;
+  /* Asymmetric on purpose: the mark is a filled square that already carries its
+     own visual edge, while the wordmark needs real breathing room on the right. */
+  padding-inline: var(--landing-topbar-inset) 1rem;
   text-decoration: none;
   color: inherit;
+}
+
+.landing-topbar-brand .landing-mark {
+  width: var(--landing-topbar-control);
+  height: var(--landing-topbar-control);
 }
 
 .landing-topbar-brand-text {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   line-height: 1.15;
 }
 
 .landing-topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem;
-  border-radius: 999px;
-  border: 1px solid var(--ui-border-zinc-800-50);
-  background: var(--ui-zinc-950-70);
-  backdrop-filter: blur(10px);
+  gap: var(--landing-topbar-inset);
+  padding-inline: var(--landing-topbar-inset);
 }
 
-/* Hidden until the visitor is far enough down for it to mean anything. */
-.landing-topbar-totop {
+/* The shared icon-button size is tuned for the hero; inside the bar it has to
+   match the brand pill's inner height instead. */
+.landing-topbar-actions .landing-theme-button-icon {
+  width: var(--landing-topbar-control);
+  height: var(--landing-topbar-control);
+}
+
+/* Collapsed to zero width until the visitor is far enough down for it to mean
+   anything — `visibility: hidden` alone kept its slot, leaving a visible gap
+   in the middle of the pill. The negative margin swallows the flex gap too. */
+.landing-topbar-actions .landing-topbar-totop {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border-width: 0;
+  margin-inline-end: calc(-1 * var(--landing-topbar-inset));
+  overflow: hidden;
   opacity: 0;
-  visibility: hidden;
   transform: scale(0.85);
+  pointer-events: none;
   transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    visibility 180ms;
+    width 200ms ease,
+    margin 200ms ease,
+    opacity 160ms ease,
+    transform 200ms ease;
 }
 
-.landing-topbar-totop.is-visible {
+.landing-topbar-actions .landing-topbar-totop.is-visible {
+  width: var(--landing-topbar-control);
+  border-width: 1px;
+  margin-inline-end: 0;
   opacity: 1;
-  visibility: visible;
   transform: scale(1);
+  pointer-events: auto;
 }
 
 @media (max-width: 640px) {
   .landing-topbar {
+    --landing-topbar-height: 2.75rem;
     padding: 0.6rem 0.75rem;
   }
 

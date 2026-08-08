@@ -1,6 +1,7 @@
-import { useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 import { useMotionValueEvent, useScroll, type MotionValue } from "motion/react";
 import {
+  resolveLandingAxisLogZoom,
   resolveLandingCamera,
   type LandingCameraWaypoint,
 } from "./landingCamera";
@@ -12,6 +13,12 @@ type UseLandingCameraParams = {
   focusYear: MotionValue<number>;
   /** The viewport hook exposes this as `currentLogZoom`. */
   logZoom: MotionValue<number>;
+  /**
+   * Length of the axis the timeline is drawn along — width when horizontal,
+   * height when vertical. Waypoint zooms are authored against a reference
+   * length and rescaled onto this one, so a phone frames the same years.
+   */
+  axisPx: number;
   /** False while the stage is off-screen, so scrolling past costs nothing. */
   enabled: boolean;
 };
@@ -28,6 +35,7 @@ export const useLandingCamera = ({
   waypoints,
   focusYear,
   logZoom,
+  axisPx,
   enabled,
 }: UseLandingCameraParams) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -37,20 +45,32 @@ export const useLandingCamera = ({
     offset: ["start start", "end end"],
   });
 
-  useMotionValueEvent(scrollYProgress, "change", (progress) => {
-    if (!enabled || waypoints.length === 0) return;
+  const applyCamera = useCallback(
+    (progress: number) => {
+      if (!enabled || waypoints.length === 0) return;
 
-    const camera = resolveLandingCamera(waypoints, progress);
-    focusYear.set(camera.focusYear);
-    logZoom.set(camera.logZoom);
+      const camera = resolveLandingCamera(waypoints, progress);
+      focusYear.set(camera.focusYear);
+      logZoom.set(resolveLandingAxisLogZoom(camera.logZoom, axisPx));
 
-    const segmentCount = Math.max(1, waypoints.length - 1);
-    const nearest = Math.min(
-      waypoints.length - 1,
-      Math.max(0, Math.round(progress * segmentCount)),
-    );
-    setActiveIndex((current) => (current === nearest ? current : nearest));
-  });
+      const segmentCount = Math.max(1, waypoints.length - 1);
+      const nearest = Math.min(
+        waypoints.length - 1,
+        Math.max(0, Math.round(progress * segmentCount)),
+      );
+      setActiveIndex((current) => (current === nearest ? current : nearest));
+    },
+    [axisPx, enabled, focusYear, logZoom, waypoints],
+  );
+
+  useMotionValueEvent(scrollYProgress, "change", applyCamera);
+
+  // Resizing or flipping orientation changes how many years the axis shows, and
+  // neither produces a scroll event — without this the frame would keep the
+  // zoom it was given for the old axis until the visitor scrolls again.
+  useEffect(() => {
+    applyCamera(scrollYProgress.get());
+  }, [applyCamera, scrollYProgress]);
 
   return { activeIndex };
 };

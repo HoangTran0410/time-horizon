@@ -22,6 +22,39 @@ export const isLandingLogZoomInBounds = (logZoom: number): boolean =>
   logZoom >= MIN_LOG_ZOOM &&
   logZoom <= MAX_LOG_ZOOM;
 
+export const clampLandingLogZoom = (logZoom: number): number =>
+  Number.isFinite(logZoom)
+    ? Math.min(MAX_LOG_ZOOM, Math.max(MIN_LOG_ZOOM, logZoom))
+    : MIN_LOG_ZOOM;
+
+/**
+ * Axis length the waypoint zooms are authored against.
+ *
+ * Zoom is pixels-per-year, so the same logZoom frames a different number of
+ * years on a 1440px desktop axis than on an 844px phone axis. Every waypoint
+ * zoom is written for this reference length and shifted onto the real one by
+ * `resolveLandingAxisLogZoom`.
+ */
+export const LANDING_REFERENCE_AXIS_PX = 1440;
+
+/**
+ * Shift a reference zoom onto the axis actually being rendered, so the span in
+ * years stays identical regardless of viewport size or orientation.
+ *
+ * Without this, the framing guarantees the waypoints are built on (a stop
+ * always shows its neighbours) hold on desktop and quietly fail on a phone,
+ * where the shorter axis shows ~40% fewer years at the same zoom.
+ */
+export const resolveLandingAxisLogZoom = (
+  referenceLogZoom: number,
+  axisPx: number,
+): number =>
+  clampLandingLogZoom(
+    Number.isFinite(axisPx) && axisPx > 0
+      ? referenceLogZoom + Math.log(axisPx / LANDING_REFERENCE_AXIS_PX)
+      : referenceLogZoom,
+  );
+
 /**
  * Eased progress through one segment.
  *

@@ -1,6 +1,9 @@
 import type { Event } from "../../constants/types";
 import { assignRuntimeEventIds } from "../../helpers";
-import type { LandingCameraWaypoint } from "./landingCamera";
+import {
+  LANDING_REFERENCE_AXIS_PX,
+  type LandingCameraWaypoint,
+} from "./landingCamera";
 
 /**
  * One scripted stop: where the camera sits, plus the copy shown beside it.
@@ -18,34 +21,76 @@ export type LandingWaypoint = LandingCameraWaypoint & {
   priority: number;
 };
 
+/** A stop before its zoom is derived — years and copy only. */
+type LandingWaypointSeed = Omit<LandingWaypoint, "logZoom">;
+
+const HALF_AXIS_PX = LANDING_REFERENCE_AXIS_PX / 2;
+
 /**
- * Each `logZoom` is derived from the span that stop should frame, not picked by
- * eye: `logZoom = ln(viewportPx / visibleYears)` against a ~1440px reference.
+ * Pixels kept between the outermost visible waypoint and the edge of the axis,
+ * so its card and label have somewhere to sit instead of being cut in half.
+ */
+export const LANDING_EDGE_PAD_PX = 220;
+
+/**
+ * How much wider than the neighbour distance a frame has to be for that
+ * neighbour to land inside the padded area. 1440/2 ÷ (1440/2 − 220) ≈ 1.44.
+ */
+const NEIGHBOUR_MARGIN = HALF_AXIS_PX / (HALF_AXIS_PX - LANDING_EDGE_PAD_PX);
+
+/**
+ * Derive each stop's zoom from how far its neighbours are, rather than from a
+ * span picked by eye.
  *
- *   Big Bang    18e9 yrs    First stars 6e9     Earth      3e9
- *   First life  1.5e9       Cambrian    4e8     Asteroid   1e8
- *   Sapiens     1e6         Writing     2e4     Moon       300      Now  120
+ * Hand-picked spans framed each moment on its own, which is what made the page
+ * feel empty: at the asteroid stop the frame was 100M years wide while the next
+ * waypoint sat 66M years away and the previous one 475M — so most of the scroll
+ * was a bare ruler sliding past with nothing on it.
  *
- * The earlier hand-picked values sat near `MIN_ZOOM`, framing ~128 billion
- * years when the content only spans 13.8 — so every recent event collapsed into
- * a few pixels at the right edge with its label clipped. Deriving from a target
- * span keeps each stop's neighbours legible and pushes far-future events off
- * screen instead of stacking them on the margin.
+ * The rule here is one line: a stop frames at least `NEIGHBOUR_MARGIN ×` the
+ * distance to its farther neighbour. Because a segment's two endpoints share
+ * the gap between them, both stay on screen for the *whole* transition, never
+ * closer than `EDGE_PAD_PX` to the edge — the camera can no longer travel
+ * through empty space. `landingWaypoints.test.ts` asserts exactly that.
  *
- * Values must stay inside [ln(MIN_ZOOM), ln(MAX_ZOOM)] and stay strictly
- * increasing — landingWaypoints.test.ts enforces both.
- *
+ * Two adjustments on top:
+ *  - The first stop instead frames the entire story, so the page opens on all
+ *    13.8 billion years rather than on the Big Bang alone.
+ *  - Spans are swept back from the end so they never grow: the journey only
+ *    ever zooms in. Where a stop would have needed a wider frame than the one
+ *    before it, the two share a zoom and that segment becomes a pure pan.
+ */
+const deriveLogZooms = (years: readonly number[]): number[] => {
+  const gaps = years.slice(1).map((year, index) => year - years[index]);
+
+  const halfSpans = years.map((_, index) => {
+    const back = index > 0 ? gaps[index - 1] : 0;
+    const forward = index < gaps.length ? gaps[index] : 0;
+    return NEIGHBOUR_MARGIN * Math.max(back, forward);
+  });
+
+  // Establishing shot: the whole timeline, measured out from the first year.
+  halfSpans[0] = NEIGHBOUR_MARGIN * (years[years.length - 1] - years[0]);
+
+  // Suffix maximum — makes the sequence non-increasing, i.e. never zooms out.
+  for (let index = halfSpans.length - 2; index >= 0; index -= 1) {
+    halfSpans[index] = Math.max(halfSpans[index], halfSpans[index + 1]);
+  }
+
+  return halfSpans.map((halfSpan) => Math.log(HALF_AXIS_PX / halfSpan));
+};
+
+/**
  * Priority descends strictly from 100 (Big Bang) to 55 (Now) so that when
  * waypoints collide at maximum zoom-out (all events pile into a few pixels),
  * the widest-scope event (Big Bang) survives clustering, letting viewers
  * understand the scroll starts at the broadest perspective. Values stay within
  * [55, 100] to match the app's existing convention range for real catalog data.
  */
-export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
+const LANDING_WAYPOINT_SEEDS: readonly LandingWaypointSeed[] = [
   {
     eventUid: "landing-big-bang",
     year: -13.8e9,
-    logZoom: -16.34,
     titleKey: "landingWpBigBangTitle",
     captionKey: "landingWpBigBangCaption",
     timeLabelKey: "landingTimeBigBang",
@@ -55,7 +100,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-first-stars",
     year: -13.4e9,
-    logZoom: -15.24,
     titleKey: "landingWpFirstStarsTitle",
     captionKey: "landingWpFirstStarsCaption",
     timeLabelKey: "landingTimeFirstStars",
@@ -65,7 +109,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-earth",
     year: -4.54e9,
-    logZoom: -14.55,
     titleKey: "landingWpEarthTitle",
     captionKey: "landingWpEarthCaption",
     timeLabelKey: "landingTimeEarth",
@@ -75,7 +118,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-first-life",
     year: -3.7e9,
-    logZoom: -13.86,
     titleKey: "landingWpLifeTitle",
     captionKey: "landingWpLifeCaption",
     timeLabelKey: "landingTimeLife",
@@ -85,7 +127,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-cambrian",
     year: -541e6,
-    logZoom: -12.53,
     titleKey: "landingWpCambrianTitle",
     captionKey: "landingWpCambrianCaption",
     timeLabelKey: "landingTimeCambrian",
@@ -95,7 +136,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-asteroid",
     year: -66e6,
-    logZoom: -11.15,
     titleKey: "landingWpAsteroidTitle",
     captionKey: "landingWpAsteroidCaption",
     timeLabelKey: "landingTimeAsteroid",
@@ -105,7 +145,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-sapiens",
     year: -300000,
-    logZoom: -6.54,
     titleKey: "landingWpSapiensTitle",
     captionKey: "landingWpSapiensCaption",
     timeLabelKey: "landingTimeSapiens",
@@ -115,7 +154,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-writing",
     year: -3200,
-    logZoom: -2.63,
     titleKey: "landingWpWritingTitle",
     captionKey: "landingWpWritingCaption",
     timeLabelKey: "landingTimeWriting",
@@ -125,7 +163,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-moon",
     year: 1969,
-    logZoom: 1.57,
     titleKey: "landingWpMoonTitle",
     captionKey: "landingWpMoonCaption",
     timeLabelKey: "landingTimeMoon",
@@ -135,7 +172,6 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
     eventUid: "landing-now",
     year: new Date().getUTCFullYear(),
-    logZoom: 2.48,
     titleKey: "landingWpNowTitle",
     captionKey: "landingWpNowCaption",
     timeLabelKey: "landingTimeNow",
@@ -143,6 +179,17 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     priority: 55,
   },
 ];
+
+export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = (() => {
+  const logZooms = deriveLogZooms(
+    LANDING_WAYPOINT_SEEDS.map((seed) => seed.year),
+  );
+  return LANDING_WAYPOINT_SEEDS.map((seed, index) => ({
+    ...seed,
+    logZoom: logZooms[index],
+  }));
+})();
+
 
 /** Camera-only projection, so landingCamera stays unaware of copy and emoji. */
 export const LANDING_CAMERA_WAYPOINTS: readonly LandingCameraWaypoint[] =

@@ -2,8 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Compass } from "lucide-react";
 import type { ThemeMode } from "../../constants/theme";
 import { useI18n } from "../../i18n";
+import { useAutoTimelineOrientation } from "../../hooks/useAutoTimelineOrientation";
 import { useTimelineViewport } from "../../hooks/useTimelineViewport";
 import { TimelineCanvasViewport } from "../TimelineCanvasViewport";
+import {
+  LANDING_REFERENCE_AXIS_PX,
+  resolveLandingAxisLogZoom,
+} from "./landingCamera";
 import { useLandingCamera } from "./useLandingCamera";
 import {
   buildLandingEvents,
@@ -170,6 +175,35 @@ function LandingCanvasStage({
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // A phone-width stage cannot show a horizontal timeline usefully — the same
+  // reasoning that flips the app itself, applied to the preview.
+  const orientation = useAutoTimelineOrientation();
+
+  // Length of the axis time runs along. Feeds the zoom rescale, so the scripted
+  // framing survives both orientations and every viewport size.
+  const [axisPx, setAxisPx] = useState(() =>
+    typeof window === "undefined"
+      ? LANDING_REFERENCE_AXIS_PX
+      : orientation === "vertical"
+        ? window.innerHeight
+        : window.innerWidth,
+  );
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const sync = () => {
+      const rect = node.getBoundingClientRect();
+      const measured = orientation === "vertical" ? rect.height : rect.width;
+      if (measured > 0) setAxisPx(measured);
+    };
+    sync();
+
+    const observer = new ResizeObserver(sync);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [orientation]);
+
   const [isStageVisible, setIsStageVisible] = useState(true);
   useEffect(() => {
     const node = containerRef.current;
@@ -223,8 +257,11 @@ function LandingCanvasStage({
     dimmedEventIds: EMPTY_DIMMED_IDS,
     // Boot straight at the first waypoint instead of running auto-fit.
     initialFocusYear: LANDING_WAYPOINTS[0].year,
-    initialLogZoom: LANDING_WAYPOINTS[0].logZoom,
-    orientation: "horizontal",
+    initialLogZoom: resolveLandingAxisLogZoom(
+      LANDING_WAYPOINTS[0].logZoom,
+      axisPx,
+    ),
+    orientation,
     verticalWheelBehavior: "pan",
     verticalTimeDirection: "down",
     onSelectEvent: () => {},
@@ -236,6 +273,7 @@ function LandingCanvasStage({
     waypoints: LANDING_CAMERA_WAYPOINTS,
     focusYear,
     logZoom: currentLogZoom,
+    axisPx,
     enabled: isStageVisible,
   });
 
@@ -263,7 +301,7 @@ function LandingCanvasStage({
             focusPixel={focusPixel}
             focusYear={focusYear}
             zoom={zoom}
-            orientation="horizontal"
+            orientation={orientation}
             verticalTimeDirection="down"
             ticks={ticks}
             timelineEvents={events}

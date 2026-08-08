@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { MAX_ZOOM, MIN_ZOOM } from "../../constants";
 import {
   isLandingLogZoomInBounds,
+  LANDING_REFERENCE_AXIS_PX,
+  resolveLandingAxisLogZoom,
   resolveLandingCamera,
   type LandingCameraWaypoint,
 } from "./landingCamera";
@@ -127,5 +129,38 @@ describe("isLandingLogZoomInBounds", () => {
   it("rejects non-finite values", () => {
     expect(isLandingLogZoomInBounds(Number.NaN)).toBe(false);
     expect(isLandingLogZoomInBounds(Infinity)).toBe(false);
+  });
+});
+
+describe("resolveLandingAxisLogZoom", () => {
+  const halfSpanYears = (logZoom: number, axisPx: number) =>
+    axisPx / 2 / Math.exp(logZoom);
+
+  it("frames the same number of years on any axis length", () => {
+    const reference = -12;
+    const expected = halfSpanYears(reference, LANDING_REFERENCE_AXIS_PX);
+
+    for (const axisPx of [390, 844, 1280, LANDING_REFERENCE_AXIS_PX, 2560]) {
+      expect(
+        halfSpanYears(resolveLandingAxisLogZoom(reference, axisPx), axisPx),
+      ).toBeCloseTo(expected, 6);
+    }
+  });
+
+  it("leaves the reference axis untouched", () => {
+    expect(resolveLandingAxisLogZoom(-7.5, LANDING_REFERENCE_AXIS_PX)).toBe(
+      -7.5,
+    );
+  });
+
+  it("stays inside the engine's zoom range even on a tiny axis", () => {
+    const widest = resolveLandingAxisLogZoom(Math.log(MIN_ZOOM), 120);
+    expect(isLandingLogZoomInBounds(widest)).toBe(true);
+  });
+
+  it("falls back to the reference zoom before the axis has been measured", () => {
+    for (const unmeasured of [0, -50, Number.NaN]) {
+      expect(resolveLandingAxisLogZoom(-9, unmeasured)).toBe(-9);
+    }
   });
 });

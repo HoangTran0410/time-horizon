@@ -429,6 +429,20 @@ describe("persisted-state sanitization via useStore.persist.rehydrate()", () => 
     expect(state.selectedEventId).toBe(expectedGoodEvent.id);
   });
 
+  it("keeps auto-orientation on for payloads saved before the field existed", async () => {
+    // Every returning visitor has a stored payload without this key, so the
+    // default has to survive the merge for auto-orientation to reach them.
+    const state = await rehydrateWith({ timelineOrientation: "horizontal" });
+
+    expect(state.timelineOrientationAuto).toBe(true);
+  });
+
+  it("keeps an explicit auto-orientation opt-out", async () => {
+    const state = await rehydrateWith({ timelineOrientationAuto: false });
+
+    expect(state.timelineOrientationAuto).toBe(false);
+  });
+
   it("routes old-version payloads through the same sanitizer via migrate", async () => {
     const state = await rehydrateWith(
       {
