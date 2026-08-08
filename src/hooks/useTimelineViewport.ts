@@ -35,9 +35,9 @@ import {
 } from "../constants/types";
 import {
   generateCalendarTimelineTickYears,
+  generateSubDayTimelineTickYears,
   getEventTimelineRange,
   getEventTimelineYear,
-  getNiceInterval,
   getTimelineHighlightStep,
   isHighlightedTimelineTick,
 } from "../helpers";
@@ -54,7 +54,8 @@ import {
   LAYOUT_REFRESH_SHIFT_RATIO,
   LAYOUT_ROW_OFFSET,
   LONG_TRAVEL_VIEWPORT_MULTIPLIER,
-  MAX_ZOOM,
+  COLLAPSED_GROUP_EXPAND_ZOOM,
+  getMaxZoomForYear,
   MIN_ZOOM,
   SPAN_MIN_RENDER_PX,
   TICK_OVERSCAN_INTERVALS,
@@ -69,6 +70,7 @@ import {
   formatZoomRangeLabel,
   getAbsoluteYearFromDateJump,
   getStableTickLabelWidthEstimate,
+  getTickIntervalThatFitsLabels,
   getTimelineLayoutLevels,
 } from "../helpers";
 import { getSearchableLocalizedText } from "../helpers/localization";
@@ -95,33 +97,11 @@ const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
 const WHEEL_PINCH_GESTURE_GAP_MS = 140;
 
 /**
- * How far the ideal tick spacing must drift from the interval already on screen
- * before we snap to a different one. `getNiceInterval` picks the nearest nice
- * value with no memory, so while zooming across a boundary it flips back and
- * forth every frame — and because adjacent nice intervals differ by 2x or 2.5x,
- * each flip adds or removes half the ticks, which reads as flickering.
- *
- * The nearest-value boundary sits at ~1.41x (the geometric midpoint of a 2x
- * step), so a band slightly inside it gives stickiness without ever trapping
- * the interval on a stale value.
+ * Extra headroom a finer tick rung must clear before it is adopted. Keeping
+ * the current rung only requires it to still fit, so the pair forms a Schmitt
+ * trigger and zoom jitter cannot flip the interval back and forth.
  */
-const TICK_INTERVAL_HYSTERESIS = 1.35;
-
-const stabilizeTickInterval = (
-  candidate: number,
-  previous: number | null,
-  ideal: number,
-): number => {
-  if (previous === null || candidate === previous || previous <= 0) {
-    return candidate;
-  }
-
-  const ratio = ideal / previous;
-  const isStillCloseToPrevious =
-    ratio > 1 / TICK_INTERVAL_HYSTERESIS && ratio < TICK_INTERVAL_HYSTERESIS;
-
-  return isStillCloseToPrevious ? previous : candidate;
-};
+const TICK_FIT_ADOPT_SLACK = 1.25;
 
 export const useTimelineViewport = ({
   containerRef,
@@ -266,8 +246,22 @@ export const useTimelineViewport = ({
   const getPrimaryPointerValue = (clientX: number, clientY: number) =>
     orientation === "horizontal" ? clientX : clientY;
 
-  const clampLogZoom = (nextLogZoom: number) =>
-    Math.max(Math.log(MIN_ZOOM), Math.min(Math.log(MAX_ZOOM), nextLogZoom));
+  /**
+   * The zoom ceiling depends on where you are: fractional-year positions run
+   * out of float precision as |year| grows, so a flat cap either forbids
+   * second-level zoom at modern dates or permits visible jitter in deep time.
+   */
+  const getZoomCeiling = (atYear: number = focusYear.get()) =>
+    getMaxZoomForYear(atYear);
+
+  const clampZoom = (nextZoom: number, atYear?: number) =>
+    Math.max(MIN_ZOOM, Math.min(nextZoom, getZoomCeiling(atYear)));
+
+  const clampLogZoom = (nextLogZoom: number, atYear?: number) =>
+    Math.max(
+      Math.log(MIN_ZOOM),
+      Math.min(Math.log(getZoomCeiling(atYear)), nextLogZoom),
+    );
 
   const normalizeWheelDelta = (delta: number, deltaMode: number) => {
     switch (deltaMode) {
@@ -571,16 +565,44 @@ export const useTimelineViewport = ({
     const { primarySize, currentZoom, startYear, endYear } = bounds;
 
     const visibleYears = primarySize / currentZoom;
-    const roughInterval = getNiceInterval(visibleYears / 10);
-    const estimatedWidthPx = getStableTickLabelWidthEstimate(roughInterval);
 
-    const maxTicks = Math.max(2, Math.floor(primarySize / estimatedWidthPx));
-    const idealInterval = visibleYears / maxTicks;
-    const interval = stabilizeTickInterval(
-      getNiceInterval(idealInterval),
-      tickStateRef.current?.interval ?? null,
-      idealInterval,
+    /**
+     * The interval is chosen by asking which rung's labels actually fit, not
+     * by rounding to the nearest nice value: the ladder has wide gaps (nothing
+     * between a year and a month) and label width jumps at the rung
+     * boundaries, so rounding spaced ticks for a label it was not going to
+     * print and they overlapped.
+     *
+     * Adopting a finer rung needs headroom, but keeping the current one only
+     * needs it to still fit — a Schmitt trigger. Zoom jitters frame to frame
+     * during a gesture, and a single threshold would flip the rung back and
+     * forth right at the boundary, which is what the old hysteresis existed to
+     * prevent. Because the kept value is re-tested against the bare fit, the
+     * stickiness can never hold a colliding interval.
+     */
+    const previousInterval = tickStateRef.current?.interval ?? null;
+    // Widest label in view decides the budget: at the year rung "1942" and
+    // "13.8 Billion BC" differ by a factor of two.
+    const referenceYear =
+      Math.abs(startYear) > Math.abs(endYear) ? startYear : endYear;
+    const fitsAtCurrentZoom = (candidate: number, slack: number) =>
+      candidate * currentZoom >=
+      getStableTickLabelWidthEstimate(candidate, referenceYear) * slack;
+
+    let interval = getTickIntervalThatFitsLabels(
+      visibleYears,
+      primarySize,
+      referenceYear,
     );
+    if (
+      previousInterval !== null &&
+      previousInterval !== interval &&
+      fitsAtCurrentZoom(previousInterval, 1) &&
+      !fitsAtCurrentZoom(interval, TICK_FIT_ADOPT_SLACK)
+    ) {
+      interval = previousInterval;
+    }
+
     const targetHighlightedTicks = Math.max(
       2,
       Math.min(5, Math.round(primarySize / 320)),
@@ -591,11 +613,17 @@ export const useTimelineViewport = ({
 
     const bufferedStartYear = startYear - interval * TICK_OVERSCAN_INTERVALS;
     const bufferedEndYear = endYear + interval * TICK_OVERSCAN_INTERVALS;
-    const calendarTickYears = generateCalendarTimelineTickYears(
-      bufferedStartYear,
-      bufferedEndYear,
-      interval,
-    );
+    const calendarTickYears =
+      generateSubDayTimelineTickYears(
+        bufferedStartYear,
+        bufferedEndYear,
+        interval,
+      ) ??
+      generateCalendarTimelineTickYears(
+        bufferedStartYear,
+        bufferedEndYear,
+        interval,
+      );
     const firstTick =
       calendarTickYears && calendarTickYears.length > 0
         ? calendarTickYears[0]
@@ -690,7 +718,7 @@ export const useTimelineViewport = ({
 
     if (Math.abs(maxYear - minYear) < 1e-9) {
       const targetYear = minYear;
-      const targetZoom = Math.min(Math.max(zoom.get() * 2, MIN_ZOOM), MAX_ZOOM);
+      const targetZoom = clampZoom(zoom.get() * 2, targetYear);
 
       if (immediate) {
         stopCameraAnimations();
@@ -708,12 +736,9 @@ export const useTimelineViewport = ({
       return;
     }
 
-    const fitZoom = Math.max(
-      MIN_ZOOM,
-      Math.min(
-        (primarySize * (1 - CAMERA_FIT_PADDING * 2)) / (maxYear - minYear),
-        MAX_ZOOM,
-      ),
+    const fitZoom = clampZoom(
+      (primarySize * (1 - CAMERA_FIT_PADDING * 2)) / (maxYear - minYear),
+      (minYear + maxYear) / 2,
     );
     const centerYear = (minYear + maxYear) / 2;
     const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
@@ -761,11 +786,11 @@ export const useTimelineViewport = ({
     const rawRangeYears = maxYear - minYear;
     const rangeYears =
       rawRangeYears > 0 ? Math.max(rawRangeYears, MIN_FIT_RANGE_YEARS) : 1;
-    const fitZoom = Math.max(
-      MIN_ZOOM,
-      Math.min((primarySize * (1 - CAMERA_FIT_PADDING * 2)) / rangeYears, MAX_ZOOM),
-    );
     const centerYear = (minYear + maxYear) / 2;
+    const fitZoom = clampZoom(
+      (primarySize * (1 - CAMERA_FIT_PADDING * 2)) / rangeYears,
+      centerYear,
+    );
     const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
 
     if (immediate) {
@@ -883,7 +908,13 @@ export const useTimelineViewport = ({
       animateFocusPixel(primarySize / 2, FOCUS_SPRING);
       animateFocusYear(group.year, FOCUS_SPRING);
 
-      const boostedZoom = Math.max(zoom.get(), MAX_ZOOM);
+      // Expanding a cluster means zooming in hard enough to separate it. This
+      // used to reach for MAX_ZOOM, which now sits at second-level and would
+      // fling the camera far past anything useful.
+      const boostedZoom = clampZoom(
+        Math.max(zoom.get(), COLLAPSED_GROUP_EXPAND_ZOOM),
+        group.year,
+      );
       targetLogZoom.current = Math.log(boostedZoom);
       animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
       return;
@@ -922,10 +953,7 @@ export const useTimelineViewport = ({
         Math.max((event?.duration || 0) * 20, 1 / 365.25),
         1e9,
       );
-      targetZoom = Math.max(
-        MIN_ZOOM,
-        Math.min(primarySize / targetRangeYears, MAX_ZOOM),
-      );
+      targetZoom = clampZoom(primarySize / targetRangeYears, eventYear);
     }
 
     const pixelDist = Math.abs(eventYear - currentYear) * targetZoom;
@@ -1085,7 +1113,7 @@ export const useTimelineViewport = ({
       const direction = zoomDelta < 0 ? 1 : -1;
       let newZoom =
         direction > 0 ? targetZoom * zoomFactor : targetZoom / zoomFactor;
-      newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
+      newZoom = clampZoom(newZoom);
 
       targetLogZoom.current = Math.log(newZoom);
       animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
@@ -1121,7 +1149,7 @@ export const useTimelineViewport = ({
       const direction = zoomDelta < 0 ? 1 : -1;
       let newZoom =
         direction > 0 ? targetZoom * zoomFactor : targetZoom / zoomFactor;
-      newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
+      newZoom = clampZoom(newZoom);
 
       targetLogZoom.current = Math.log(newZoom);
       animateLogZoom(targetLogZoom.current, FOCUS_SPRING);
@@ -1251,7 +1279,7 @@ export const useTimelineViewport = ({
     const nextLogZoom = Math.max(
       Math.log(MIN_ZOOM),
       Math.min(
-        Math.log(MAX_ZOOM),
+        Math.log(getZoomCeiling(pinchGesture.anchorYear)),
         pinchGesture.startLogZoom +
           Math.log(distance / pinchGesture.startDistance),
       ),
@@ -1571,13 +1599,9 @@ export const useTimelineViewport = ({
     stopCameraAnimations();
     const rangeInYears = parseFloat(event.target.value);
     const targetZoom = getViewportPrimarySize() / rangeInYears;
-    const nextLogZoom = Math.max(
-      Math.log(MIN_ZOOM),
-      Math.min(Math.log(MAX_ZOOM), Math.log(targetZoom)),
-    );
-
     const centerPixel = getViewportCenter();
     const centerYear = getCenterYear(centerPixel);
+    const nextLogZoom = clampLogZoom(Math.log(targetZoom), centerYear);
     focusPixel.set(centerPixel);
     focusYear.set(centerYear);
 
@@ -1597,7 +1621,7 @@ export const useTimelineViewport = ({
     // Animate zoom to a reasonable level for the target year so that pan and
     // zoom settle together (keeping all three motion values in sync).
     // Show roughly ±1 year around the target.
-    const jumpZoom = Math.max(MIN_ZOOM, Math.min(primarySize / 2, MAX_ZOOM));
+    const jumpZoom = clampZoom(primarySize / 2, targetYear);
     targetLogZoom.current = Math.log(jumpZoom);
 
     if (pixelDist > primarySize * LONG_TRAVEL_VIEWPORT_MULTIPLIER) {
@@ -1929,10 +1953,7 @@ export const useTimelineViewport = ({
       if (thumbY !== 0) {
         const zoomSpeed = -thumbY * 0.0005;
         const currentLogZoom = targetLogZoom.current;
-        const nextLogZoom = Math.max(
-          Math.log(MIN_ZOOM),
-          Math.min(Math.log(MAX_ZOOM), currentLogZoom + zoomSpeed),
-        );
+        const nextLogZoom = clampLogZoom(currentLogZoom + zoomSpeed);
 
         targetLogZoom.current = nextLogZoom;
         logZoom.set(nextLogZoom);

@@ -34,7 +34,38 @@ export const ZOOM_WARP_SPEED_THRESHOLD = 0.0024;
 export const FPS_SAMPLE_WINDOW_MS = 250;
 
 export const MIN_ZOOM = 100 / 13.8e9;
-export const MAX_ZOOM = 1000 / (1 / 365.25);
+
+const SECOND_IN_YEARS = 1 / (365.25 * 24 * 60 * 60);
+/** Deepest rung the tick ladder reaches: roughly 200px per second. */
+export const MAX_ZOOM = 200 / SECOND_IN_YEARS;
+
+/**
+ * How much on-screen jitter a single float step is allowed to cause. Timeline
+ * positions are fractional years in a double, so the smallest representable
+ * step at absolute year Y is about |Y| * EPSILON years. Multiplied by the
+ * zoom that becomes pixels, and once it exceeds a fraction of one, ticks and
+ * events visibly shimmer between frames because their positions cannot be
+ * expressed precisely enough to stay put.
+ */
+export const ZOOM_PRECISION_PIXEL_BUDGET = 0.25;
+
+/**
+ * Zoom used when expanding a collapsed cluster: enough to separate events
+ * sharing a day. Was MAX_ZOOM back when that meant day-level; kept as its own
+ * value so extending the tick ladder downwards does not move it.
+ */
+export const COLLAPSED_GROUP_EXPAND_ZOOM = 1000 / (1 / 365.25);
+
+/**
+ * Zoom ceiling at a given point on the timeline. Seconds are reachable around
+ * the present day; deep time necessarily bottoms out coarser, because there
+ * are no floats left to express a second 13.8 billion years ago. A flat
+ * ceiling could not be right for both.
+ */
+export const getMaxZoomForYear = (absoluteYear: number): number => {
+  const ulpYears = Math.max(Math.abs(absoluteYear), 1) * Number.EPSILON;
+  return Math.min(MAX_ZOOM, ZOOM_PRECISION_PIXEL_BUDGET / ulpYears);
+};
 
 export const CAMERA_FIT_PADDING = 0.12;
 /**
