@@ -20,23 +20,69 @@ type LandingScrollStageProps = {
 const SEGMENT_VH = 55;
 
 const EMPTY_DIMMED_IDS: ReadonlySet<string> = new Set();
+/** Stable identity: this lands in dependency arrays inside the canvas viewport. */
+const EMPTY_EVENT_ACCENT_COLORS: Record<string, string | null> = {};
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+const readPrefersReducedMotion = (): boolean =>
+  typeof window === "undefined"
+    ? false
+    : window.matchMedia(REDUCED_MOTION_QUERY).matches;
 
 export function LandingScrollStage({
+  theme,
+  onEnterTimeline,
+}: LandingScrollStageProps) {
+  const { t } = useI18n();
+
+  // Lazy initialiser, so the very first commit already knows the answer. Read
+  // it in an effect instead and reduced-motion users would briefly mount the
+  // canvas stage — sizing a canvas and booting the engine — before it swaps out.
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    readPrefersReducedMotion,
+  );
+  useEffect(() => {
+    const query = window.matchMedia(REDUCED_MOTION_QUERY);
+    const sync = () => setPrefersReducedMotion(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  if (prefersReducedMotion) {
+    return (
+      <section className="landing-moments">
+        <h2 className="landing-moments-heading">{t("landingMomentsHeading")}</h2>
+        <ol className="landing-moments-list">
+          {LANDING_WAYPOINTS.map((waypoint) => (
+            <li key={waypoint.eventUid} className="landing-moment">
+              <div className="landing-moment-time">{t(waypoint.timeLabelKey)}</div>
+              <h3 className="landing-moment-title">{t(waypoint.titleKey)}</h3>
+              <p className="landing-moment-caption">{t(waypoint.captionKey)}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+    );
+  }
+
+  return <LandingCanvasStage theme={theme} onEnterTimeline={onEnterTimeline} />;
+}
+
+/**
+ * The live stage. Split out so it is only ever *mounted* when motion is
+ * allowed — `useTimelineViewport` runs an unconditional rAF loop for FPS
+ * sampling, and calling it above the reduced-motion early return would keep
+ * that loop alive at 60Hz for users who only ever see the static list.
+ */
+function LandingCanvasStage({
   theme,
   onEnterTimeline,
 }: LandingScrollStageProps) {
   const { t, language } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setPrefersReducedMotion(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
 
   const [isStageVisible, setIsStageVisible] = useState(true);
   useEffect(() => {
@@ -104,25 +150,8 @@ export function LandingScrollStage({
     waypoints: LANDING_CAMERA_WAYPOINTS,
     focusYear,
     logZoom: currentLogZoom,
-    enabled: !prefersReducedMotion && isStageVisible,
+    enabled: isStageVisible,
   });
-
-  if (prefersReducedMotion) {
-    return (
-      <section className="landing-moments">
-        <h2 className="landing-moments-heading">{t("landingMomentsHeading")}</h2>
-        <ol className="landing-moments-list">
-          {LANDING_WAYPOINTS.map((waypoint) => (
-            <li key={waypoint.eventUid} className="landing-moment">
-              <div className="landing-moment-time">{t(waypoint.timeLabelKey)}</div>
-              <h3 className="landing-moment-title">{t(waypoint.titleKey)}</h3>
-              <p className="landing-moment-caption">{t(waypoint.captionKey)}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-    );
-  }
 
   const active = LANDING_WAYPOINTS[activeIndex];
   const scrollHeight = `${LANDING_WAYPOINTS.length * SEGMENT_VH}vh`;
@@ -158,7 +187,7 @@ export function LandingScrollStage({
             eventLayouts={eventLayouts}
             focusedEventId={null}
             rulerEvent={null}
-            eventAccentColors={{}}
+            eventAccentColors={EMPTY_EVENT_ACCENT_COLORS}
             onRenderFrame={recordRenderFrame}
             onWheel={handleWheel}
             onPointerDown={handlePointerDown}

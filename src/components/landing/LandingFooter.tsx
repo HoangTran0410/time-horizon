@@ -33,8 +33,10 @@ export function LandingFooter({ theme, onToggleTheme }: LandingFooterProps) {
         <a href="https://github.com/HoangTran0410/time-horizon-data">
           {t("landingFooterData")}
         </a>
-        <a href="/privacy.html">{t("landingFooterPrivacy")}</a>
-        <a href="/terms.html">{t("landingFooterTerms")}</a>
+        {/* Relative, not root-absolute: `base: "./"` and the site is served
+            from a subpath (…/time-horizon/), where "/privacy.html" 404s. */}
+        <a href="./privacy.html">{t("landingFooterPrivacy")}</a>
+        <a href="./terms.html">{t("landingFooterTerms")}</a>
       </nav>
 
       <div className="landing-footer-actions">

@@ -12,7 +12,7 @@ type UseLandingCameraParams = {
   focusYear: MotionValue<number>;
   /** The viewport hook exposes this as `currentLogZoom`. */
   logZoom: MotionValue<number>;
-  /** False under prefers-reduced-motion, where no canvas is mounted. */
+  /** False while the stage is off-screen, so scrolling past costs nothing. */
   enabled: boolean;
 };
 

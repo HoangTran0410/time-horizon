@@ -28,8 +28,12 @@ export const isLandingLogZoomInBounds = (logZoom: number): boolean =>
  * Pixel distance between two years is |dyear| * zoom, so constant on-screen
  * travel needs dyear/dt proportional to 1/zoom = e^(-logZoom(t)). With logZoom
  * linear across the segment (k = lzB - lzA), integrating and normalising gives
- * the expression below. It is the reduced form of van Wijk's smooth
- * zoom-and-pan, and it degenerates to `t` as k approaches 0.
+ * the expression below: the closed-form solution for constant screen-space pan
+ * velocity under exponential zoom. It degenerates to `t` as k approaches 0.
+ *
+ * Not van Wijk & Nuij's smooth zoom-and-pan — that optimises a hyperbolic path
+ * through (pan, zoom) space and its pan profile does not converge to this one
+ * at any rho. This is the simpler constant-velocity solution.
  */
 const easeSegment = (t: number, k: number): number => {
   if (Math.abs(k) <= LANDING_ZOOM_EPSILON) return t;
