@@ -5,12 +5,14 @@ import { useI18n } from "../../i18n";
 import { useAutoTimelineOrientation } from "../../hooks/useAutoTimelineOrientation";
 import { useTimelineViewport } from "../../hooks/useTimelineViewport";
 import { TimelineCanvasViewport } from "../TimelineCanvasViewport";
+import { WarpOverlay } from "../TimelineMarkers";
 import {
   LANDING_REFERENCE_AXIS_PX,
   resolveLandingAxisLogZoom,
 } from "./landingCamera";
 import { LandingZoomGauge } from "./LandingZoomGauge";
 import { useLandingCamera } from "./useLandingCamera";
+import { useLandingZoomWarp } from "./useLandingZoomWarp";
 import {
   buildLandingEvents,
   LANDING_CAMERA_WAYPOINTS,
@@ -278,6 +280,8 @@ function LandingCanvasStage({
     enabled: isStageVisible,
   });
 
+  const warp = useLandingZoomWarp(currentLogZoom);
+
   const active = LANDING_WAYPOINTS[activeIndex];
   const scrollHeight = `${LANDING_WAYPOINTS.length * SEGMENT_VH}vh`;
 
@@ -336,6 +340,21 @@ function LandingCanvasStage({
             onFocusBigBang={handleFocusBigBang}
             onFocusEvent={handleFocusEvent}
             onFocusCollapsedGroup={handleFocusCollapsedGroup}
+          />
+        </div>
+
+        {/* Wrapped so it inherits the stage's scroll reveal — the overlay is
+            fixed to the viewport and would otherwise draw over the hero on the
+            first screen, before the timeline itself has appeared. */}
+        <div className="landing-warp-layer">
+          <WarpOverlay
+            isWarping={warp.isWarping}
+            mode={warp.mode}
+            direction={1}
+            theme={theme}
+            zoom={warp.zoom}
+            orientation={orientation}
+            zoomPivot={focusPixel}
           />
         </div>
 

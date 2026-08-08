@@ -730,6 +730,9 @@ select {
   top: 0;
   height: 100vh;
   width: 100%;
+  /* Keeps every layer inside — notably the warp overlay's `z-70` — below the
+     fixed top bar, whatever z-index the app's own overlays choose. */
+  isolation: isolate;
   /* `clip`, not `hidden`: `hidden` makes this a scroll container, which
      `animation-timeline: scroll()` on the hero would then resolve to (it means
      `scroll(nearest block)`). This box never scrolls, so the hero dissolve
@@ -833,6 +836,7 @@ select {
      same element did not hold — the caption stayed at opacity 1 on the first
      screen — so the scroll reveal gets its own wrapper instead. */
   .landing-stage-canvas,
+  .landing-warp-layer,
   .landing-caption-layer,
   .landing-zoom-gauge-layer {
     animation: landing-stage-reveal linear both;
@@ -894,6 +898,18 @@ select {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--ui-zinc-400);
+}
+
+/* Carries the scroll reveal for the zoom reference rings. `z-index: 0` with the
+   scrim at 1 puts the rings between the drawn timeline and the vignette, so
+   they read as part of the canvas rather than as chrome laid over it. Its
+   opacity animation also boxes in the overlay's own `z-70`, which would
+   otherwise outrank the fixed top bar. */
+.landing-warp-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* Positioning layer for the zoom dial, mirroring the caption layer so both can
