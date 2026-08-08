@@ -41,6 +41,9 @@ history) is gone — do not resurrect it.
   the build script copies them into `dist/`, so they must stay at the root.
 - `vite.config.ts` sets `root: "src"`, so the app's HTML entry is `src/index.html`.
 - The custom domain lives on the user-site repo, not here — nothing in this repo configures it.
+- The repo **also** deploys to Cloudflare Pages (`time-horizon.pages.dev`) through CF's own Git
+  integration: build `npm run build`, output `dist`, Node 22. That config lives in the Cloudflare
+  dashboard, not in this repo — changing the build contract here means updating it there too.
 
 ## Architecture
 
