@@ -30,17 +30,13 @@ The Cambrian explosion, the Roman Empire and the invention of paper sit eight or
 - **Log space is the trick.** One flick of the wheel crosses nine orders of magnitude — no mode switch, no broken layout, no "which era?" prompt.
 - **Everything else falls out of it** — ticks re-derive their unit as you fall, events cluster and unfold, rings name the scale you're standing in.
 
-<img src=".github/readme/timeline-zoom.jpg" alt="The timeline at a 165-year window, reference rings marking the 5, 10 and 50 year scales" width="100%">
-
-<sub>The same axis as the picture above, eight orders of magnitude closer.</sub>
-
 ## Compared to what's out there
 
 | | Great at | Where it stops |
 |---|---|---|
 | **[Histography](http://histography.io/)** | A gorgeous WebGL wall of Wikipedia events, Big Bang to today | Fixed era buckets; read-only — none of it is your data |
 | **[TimelineJS](https://timeline.knightlab.com/)** | Storytelling: rich media, one slide at a time, driven by a spreadsheet | Slides, not a continuous axis; comparing distant eras isn't the goal |
-| **Tiki-Toki, Preceden** | Polished hosted builders, sharing and teams handled for you | Account required, data lives on their servers, tiered plans |
+| **[Tiki-Toki](https://www.tiki-toki.com/), [Preceden](https://www.preceden.com/)** | Polished hosted builders, sharing and teams handled for you | Account required, data lives on their servers, tiered plans |
 | **[vis-timeline](https://visjs.github.io/vis-timeline/)** | A solid library for scheduling-scale ranges | It's a library, not an atlas; one DOM node per event |
 | **Time Horizon** | One continuous log-zoom axis, layered collections, your data stays yours | No collaboration, no media-rich slides — deliberately |
 
