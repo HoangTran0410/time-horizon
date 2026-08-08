@@ -780,6 +780,169 @@ select {
   animation-delay: 460ms;
 }
 
+.landing-scroll-track {
+  position: relative;
+  width: 100%;
+}
+
+.landing-sticky-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.landing-stage-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* Keeps hero and caption copy legible over a live canvas. */
+.landing-stage-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, var(--ui-zinc-950-70) 0%, transparent 42%),
+    linear-gradient(0deg, var(--ui-zinc-950-70) 0%, transparent 34%);
+}
+
+.landing-hero-overlay {
+  position: absolute;
+  inset: auto 0 auto 0;
+  top: 14vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.5rem;
+  text-align: center;
+  /* Dissolves as the first segment scrolls past. */
+  animation: landing-hero-dissolve linear both;
+  animation-timeline: scroll();
+  animation-range: 0 12vh;
+}
+
+.landing-scroll-hint {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ui-zinc-500);
+  animation: landing-scroll-nudge 2.4s ease-in-out infinite;
+}
+
+.landing-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 8vh;
+  transform: translateX(-50%);
+  width: min(34rem, calc(100% - 3rem));
+  text-align: center;
+  animation: landing-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-caption-time {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ui-emerald-500);
+}
+
+.landing-caption-title {
+  margin: 0.4rem 0 0.5rem;
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  line-height: 1.15;
+  color: var(--ui-zinc-100);
+}
+
+.landing-caption-copy {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--ui-zinc-400);
+}
+
+/* Static fallback rendered instead of the stage under reduced motion. */
+.landing-moments {
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+  max-width: 46rem;
+}
+
+.landing-moments-heading {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  color: var(--ui-zinc-100);
+}
+
+.landing-moments-list {
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.75rem;
+}
+
+.landing-moment {
+  border-left: 2px solid var(--ui-border-emerald-500-30);
+  padding-left: 1.1rem;
+}
+
+.landing-moment-time {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ui-emerald-500);
+}
+
+.landing-moment-title {
+  margin: 0.35rem 0 0.4rem;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  color: var(--ui-zinc-100);
+}
+
+.landing-moment-caption {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--ui-zinc-400);
+}
+
+@keyframes landing-hero-dissolve {
+  to {
+    opacity: 0;
+    transform: translateY(-2.5rem);
+  }
+}
+
+@keyframes landing-scroll-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translateY(0.35rem);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-caption-title {
+    font-size: 1.35rem;
+  }
+
+  .landing-caption {
+    bottom: 5vh;
+  }
+}
+
 .timeline-viewport {
   background-color: var(--app-bg) !important;
   background-image: var(--app-bg-image);
