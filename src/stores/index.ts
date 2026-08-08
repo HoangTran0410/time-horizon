@@ -92,6 +92,15 @@ type TimelineStoreState = {
   syncAccessToken: string | null;
   syncAccessTokenExpiry: number | null;
   visibleCollectionIds: string[];
+  /**
+   * Bumped only when a person turns a layer on or off — the sidebar toggle, the
+   * explore modal, opening a collection from the landing page, finishing an
+   * import. Restoring `visibleCollectionIds` from a share URL or from
+   * localStorage leaves it alone, which is how the timeline tells "the user
+   * asked for a different set of layers" apart from "this session is still
+   * being reassembled". Session-only: never persisted.
+   */
+  collectionVisibilityNonce: number;
   downloadingCollectionIds: string[];
   collectionColorPreferences: Record<string, string>;
   selectedEventId: string | null;
@@ -1685,6 +1694,7 @@ export const useStore = create<TimelineStoreState>()(
           syncAccessToken: null,
           syncAccessTokenExpiry: null,
           visibleCollectionIds: [],
+          collectionVisibilityNonce: 0,
           downloadingCollectionIds: [],
           collectionColorPreferences: {},
           selectedEventId: null,
@@ -1759,6 +1769,7 @@ export const useStore = create<TimelineStoreState>()(
                 if (!state.visibleCollectionIds.includes(collectionId)) {
                   state.visibleCollectionIds.push(collectionId);
                 }
+                state.collectionVisibilityNonce += 1;
               }),
             ),
           setCatalogMeta: (catalogMeta, syncableIds) =>
@@ -2049,6 +2060,7 @@ export const useStore = create<TimelineStoreState>()(
                 }
                 const init = createInitialTimelineSearchState();
                 Object.assign(state, init);
+                state.collectionVisibilityNonce += 1;
               }),
             ),
           importCollections: (collections) => {

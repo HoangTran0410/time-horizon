@@ -217,6 +217,9 @@ export const Timeline = ({
   const downloadCollection = useStore((s) => s.downloadCollection);
   const syncCollection = useStore((s) => s.syncCollection);
   const setCollectionVisibility = useStore((s) => s.setCollectionVisibility);
+  const collectionVisibilityNonce = useStore(
+    (s) => s.collectionVisibilityNonce,
+  );
   const importCollections = useStore((s) => s.importCollections);
   const deleteCollection = useStore((s) => s.deleteCollection);
   const saveEvent = useStore((s) => s.saveEvent);
@@ -717,14 +720,40 @@ export const Timeline = ({
     setIsRulerActive,
   });
 
-  // Auto-fit when user toggles collection visibility in Sidebar
+  // Tracks the window in which a share URL is still being reassembled; see
+  // the auto-fit effect below and the ?c= applier further down.
+  const [isApplyingSharedUrl, setIsApplyingSharedUrl] = useState(false);
+
+  // Auto-fit when the user turns a layer on or off.
+  //
+  // Keyed on the store's toggle counter rather than on `visibleCollectionIds`
+  // itself: that array also fills in while a session is being reassembled —
+  // from ?c= and from localStorage — and both of those arrive alongside a
+  // viewport the camera has already been placed at. Auto-fitting on those
+  // threw the restored frame away, so a share link carrying collections *and*
+  // ?y=/?z= opened at the full 13.8-billion-year fit instead of the moment it
+  // encodes, and a reload never came back to where you left off.
   const handleAutoFitRef = useRef<any | null>(null);
   useEffect(() => {
     handleAutoFitRef.current = handleAutoFit;
   }, [handleAutoFit]);
 
+  // The one programmatic caller of setCollectionVisibility hides collections a
+  // share URL did not ask for; that is still restore, not a toggle.
+  const isApplyingSharedUrlRef = useRef(isApplyingSharedUrl);
+  useEffect(() => {
+    isApplyingSharedUrlRef.current = isApplyingSharedUrl;
+  }, [isApplyingSharedUrl]);
+
+  const lastAutoFitNonceRef = useRef(collectionVisibilityNonce);
   useEffect(() => {
     if (!hasBootstrappedRef.current) return;
+    // Mount runs the effect once with the value it started at; only a real
+    // change past that point is a toggle.
+    if (collectionVisibilityNonce === lastAutoFitNonceRef.current) return;
+    lastAutoFitNonceRef.current = collectionVisibilityNonce;
+    if (isApplyingSharedUrlRef.current) return;
+
     // Defer to next frame so events have finished rendering first
     const frame = requestAnimationFrame(() =>
       handleAutoFitRef.current?.(false),
@@ -732,7 +761,7 @@ export const Timeline = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [visibleCollectionIds]);
+  }, [collectionVisibilityNonce]);
 
   const downloadedCollectionIds = useMemo(
     () => Object.keys(collectionEventsById),
@@ -1122,7 +1151,6 @@ export const Timeline = ({
   const lastAppliedSharedUrlSignatureRef = useRef<string | null>(null);
   const sharedUrlFocusFrameRef = useRef<number | null>(null);
   const sharedUrlFocusRequestedSignatureRef = useRef<string | null>(null);
-  const [isApplyingSharedUrl, setIsApplyingSharedUrl] = useState(false);
   const [
     sharedUrlCollectionsReadySignature,
     setSharedUrlCollectionsReadySignature,

@@ -17,7 +17,7 @@ Cambrian explosion on the same axis and watch where they land.
 ![No backend](https://img.shields.io/badge/backend-none-1f6f5c)
 ![MIT](https://img.shields.io/badge/license-MIT-blue)
 
-<img src=".github/readme/timeline.jpg" alt="Five collections layered on one timeline around the fall of Rome" width="100%">
+<img src=".github/readme/timeline.jpg" alt="Cosmic Origins and Earth &amp; Life on one axis, eleven billion years across the screen" width="100%">
 
 </div>
 
@@ -34,9 +34,9 @@ mode, breaking the layout, or asking you which "era" you'd like to see.
 
 Zoom far enough out and 300,000 years of human history collapses into one pixel. Zoom
 in and it unfolds again, event by event, with concentric rings marking the scale you're
-standing in.
+standing in — the same axis as the picture above, eight orders of magnitude closer.
 
-<img src=".github/readme/timeline-zoom.jpg" alt="Zoomed to a 120-year window, with reference rings showing 5, 10 and 50 year scales" width="100%">
+<img src=".github/readme/timeline-zoom.jpg" alt="The timeline at a 165-year window, reference rings marking the 5, 10 and 50 year scales" width="100%">
 
 ## What you can do with it
 
