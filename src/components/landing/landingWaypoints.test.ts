@@ -70,6 +70,18 @@ describe("LANDING_WAYPOINTS", () => {
       expect(camera.logZoom).toBe(LANDING_WAYPOINTS[index].logZoom);
     });
   });
+
+  it("has priority descending strictly from 100 to 55, matching catalog convention", () => {
+    for (const waypoint of LANDING_WAYPOINTS) {
+      expect(waypoint.priority).toBeGreaterThanOrEqual(55);
+      expect(waypoint.priority).toBeLessThanOrEqual(100);
+    }
+    for (let i = 1; i < LANDING_WAYPOINTS.length; i++) {
+      expect(LANDING_WAYPOINTS[i].priority).toBeLessThan(
+        LANDING_WAYPOINTS[i - 1].priority,
+      );
+    }
+  });
 });
 
 describe("buildLandingEvents", () => {

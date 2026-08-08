@@ -15,6 +15,7 @@ export type LandingWaypoint = LandingCameraWaypoint & {
   captionKey: string;
   timeLabelKey: string;
   emoji: string;
+  priority: number;
 };
 
 /**
@@ -22,6 +23,12 @@ export type LandingWaypoint = LandingCameraWaypoint & {
  * -18 shows all of cosmic time, and -2 is close enough to read single years.
  * They must stay inside [ln(MIN_ZOOM), ln(MAX_ZOOM)] — landingWaypoints.test.ts
  * enforces that.
+ *
+ * Priority descends strictly from 100 (Big Bang) to 55 (Now) so that when
+ * waypoints collide at maximum zoom-out (all events pile into a few pixels),
+ * the widest-scope event (Big Bang) survives clustering, letting viewers
+ * understand the scroll starts at the broadest perspective. Values stay within
+ * [55, 100] to match the app's existing convention range for real catalog data.
  */
 export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
   {
@@ -32,6 +39,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpBigBangCaption",
     timeLabelKey: "landingTimeBigBang",
     emoji: "✦",
+    priority: 100,
   },
   {
     eventUid: "landing-first-stars",
@@ -41,6 +49,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpFirstStarsCaption",
     timeLabelKey: "landingTimeFirstStars",
     emoji: "★",
+    priority: 95,
   },
   {
     eventUid: "landing-earth",
@@ -50,6 +59,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpEarthCaption",
     timeLabelKey: "landingTimeEarth",
     emoji: "🜨",
+    priority: 90,
   },
   {
     eventUid: "landing-first-life",
@@ -59,6 +69,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpLifeCaption",
     timeLabelKey: "landingTimeLife",
     emoji: "◍",
+    priority: 85,
   },
   {
     eventUid: "landing-cambrian",
@@ -68,6 +79,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpCambrianCaption",
     timeLabelKey: "landingTimeCambrian",
     emoji: "🜛",
+    priority: 80,
   },
   {
     eventUid: "landing-asteroid",
@@ -77,6 +89,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpAsteroidCaption",
     timeLabelKey: "landingTimeAsteroid",
     emoji: "☄",
+    priority: 75,
   },
   {
     eventUid: "landing-sapiens",
@@ -86,6 +99,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpSapiensCaption",
     timeLabelKey: "landingTimeSapiens",
     emoji: "◈",
+    priority: 70,
   },
   {
     eventUid: "landing-writing",
@@ -95,6 +109,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpWritingCaption",
     timeLabelKey: "landingTimeWriting",
     emoji: "𓂀",
+    priority: 65,
   },
   {
     eventUid: "landing-moon",
@@ -104,6 +119,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpMoonCaption",
     timeLabelKey: "landingTimeMoon",
     emoji: "☾",
+    priority: 60,
   },
   {
     eventUid: "landing-now",
@@ -113,6 +129,7 @@ export const LANDING_WAYPOINTS: readonly LandingWaypoint[] = [
     captionKey: "landingWpNowCaption",
     timeLabelKey: "landingTimeNow",
     emoji: "✚",
+    priority: 55,
   },
 ];
 
@@ -136,7 +153,7 @@ export const buildLandingEvents = (): Event[] =>
       description: waypoint.captionKey,
       time: [waypoint.year] as Event["time"],
       emoji: waypoint.emoji,
-      priority: 0,
+      priority: waypoint.priority,
     })),
     { collectionId: "landing" },
   );
