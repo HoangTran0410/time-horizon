@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useRef, useState } from "react";
-import { LandingPage } from "./components/LandingPage";
+import { LandingPage } from "./components/landing/LandingPage";
 import { Timeline } from "./components/Timeline";
 import { DEFAULT_SEED_COLLECTION_ID } from "./constants";
 import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
@@ -122,6 +122,17 @@ export default function App() {
     setView("timeline");
   };
 
+  const handleOpenCollection = (collectionId: string) => {
+    const state = useStore.getState();
+    void state.downloadCollection(collectionId).then((ok) => {
+      if (ok) {
+        useStore.getState().setCollectionVisibility(collectionId, true);
+      }
+    });
+    clearTimelineView();
+    setView("timeline");
+  };
+
   const handleBackToLanding = () => {
     const url = new URL(window.location.href);
     url.searchParams.set("l", "1");
@@ -130,7 +141,11 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell w-full h-screen">
+    <div
+      className={`app-shell w-full ${
+        view === "timeline" ? "h-screen" : "min-h-screen"
+      }`}
+    >
       {view === "timeline" ? (
         <Timeline
           theme={resolvedTheme}
@@ -140,9 +155,10 @@ export default function App() {
       ) : (
         <LandingPage
           theme={resolvedTheme}
-          collectionCount={catalogCollections.length}
+          catalogCollections={catalogCollections}
           onToggleTheme={handleToggleTheme}
           onEnterTimeline={handleEnterTimeline}
+          onOpenCollection={handleOpenCollection}
         />
       )}
     </div>

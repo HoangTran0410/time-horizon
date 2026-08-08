@@ -319,6 +319,11 @@ select {
 }
 
 .landing-shell {
+  /* clip, not hidden: `hidden` establishes a scroll container, which breaks
+     `position: sticky` in the scrollytelling stage below. `clip` still stops
+     the decorative orbits (offset off-canvas) from causing a horizontal
+     page scrollbar, without creating a scrolling box. */
+  overflow-x: clip;
   background:
     radial-gradient(
       circle at 16% 18%,
