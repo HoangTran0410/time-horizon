@@ -436,5 +436,17 @@
   "muteEvent": "Mute this event",
   "unmuteEvent": "Unmute this event",
   "unmuteAllEvents": "Unmute {count} muted {count, plural, one {event} other {events}}",
-  "spanDuration": "Lasts {duration}"
+  "spanDuration": "Lasts {duration}",
+  "landingFeatureSpatialTitle": "See history on the map, not just the line.",
+  "landingFeatureSpatialCopy": "Turn on spatial mapping and events anchor to real places as you travel through time.",
+  "landingSpatialEyebrow": "Spatial Mapping",
+  "landingCollectionsHeading": "Start from a collection",
+  "landingCollectionsCopy": "Curated sets you can drop onto the timeline, mix together, then edit as your own.",
+  "landingOpenCollection": "Open collection",
+  "landingCtaHeading": "Pick a moment. Go there.",
+  "landingCtaCopy": "No account, no setup. Everything runs in your browser.",
+  "landingFooterData": "Collection data",
+  "landingFooterSource": "Source on GitHub",
+  "landingFooterPrivacy": "Privacy",
+  "landingFooterTerms": "Terms"
 }

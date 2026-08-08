@@ -436,5 +436,17 @@
   "muteEvent": "Làm mờ sự kiện này",
   "unmuteEvent": "Bỏ làm mờ sự kiện này",
   "unmuteAllEvents": "Bỏ mờ {count} sự kiện",
-  "spanDuration": "Kéo dài {duration}"
+  "spanDuration": "Kéo dài {duration}",
+  "landingFeatureSpatialTitle": "Nhìn lịch sử trên bản đồ, không chỉ trên đường thẳng.",
+  "landingFeatureSpatialCopy": "Bật ánh xạ không gian và các sự kiện sẽ neo vào địa điểm thật khi bạn đi xuyên thời gian.",
+  "landingSpatialEyebrow": "Ánh xạ không gian",
+  "landingCollectionsHeading": "Bắt đầu từ một bộ sưu tập",
+  "landingCollectionsCopy": "Những bộ tuyển chọn sẵn để thả lên dòng thời gian, trộn lẫn, rồi sửa thành của riêng bạn.",
+  "landingOpenCollection": "Mở bộ sưu tập",
+  "landingCtaHeading": "Chọn một khoảnh khắc. Tới đó.",
+  "landingCtaCopy": "Không cần tài khoản, không cần cài đặt. Mọi thứ chạy ngay trong trình duyệt.",
+  "landingFooterData": "Dữ liệu bộ sưu tập",
+  "landingFooterSource": "Mã nguồn trên GitHub",
+  "landingFooterPrivacy": "Quyền riêng tư",
+  "landingFooterTerms": "Điều khoản"
 }
