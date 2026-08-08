@@ -28,6 +28,27 @@ type LandingScrollStageProps = {
 /** Scroll length per segment. One constant so the pacing is tunable in one place. */
 const SEGMENT_VH = 55;
 
+/**
+ * Scroll spent holding the opening frame before the camera starts moving.
+ *
+ * Paced against the two reveals in index.css: the hero dissolves over 0→22vh
+ * and the canvas rises over 14vh→78vh. Mapping the camera straight onto scroll
+ * meant it was already half way to the second waypoint by the time the hero
+ * cleared, so the establishing shot — all 13.8 billion years in one frame — was
+ * never seen standing still. Ending the hold just past the reveal gives it a
+ * beat of its own before the journey starts.
+ */
+const INTRO_HOLD_VH = 85;
+
+const TRACK_VH = INTRO_HOLD_VH + LANDING_WAYPOINTS.length * SEGMENT_VH;
+
+/**
+ * `useScroll` runs 0→1 over the track minus one viewport ("start start" to
+ * "end end"), and the sticky stage is exactly one viewport tall — so the hold
+ * is its share of that, not of the raw track height.
+ */
+const INTRO_HOLD_FRACTION = INTRO_HOLD_VH / (TRACK_VH - 100);
+
 const EMPTY_DIMMED_IDS: ReadonlySet<string> = new Set();
 /** Stable identity: this lands in dependency arrays inside the canvas viewport. */
 const EMPTY_EVENT_ACCENT_COLORS: Record<string, string | null> = {};
@@ -282,13 +303,14 @@ function LandingCanvasStage({
     focusYear,
     logZoom: currentLogZoom,
     axisPx,
+    introHoldFraction: INTRO_HOLD_FRACTION,
     enabled: isStageVisible,
   });
 
   const warp = useLandingZoomWarp(currentLogZoom);
 
   const active = LANDING_WAYPOINTS[activeIndex];
-  const scrollHeight = `${LANDING_WAYPOINTS.length * SEGMENT_VH}vh`;
+  const scrollHeight = `${TRACK_VH}vh`;
 
   return (
     <div
@@ -360,7 +382,11 @@ function LandingCanvasStage({
           </LandingHeroContent>
         </div>
 
-        <div className="landing-caption-layer" aria-hidden={activeIndex === 0}>
+        {/* The opening waypoint used to be hidden from assistive tech, on the
+            grounds that its caption was never really on screen — the camera had
+            already moved on by the time the reveal finished. The intro hold
+            makes it a stop like any other, so it gets announced like one. */}
+        <div className="landing-caption-layer">
           <div className="landing-caption" key={active.eventUid}>
             <div className="landing-caption-time">{t(active.timeLabelKey)}</div>
             <h2 className="landing-caption-title">{t(active.titleKey)}</h2>

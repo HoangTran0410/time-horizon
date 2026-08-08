@@ -5,6 +5,7 @@ import {
   LANDING_REFERENCE_AXIS_PX,
   resolveLandingAxisLogZoom,
   resolveLandingCamera,
+  resolveLandingTourProgress,
   type LandingCameraWaypoint,
 } from "./landingCamera";
 
@@ -162,5 +163,49 @@ describe("resolveLandingAxisLogZoom", () => {
     for (const unmeasured of [0, -50, Number.NaN]) {
       expect(resolveLandingAxisLogZoom(-9, unmeasured)).toBe(-9);
     }
+  });
+});
+
+describe("resolveLandingTourProgress", () => {
+  const HOLD = 0.16;
+
+  it("stays parked on the opening frame for the whole hold", () => {
+    for (const scrolled of [0, 0.05, 0.1, HOLD]) {
+      expect(resolveLandingTourProgress(scrolled, HOLD)).toBe(0);
+    }
+  });
+
+  it("starts the tour the moment the hold ends", () => {
+    expect(resolveLandingTourProgress(HOLD + 0.001, HOLD)).toBeGreaterThan(0);
+  });
+
+  it("still reaches the end of the tour at the end of the scroll", () => {
+    expect(resolveLandingTourProgress(1, HOLD)).toBe(1);
+  });
+
+  it("spreads the tour evenly across what is left", () => {
+    // Half way through the post-hold scroll is half way through the tour, so
+    // the hold costs page length rather than distorting the segment pacing.
+    const midpoint = HOLD + (1 - HOLD) / 2;
+    expect(resolveLandingTourProgress(midpoint, HOLD)).toBeCloseTo(0.5, 12);
+  });
+
+  it("is a no-op without a hold", () => {
+    for (const scrolled of [0, 0.25, 0.5, 1]) {
+      expect(resolveLandingTourProgress(scrolled, 0)).toBe(scrolled);
+    }
+  });
+
+  it("never divides by zero, however absurd the hold", () => {
+    for (const hold of [1, 5, Number.NaN, Number.POSITIVE_INFINITY, -3]) {
+      const value = resolveLandingTourProgress(1, hold);
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("survives a non-finite scroll position", () => {
+    expect(resolveLandingTourProgress(Number.NaN, HOLD)).toBe(0);
   });
 });

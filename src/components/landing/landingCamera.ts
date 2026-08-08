@@ -77,6 +77,34 @@ const clamp01 = (value: number): number =>
   value < 0 ? 0 : value > 1 ? 1 : value;
 
 /**
+ * Upper bound on the intro hold. A hold of 1 would divide by zero and a hold
+ * near it would cram the whole journey into the last sliver of the page.
+ */
+const MAX_INTRO_HOLD_FRACTION = 0.9;
+
+/**
+ * Spend the first `introHoldFraction` of the scroll parked on the opening
+ * waypoint, then run the tour across what remains.
+ *
+ * The page opens on a hero that dissolves over its own stretch of scroll. With
+ * the camera mapped straight onto raw progress it is already well into the
+ * second segment by the time the hero clears, so the establishing shot — the
+ * one frame that shows all 13.8 billion years at once — is never actually seen
+ * standing still. Holding it costs scroll length, not tour length: the segments
+ * keep their pacing and the whole track just gets taller.
+ */
+export const resolveLandingTourProgress = (
+  progress: number,
+  introHoldFraction: number,
+): number => {
+  const raw = Number.isFinite(progress) ? progress : 0;
+  const hold = Number.isFinite(introHoldFraction)
+    ? Math.min(MAX_INTRO_HOLD_FRACTION, Math.max(0, introHoldFraction))
+    : 0;
+  return clamp01((raw - hold) / (1 - hold));
+};
+
+/**
  * Map scroll progress (0..1 across the whole scrollytelling block) onto the
  * camera. Segments are equal-length in scroll: N waypoints means N-1 segments,
  * each occupying 1/(N-1) of the range.

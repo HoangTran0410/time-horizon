@@ -3,6 +3,7 @@ import { useMotionValueEvent, useScroll, type MotionValue } from "motion/react";
 import {
   resolveLandingAxisLogZoom,
   resolveLandingCamera,
+  resolveLandingTourProgress,
   type LandingCameraWaypoint,
 } from "./landingCamera";
 
@@ -19,6 +20,12 @@ type UseLandingCameraParams = {
    * length and rescaled onto this one, so a phone frames the same years.
    */
   axisPx: number;
+  /**
+   * Share of the scroll spent parked on the first waypoint before the camera
+   * starts moving, so the hero has cleared and the opening frame has been seen
+   * before the journey begins.
+   */
+  introHoldFraction: number;
   /** False while the stage is off-screen, so scrolling past costs nothing. */
   enabled: boolean;
 };
@@ -36,6 +43,7 @@ export const useLandingCamera = ({
   focusYear,
   logZoom,
   axisPx,
+  introHoldFraction,
   enabled,
 }: UseLandingCameraParams) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -49,18 +57,25 @@ export const useLandingCamera = ({
     (progress: number) => {
       if (!enabled || waypoints.length === 0) return;
 
-      const camera = resolveLandingCamera(waypoints, progress);
+      // Everything downstream reads the tour clock, not the scrollbar: the
+      // caption has to stay on the opening waypoint through the hold too.
+      const tourProgress = resolveLandingTourProgress(
+        progress,
+        introHoldFraction,
+      );
+
+      const camera = resolveLandingCamera(waypoints, tourProgress);
       focusYear.set(camera.focusYear);
       logZoom.set(resolveLandingAxisLogZoom(camera.logZoom, axisPx));
 
       const segmentCount = Math.max(1, waypoints.length - 1);
       const nearest = Math.min(
         waypoints.length - 1,
-        Math.max(0, Math.round(progress * segmentCount)),
+        Math.max(0, Math.round(tourProgress * segmentCount)),
       );
       setActiveIndex((current) => (current === nearest ? current : nearest));
     },
-    [axisPx, enabled, focusYear, logZoom, waypoints],
+    [axisPx, enabled, focusYear, introHoldFraction, logZoom, waypoints],
   );
 
   useMotionValueEvent(scrollYProgress, "change", applyCamera);
