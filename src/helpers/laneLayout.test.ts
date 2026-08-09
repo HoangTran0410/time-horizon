@@ -6,7 +6,7 @@ import {
 import { areCollapsedGroupsEqual } from ".";
 
 describe("buildTimelineLaneGeometry", () => {
-  it("keeps ordered collection lanes symmetric around the timeline axis", () => {
+  it("keeps ordered collection lanes out of the central time ruler", () => {
     const geometry = buildTimelineLaneGeometry(
       [
         { id: "cosmos", label: "Cosmos", color: "#a78bfa" },
@@ -21,9 +21,33 @@ describe("buildTimelineLaneGeometry", () => {
       "earth",
       "human",
     ]);
+    expect(geometry.map((lane) => lane.cross)).toEqual(
+      [...geometry.map((lane) => lane.cross)].sort((a, b) => a - b),
+    );
+    expect(geometry.every((lane) => Math.abs(lane.cross) >= 72)).toBe(true);
+  });
+
+  it("places a single lane above the ruler instead of on top of it", () => {
+    const [lane] = buildTimelineLaneGeometry(
+      [{ id: "earth", label: "Earth", color: "#60a5fa" }],
+      640,
+    );
+
+    expect(lane.cross).toBeLessThanOrEqual(-72);
+  });
+
+  it("places two lanes at equal distances from the timeline ruler", () => {
+    const geometry = buildTimelineLaneGeometry(
+      [
+        { id: "earth", label: "Earth", color: "#60a5fa" },
+        { id: "human", label: "Human", color: "#f59e0b" },
+      ],
+      720,
+    );
+
     expect(geometry[0].cross).toBeLessThan(0);
-    expect(geometry[1].cross).toBe(0);
-    expect(geometry[2].cross).toBe(-geometry[0].cross);
+    expect(geometry[1].cross).toBeGreaterThan(0);
+    expect(Math.abs(geometry[0].cross)).toBe(Math.abs(geometry[1].cross));
   });
 });
 

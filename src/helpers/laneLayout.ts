@@ -33,6 +33,8 @@ export type CollapsedTimelineLaneGroup = {
 
 const LANE_EDGE_PADDING = 96;
 const LANE_MAX_PITCH = 180;
+/** Keeps lane markers and their local sub-rows clear of the central ruler. */
+const LANE_RULER_CLEARANCE = 132;
 const LANE_MIN_LOCAL_ROW_OFFSET = 30;
 const LANE_MAX_LOCAL_ROW_OFFSET = 52;
 const LOCAL_LEVELS = [0, -1, 1] as const;
@@ -44,19 +46,55 @@ export const buildTimelineLaneGeometry = (
   if (lanes.length === 0) return [];
 
   const usableCrossSize = Math.max(0, crossSize - LANE_EDGE_PADDING * 2);
+  const maxCross = Math.max(
+    LANE_RULER_CLEARANCE,
+    usableCrossSize / 2,
+  );
+  const topLaneCount = Math.ceil(lanes.length / 2);
+  const bottomLaneCount = Math.floor(lanes.length / 2);
+  const distributeBank = (
+    count: number,
+    from: number,
+    to: number,
+    singleCross: number,
+  ): number[] => {
+    if (count === 0) return [];
+    if (count === 1) return [singleCross];
+    return Array.from(
+      { length: count },
+      (_, index) => from + ((to - from) * index) / (count - 1),
+    );
+  };
+  const crosses = [
+    ...distributeBank(
+      topLaneCount,
+      -maxCross,
+      -LANE_RULER_CLEARANCE,
+      -LANE_RULER_CLEARANCE,
+    ),
+    ...distributeBank(
+      bottomLaneCount,
+      LANE_RULER_CLEARANCE,
+      maxCross,
+      LANE_RULER_CLEARANCE,
+    ),
+  ];
   const pitch = Math.min(
     LANE_MAX_PITCH,
-    usableCrossSize / Math.max(1, lanes.length - 1),
+    crosses.length <= 1
+      ? LANE_MAX_PITCH
+      : Math.min(
+          ...crosses.slice(1).map((cross, index) => cross - crosses[index]),
+        ),
   );
   const localRowOffset = Math.max(
     LANE_MIN_LOCAL_ROW_OFFSET,
     Math.min(LANE_MAX_LOCAL_ROW_OFFSET, pitch * 0.28),
   );
-  const firstCross = -((lanes.length - 1) * pitch) / 2;
 
   return lanes.map((lane, index) => ({
     ...lane,
-    cross: firstCross + index * pitch,
+    cross: crosses[index],
     pitch,
     localRowOffset,
   }));

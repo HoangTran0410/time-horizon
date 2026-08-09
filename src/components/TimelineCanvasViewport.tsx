@@ -588,7 +588,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   ]);
 
   useEffect(() => {
-    requestRender();
+    // Prop-driven state changes are infrequent and must paint deterministically.
+    // Deferring this through the shared RAF can lose the only initial frame when
+    // the renderer effect is replaced as collection/lane props settle. Camera
+    // motion remains RAF-batched through the MotionValue subscriptions below.
+    renderNow(performance.now());
   }, [
     language,
     ticks,
@@ -602,7 +606,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     eventAccentColors,
     orientation,
     verticalTimeDirection,
-    requestRender,
+    renderNow,
   ]);
 
   useEffect(() => {

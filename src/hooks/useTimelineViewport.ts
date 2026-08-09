@@ -80,6 +80,7 @@ import {
   type TimelineCameraSample,
 } from "../helpers";
 import { getSearchableLocalizedText } from "../helpers/localization";
+import { resolveViewportDimension } from "../helpers/viewportSize";
 import {
   packTimelineLaneEvents,
   type TimelineLaneDescriptor,
@@ -214,6 +215,20 @@ export const useTimelineViewport = ({
     () => focusPixel.get() - focusYear.get() * zoom.get() * axisDirection,
   );
   /**
+   * zoom/panX are derived MotionValues, and a derived value is only
+   * recomputed by the motion frame loop: right after a synchronous
+   * focusYear/logZoom .set() its .get() still returns the previous camera,
+   * and after a subscription reset (StrictMode remount) it can catch up
+   * without ever firing "change". The bootstrap effect hit exactly that —
+   * ticks and layout were generated for the stale camera and nothing ever
+   * regenerated them, leaving the timeline blank until the first zoom
+   * gesture. All imperative math must therefore read the camera through
+   * these source-value getters; panX/zoom stay subscription drivers only.
+   */
+  const getCurrentZoom = () => Math.exp(logZoom.get());
+  const getCurrentPanX = () =>
+    focusPixel.get() - focusYear.get() * getCurrentZoom() * axisDirection;
+  /**
    * Pixel the warp overlay centres its reference rings on: the point the
    * timeline is expanding from, not the middle of the viewport.
    *
@@ -273,12 +288,16 @@ export const useTimelineViewport = ({
   );
 
   const getViewportWidth = () =>
-    containerRef.current?.clientWidth ??
-    (typeof window !== "undefined" ? window.innerWidth : 1000);
+    resolveViewportDimension(
+      containerRef.current?.clientWidth,
+      typeof window !== "undefined" ? window.innerWidth : 1000,
+    );
 
   const getViewportHeight = () =>
-    containerRef.current?.clientHeight ??
-    (typeof window !== "undefined" ? window.innerHeight : 800);
+    resolveViewportDimension(
+      containerRef.current?.clientHeight,
+      typeof window !== "undefined" ? window.innerHeight : 800,
+    );
 
   const getViewportPrimarySize = () =>
     orientation === "horizontal" ? getViewportWidth() : getViewportHeight();
@@ -359,8 +378,8 @@ export const useTimelineViewport = ({
 
   const getYearFromPan = (
     pixel: number,
-    currentPanX = panX.get(),
-    currentZoom = zoom.get(),
+    currentPanX = getCurrentPanX(),
+    currentZoom = getCurrentZoom(),
   ) => (pixel - currentPanX) / (currentZoom * axisDirection);
 
   const getCenterYear = (centerPixel = getViewportCenter()) =>
@@ -421,8 +440,8 @@ export const useTimelineViewport = ({
     if (!container) return null;
 
     const primarySize = getViewportPrimarySize();
-    const currentX = panX.get();
-    const currentZoom = Math.exp(logZoom.get());
+    const currentX = getCurrentPanX();
+    const currentZoom = getCurrentZoom();
 
     const startYearRaw =
       (-primarySize - currentX) / (currentZoom * axisDirection);
@@ -862,7 +881,7 @@ export const useTimelineViewport = ({
 
     if (Math.abs(maxYear - minYear) < 1e-9) {
       const targetYear = minYear;
-      const targetZoom = clampZoom(zoom.get() * 2, targetYear);
+      const targetZoom = clampZoom(getCurrentZoom() * 2, targetYear);
 
       if (immediate) {
         stopCameraAnimations();
@@ -1060,7 +1079,7 @@ export const useTimelineViewport = ({
       // used to reach for MAX_ZOOM, which now sits at second-level and would
       // fling the camera far past anything useful.
       const boostedZoom = clampZoom(
-        Math.max(zoom.get(), COLLAPSED_GROUP_EXPAND_ZOOM),
+        Math.max(getCurrentZoom(), COLLAPSED_GROUP_EXPAND_ZOOM),
         group.year,
       );
       targetLogZoom.current = Math.log(boostedZoom);
@@ -1205,7 +1224,7 @@ export const useTimelineViewport = ({
     const primaryRectSize =
       orientation === "horizontal" ? rect.width : rect.height;
 
-    const currentZoom = zoom.get();
+    const currentZoom = getCurrentZoom();
     const normalizedDeltaX = normalizeWheelDelta(event.deltaX, event.deltaMode);
     const normalizedDeltaY = normalizeWheelDelta(event.deltaY, event.deltaMode);
     const primaryScrollDelta =
@@ -1231,7 +1250,7 @@ export const useTimelineViewport = ({
         );
         wheelPinchGestureRef.current = {
           anchorPixel,
-          anchorYear: getYearFromPan(anchorPixel, panX.get(), currentZoom),
+          anchorYear: getYearFromPan(anchorPixel, getCurrentPanX(), currentZoom),
           lastEventTime: now,
         };
       } else {
@@ -1262,7 +1281,7 @@ export const useTimelineViewport = ({
 
     if (orientation === "vertical" && Math.abs(zoomDelta) > 0) {
       focusPixel.set(primaryPointer);
-      focusYear.set(getYearFromPan(primaryPointer, panX.get(), currentZoom));
+      focusYear.set(getYearFromPan(primaryPointer, getCurrentPanX(), currentZoom));
 
       const targetZoom = Math.exp(targetLogZoom.current);
       const zoomFactor = Math.pow(1.002, Math.abs(zoomDelta));
@@ -1278,7 +1297,7 @@ export const useTimelineViewport = ({
 
     if (event.deltaMode === 0 && Math.abs(normalizedDeltaX) > 0) {
       setCameraFromPanX(
-        panX.get() - normalizedDeltaX,
+        getCurrentPanX() - normalizedDeltaX,
         currentZoom,
         primaryPointer,
       );
@@ -1291,8 +1310,8 @@ export const useTimelineViewport = ({
       (!hasZoomIntent ||
         Math.abs(normalizedDeltaX) > Math.abs(zoomDelta) * 0.6);
     const nextPanX = shouldApplyHorizontalPan
-      ? panX.get() - normalizedDeltaX
-      : panX.get();
+      ? getCurrentPanX() - normalizedDeltaX
+      : getCurrentPanX();
 
     setCameraFromPanX(nextPanX, currentZoom, primaryPointer);
 
@@ -1337,7 +1356,7 @@ export const useTimelineViewport = ({
 
     const step = residual * 0.34;
     wheelPanResidualRef.current -= step;
-    setCameraFromPanX(panX.get() - step, zoom.get(), anchorPixel);
+    setCameraFromPanX(getCurrentPanX() - step, getCurrentZoom(), anchorPixel);
 
     wheelPanFrameRef.current = requestAnimationFrame(flushWheelPan);
   };
@@ -1509,8 +1528,8 @@ export const useTimelineViewport = ({
       suppressNextClickRef.current = true;
     }
 
-    const currentZoom = zoom.get();
-    setCameraFromPanX(panX.get() + deltaX, currentZoom);
+    const currentZoom = getCurrentZoom();
+    setCameraFromPanX(getCurrentPanX() + deltaX, currentZoom);
 
     lastX.current = nextX;
     lastDragTime.current = now;
@@ -1642,8 +1661,8 @@ export const useTimelineViewport = ({
 
     const inertiaLoop = () => {
       currentVelocity *= friction;
-      const currentZoom = zoom.get();
-      setCameraFromPanX(panX.get() + currentVelocity, currentZoom);
+      const currentZoom = getCurrentZoom();
+      setCameraFromPanX(getCurrentPanX() + currentVelocity, currentZoom);
       if (Math.abs(currentVelocity) > 0.1) {
         inertiaFrame.current = requestAnimationFrame(inertiaLoop);
       } else {
@@ -2141,6 +2160,53 @@ export const useTimelineViewport = ({
     updateLayout(true);
     scheduleViewportPersistence();
   }, [orientation, verticalTimeDirection]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+
+    let previousWidth = 0;
+    let previousHeight = 0;
+    let frameId: number | null = null;
+    const syncViewportGeometry = () => {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (
+        width <= 0 ||
+        height <= 0 ||
+        (width === previousWidth && height === previousHeight)
+      ) {
+        return;
+      }
+      previousWidth = width;
+      previousHeight = height;
+      if (!hasBootstrappedRef.current || frameId !== null) return;
+
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        updateVisibleBounds();
+        updateTicks();
+        updateLayout(true);
+      });
+    };
+
+    const observer = new ResizeObserver(syncViewportGeometry);
+    observer.observe(container);
+    syncViewportGeometry();
+    return () => {
+      observer.disconnect();
+      if (frameId !== null) cancelAnimationFrame(frameId);
+    };
+  }, [
+    containerRef,
+    dimmedEventIds,
+    eventLaneIds,
+    layoutMode,
+    orientation,
+    renderedTimelineEvents,
+    timelineLanes,
+    verticalTimeDirection,
+  ]);
 
   useEffect(() => {
     clearWheelPanFrame();
