@@ -44,6 +44,7 @@ import {
 import {
   CAMERA_FIT_PADDING,
   DIMMED_EVENT_OPACITY,
+  FOCUS_SPAN_VIEWPORT_FRACTION,
   MIN_FIT_RANGE_YEARS,
   CAMERA_SPRING,
   EVENT_LAYOUT_SPRING,
@@ -826,6 +827,7 @@ export const useTimelineViewport = ({
     startYear: number,
     endYear: number,
     immediate = false,
+    viewportFraction = 1 - CAMERA_FIT_PADDING * 2,
   ) => {
     const container = containerRef.current;
     if (!container) return;
@@ -842,7 +844,7 @@ export const useTimelineViewport = ({
       rawRangeYears > 0 ? Math.max(rawRangeYears, MIN_FIT_RANGE_YEARS) : 1;
     const centerYear = (minYear + maxYear) / 2;
     const fitZoom = clampZoom(
-      (primarySize * (1 - CAMERA_FIT_PADDING * 2)) / rangeYears,
+      (primarySize * viewportFraction) / rangeYears,
       centerYear,
     );
     const pixelDist = Math.abs(centerYear - focusYear.get()) * fitZoom;
@@ -989,10 +991,16 @@ export const useTimelineViewport = ({
     const primarySize = getViewportPrimarySize();
 
     // A span is framed by its own extent, which is more precise than the
-    // duration zoom hint and is what the user means by "focus this era".
+    // duration zoom hint and is what the user means by "focus this era" —
+    // but only to half the viewport, so its neighbours stay visible.
     const focusRange = getEventTimelineRange(event);
     if (focusRange.endYear > focusRange.startYear) {
-      animateCameraToYearRange(focusRange.startYear, focusRange.endYear);
+      animateCameraToYearRange(
+        focusRange.startYear,
+        focusRange.endYear,
+        false,
+        FOCUS_SPAN_VIEWPORT_FRACTION,
+      );
       return;
     }
 

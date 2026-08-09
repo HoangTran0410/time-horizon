@@ -95,6 +95,11 @@ export const getMaxZoomForYear = (absoluteYear: number): number => {
 
 export const CAMERA_FIT_PADDING = 0.12;
 /**
+ * Focusing a span event frames it to this share of the viewport instead of a
+ * full fit, so the events around the span stay in view for context.
+ */
+export const FOCUS_SPAN_VIEWPORT_FRACTION = 0.5;
+/**
  * Narrowest range a camera fit will frame. One day is the timeline's finest
  * unit (see MAX_ZOOM), so a span shorter than that gets padded out to it
  * rather than driving the zoom to infinity.
