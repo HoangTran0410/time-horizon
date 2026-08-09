@@ -30,6 +30,7 @@ import {
   TimelineTick,
   WarpOverlayMode,
   TimelineOrientation,
+  TimelineLayoutMode,
   VerticalTimeDirection,
   VerticalWheelBehavior,
 } from "../constants/types";
@@ -79,6 +80,10 @@ import {
   type TimelineCameraSample,
 } from "../helpers";
 import { getSearchableLocalizedText } from "../helpers/localization";
+import {
+  packTimelineLaneEvents,
+  type TimelineLaneDescriptor,
+} from "../helpers/laneLayout";
 
 type UseTimelineViewportParams = {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -88,6 +93,9 @@ type UseTimelineViewportParams = {
   onViewportChange?: (viewport: { focusYear: number; logZoom: number }) => void;
   setIsRulerActive: (value: boolean) => void;
   orientation: TimelineOrientation;
+  layoutMode?: TimelineLayoutMode;
+  timelineLanes?: TimelineLaneDescriptor[];
+  eventLaneIds?: Readonly<Record<string, string>>;
   verticalWheelBehavior: VerticalWheelBehavior;
   verticalTimeDirection: VerticalTimeDirection;
   /** Runtime ids of muted events: drawn faint and excluded from row packing. */
@@ -99,6 +107,8 @@ type UseTimelineViewportParams = {
 };
 
 const DEFAULT_LOG_ZOOM = Math.log(2000 / 13.8e9);
+const EMPTY_TIMELINE_LANES: TimelineLaneDescriptor[] = [];
+const EMPTY_EVENT_LANE_IDS: Readonly<Record<string, string>> = {};
 const WHEEL_PINCH_GESTURE_GAP_MS = 140;
 /** Shortest gap a drag sample may claim, so a near-zero one cannot fake speed. */
 const DRAG_VELOCITY_MIN_DT_MS = 8;
@@ -118,6 +128,9 @@ export const useTimelineViewport = ({
   onViewportChange,
   setIsRulerActive,
   orientation,
+  layoutMode = "compact",
+  timelineLanes = EMPTY_TIMELINE_LANES,
+  eventLaneIds = EMPTY_EVENT_LANE_IDS,
   verticalWheelBehavior,
   verticalTimeDirection,
   dimmedEventIds,
@@ -448,6 +461,82 @@ export const useTimelineViewport = ({
       return true;
     });
     const visibleEventIds = new Set(visibleEvents.map((event) => event.id));
+
+    if (layoutMode === "layers" && timelineLanes.length > 0) {
+      const laneLayout = packTimelineLaneEvents({
+        lanes: timelineLanes,
+        crossSize: getViewportCrossSize(),
+        minDistanceYears: minDistYears,
+        events: visibleEvents.flatMap((event) => {
+          if (dimmedEventIds.has(event.id)) return [];
+          const laneId = eventLaneIds[event.id];
+          if (!laneId) return [];
+          const range = getEventTimelineRange(event);
+          return [
+            {
+              id: event.id,
+              laneId,
+              startYear: range.startYear,
+              endYear: range.endYear,
+              priority: event.id === focusedId ? Number.MAX_SAFE_INTEGER : event.priority,
+            },
+          ];
+        }),
+      });
+      const laneGeometry = new Map(
+        laneLayout.geometry.map((lane) => [lane.id, lane]),
+      );
+
+      for (const event of visibleEvents) {
+        const layout = eventLayouts.current[event.id];
+        if (!layout) continue;
+
+        const isDimmed = dimmedEventIds.has(event.id);
+        const placement = laneLayout.placements.get(event.id);
+        const lane = laneGeometry.get(eventLaneIds[event.id]);
+        const targetCross = isDimmed ? lane?.cross : placement?.cross;
+        const targetOpacity = isDimmed ? DIMMED_EVENT_OPACITY : placement ? 1 : 0;
+
+        if (targetCross !== undefined && layout.targetY !== targetCross) {
+          layout.targetY = targetCross;
+          if (immediate) layout.y.set(targetCross);
+          else animate(layout.y, targetCross, EVENT_LAYOUT_SPRING);
+        }
+        if (layout.targetOpacity !== targetOpacity) {
+          layout.targetOpacity = targetOpacity;
+          if (immediate) layout.opacity.set(targetOpacity);
+          else animate(layout.opacity, targetOpacity, { duration: 0.2 });
+        }
+      }
+
+      renderedTimelineEvents.forEach((event) => {
+        if (visibleEventIds.has(event.id)) return;
+        const layout = eventLayouts.current[event.id];
+        if (!layout || layout.targetOpacity === 0) return;
+        layout.targetOpacity = 0;
+        if (immediate) layout.opacity.set(0);
+        else animate(layout.opacity, 0, { duration: 0.2 });
+      });
+
+      const nextCollapsedGroups: CollapsedEventGroup[] = laneLayout.collapsed.map(
+        (group) => ({
+          id: group.id,
+          year: group.year,
+          side: group.cross < 0 ? -1 : 1,
+          cross: group.cross,
+          laneId: group.laneId,
+          count: group.eventIds.length,
+          eventIds: group.eventIds,
+        }),
+      );
+      setCollapsedGroups((prevGroups) =>
+        areCollapsedGroupsEqual(prevGroups, nextCollapsedGroups)
+          ? prevGroups
+          : nextCollapsedGroups,
+      );
+      layoutBoundsRef.current = { startYear, endYear };
+      return;
+    }
 
     const sortedEvents = [...visibleEvents].sort((a, b) => {
       if (a.id === focusedId) return -1;
@@ -932,6 +1021,7 @@ export const useTimelineViewport = ({
           if (
             currentGroup &&
             currentGroup.side === group.side &&
+            currentGroup.laneId === group.laneId &&
             Math.abs(currentGroup.year - group.year) < 1e-9
           ) {
             return null;
@@ -941,13 +1031,15 @@ export const useTimelineViewport = ({
             id: `${group.side}:${group.year}`,
             year: group.year,
             side: group.side,
+            cross: group.cross,
+            laneId: group.laneId,
             eventIds: sortedGroupEvents.map((event) => event.id),
           };
         });
         return;
       }
 
-      const cycleKey = `${group.side}:${group.year}`;
+      const cycleKey = `${group.laneId ?? "compact"}:${group.side}:${group.year}`;
       const nextIndex = collapsedGroupCycleRef.current[cycleKey] ?? 0;
       const nextEvent = sortedGroupEvents[nextIndex % sortedGroupEvents.length];
       if (!nextEvent) return;
@@ -2030,7 +2122,7 @@ export const useTimelineViewport = ({
   useEffect(() => {
     if (!hasBootstrappedRef.current) return;
     updateLayout();
-  }, [dimmedEventIds]);
+  }, [dimmedEventIds, layoutMode, timelineLanes, eventLaneIds]);
 
   useEffect(() => {
     updateVisibleBounds();

@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Crosshair,
   Eye,
+  Layers,
   Scan,
   ZoomIn,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import {
   AutoFitRangeTarget,
   DateJumpTarget,
   TimelineOrientation,
+  TimelineLayoutMode,
   VerticalTimeDirection,
   VerticalWheelBehavior,
 } from "../constants/types";
@@ -29,6 +31,8 @@ interface NavigationPanelProps {
   onJumpToDate: (target: DateJumpTarget) => void;
   onAutoFitRange: (target: AutoFitRangeTarget) => void;
   onAutoFitAll: () => void;
+  timelineLayoutMode: TimelineLayoutMode;
+  onTimelineLayoutModeChange: (mode: TimelineLayoutMode) => void;
   timelineOrientation: TimelineOrientation;
   onTimelineOrientationChange: (orientation: TimelineOrientation) => void;
   /** True while orientation follows viewport width instead of the explicit pick. */
@@ -54,6 +58,8 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   onJumpToDate,
   onAutoFitRange,
   onAutoFitAll,
+  timelineLayoutMode,
+  onTimelineLayoutModeChange,
   timelineOrientation,
   onTimelineOrientationChange,
   timelineOrientationAuto,
@@ -181,6 +187,32 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
         </div>
         {activeTab === "display" ? (
           <div className="ui-panel-soft rounded-[1.15rem] p-3">
+            <div className="text-sm font-semibold text-zinc-100">
+              {t("timelineLayout")}
+            </div>
+            <p className="mt-1 text-[0.74rem] leading-5 text-zinc-400">
+              {t("timelineLayoutHelp")}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(["compact", "layers"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className="ui-tab"
+                  data-active={timelineLayoutMode === mode}
+                  onClick={() => onTimelineLayoutModeChange(mode)}
+                >
+                  {mode === "layers" ? (
+                    <Layers size={15} className="icon" />
+                  ) : (
+                    <Scan size={15} className="icon" />
+                  )}
+                  {t(mode === "layers" ? "layoutLayers" : "layoutCompact")}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 border-t border-zinc-800/80 pt-3">
             <div className="text-sm font-semibold text-zinc-100">
               {t("timelineOrientation")}
             </div>
@@ -310,6 +342,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
                 </motion.div>
               ) : null}
             </AnimatePresence>
+            </div>
           </div>
         ) : null}
         {/* Zoom scale lives with the other display settings now. The drag

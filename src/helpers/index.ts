@@ -1461,6 +1461,8 @@ export const areCollapsedGroupsEqual = (
       group.id === nextGroup.id &&
       group.year === nextGroup.year &&
       group.side === nextGroup.side &&
+      group.cross === nextGroup.cross &&
+      group.laneId === nextGroup.laneId &&
       group.count === nextGroup.count &&
       group.eventIds.length === nextEventIds.size &&
       group.eventIds.every((eventId) => nextEventIds.has(eventId))

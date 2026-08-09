@@ -9,7 +9,12 @@ import React, {
 } from "react";
 import { FileText, FolderOpen, Plus } from "lucide-react";
 import { ThemeMode } from "../constants/theme";
-import { Event, EventCollectionMeta, StoredEvent } from "../constants/types";
+import {
+  Event,
+  EventCollectionMeta,
+  StoredEvent,
+  TimelineLayoutMode,
+} from "../constants/types";
 import { GOOGLE_CLIENT_ID } from "../constants";
 import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
@@ -75,6 +80,15 @@ interface TimelineProps {
 /** The full-screen overlay panels, of which at most one is open at a time. */
 type OverlayPanel = "settings" | "spatial" | "sync" | "share" | null;
 
+const TIMELINE_LANE_FALLBACK_COLORS = [
+  "#38bdf8",
+  "#a78bfa",
+  "#34d399",
+  "#fb923c",
+  "#f472b6",
+  "#facc15",
+] as const;
+
 type CollectionTransferPayload = {
   version: number;
   source: "time-horizon";
@@ -104,6 +118,8 @@ export const Timeline = ({
   const [editingCollection, setEditingCollection] =
     useState<EventCollectionMeta | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [timelineLayoutMode, setTimelineLayoutMode] =
+    useState<TimelineLayoutMode>("compact");
   /**
    * Only one full-screen overlay panel may be open at a time. A single value
    * (rather than one boolean each) makes that mutual exclusion structural —
@@ -198,14 +214,33 @@ export const Timeline = ({
     writableCollections,
     timelineEvents,
     eventAccentColors,
+    eventCollectionIds,
     singleVisibleCollectionId,
     findEventCollectionId,
     catalogMeta,
     editableCollectionIds,
   } = useTimelineCollections();
 
-  const visibleCollections = collections.filter((c) =>
-    visibleCollectionIds.includes(c.id),
+  const visibleCollections = useMemo(
+    () =>
+      collections.filter((collection) =>
+        visibleCollectionIds.includes(collection.id),
+      ),
+    [collections, visibleCollectionIds],
+  );
+  const timelineLanes = useMemo(
+    () =>
+      visibleCollections.map((collection, index) => ({
+        id: collection.id,
+        label: `${collection.emoji} ${collection.name}`.trim(),
+        color:
+          collectionColors[collection.id] ??
+          collection.color ??
+          TIMELINE_LANE_FALLBACK_COLORS[
+            index % TIMELINE_LANE_FALLBACK_COLORS.length
+          ],
+      })),
+    [collectionColors, visibleCollections],
   );
 
   // Store actions — call directly, no need to route through hook
@@ -702,6 +737,9 @@ export const Timeline = ({
       ? (sharedLogZoom ?? undefined)
       : (savedLogZoom ?? undefined),
     orientation: effectiveTimelineOrientation,
+    layoutMode: timelineLayoutMode,
+    timelineLanes,
+    eventLaneIds: eventCollectionIds,
     verticalWheelBehavior,
     verticalTimeDirection,
     onSelectEvent: (event) => {
@@ -1497,6 +1535,8 @@ export const Timeline = ({
           focusedEventId={selectedEventInfo?.id ?? null}
           rulerEvent={isRulerActive ? selectedEventInfo : null}
           eventAccentColors={eventAccentColors}
+          layoutMode={timelineLayoutMode}
+          timelineLanes={timelineLanes}
           onRenderFrame={recordRenderFrame}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
@@ -1582,6 +1622,8 @@ export const Timeline = ({
           onCloseSelectedEvent={clearFocusedEventFromViewport}
           onStartAddEvent={() => handleStartAddEvent()}
           timelineOrientation={effectiveTimelineOrientation}
+          timelineLayoutMode={timelineLayoutMode}
+          onTimelineLayoutModeChange={setTimelineLayoutMode}
           onTimelineOrientationChange={setTimelineOrientation}
           timelineOrientationAuto={timelineOrientationAuto}
           onTimelineOrientationAutoChange={setTimelineOrientationAuto}

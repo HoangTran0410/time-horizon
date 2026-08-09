@@ -6,6 +6,8 @@ export type LocalizedTextRecord = Record<string, string>;
 export type LocalizedText = string | LocalizedTextRecord;
 export const TIMELINE_ORIENTATIONS = ["horizontal", "vertical"] as const;
 export type TimelineOrientation = (typeof TIMELINE_ORIENTATIONS)[number];
+export const TIMELINE_LAYOUT_MODES = ["compact", "layers"] as const;
+export type TimelineLayoutMode = (typeof TIMELINE_LAYOUT_MODES)[number];
 export const VERTICAL_WHEEL_BEHAVIORS = ["pan", "zoom"] as const;
 export type VerticalWheelBehavior =
   (typeof VERTICAL_WHEEL_BEHAVIORS)[number];
@@ -196,6 +198,9 @@ export type CollapsedEventGroup = {
   id: string;
   year: number;
   side: 1 | -1;
+  /** Exact cross-axis position used by semantic lane layouts. */
+  cross?: number;
+  laneId?: string;
   count: number;
   eventIds: string[];
 };
@@ -204,6 +209,8 @@ export type ExpandedCollapsedGroup = {
   id: string;
   year: number;
   side: 1 | -1;
+  cross?: number;
+  laneId?: string;
   eventIds: string[];
 };
 

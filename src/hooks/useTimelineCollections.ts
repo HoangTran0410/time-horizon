@@ -120,6 +120,16 @@ export const useTimelineCollections = () => {
     return colors;
   }, [collectionColors, collectionEventsById, visibleCollectionIds]);
 
+  const eventCollectionIds = useMemo(() => {
+    const ids: Record<string, string> = {};
+    for (const collectionId of visibleCollectionIds) {
+      for (const event of collectionEventsById[collectionId] ?? []) {
+        ids[event.id] = collectionId;
+      }
+    }
+    return ids;
+  }, [collectionEventsById, visibleCollectionIds]);
+
   const singleVisibleCollectionId =
     visibleCollectionIds.length === 1 ? visibleCollectionIds[0] : null;
 
@@ -143,6 +153,7 @@ export const useTimelineCollections = () => {
     collectionColors,
     timelineEvents,
     eventAccentColors,
+    eventCollectionIds,
     singleVisibleCollectionId,
     visibleCollectionIds,
     collectionColorPreferences,

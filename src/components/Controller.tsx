@@ -6,6 +6,7 @@ import {
   AutoFitRangeTarget,
   DateJumpTarget,
   EventCollectionMeta,
+  TimelineLayoutMode,
   TimelineOrientation,
   VerticalTimeDirection,
   VerticalWheelBehavior,
@@ -41,6 +42,8 @@ interface ControllerProps {
   onToggleSelectedEventDimmed: () => void;
   onCloseSelectedEvent: () => void;
   onStartAddEvent: () => void;
+  timelineLayoutMode: TimelineLayoutMode;
+  onTimelineLayoutModeChange: (mode: TimelineLayoutMode) => void;
   timelineOrientation: TimelineOrientation;
   timelineOrientationAuto: boolean;
   onTimelineOrientationAutoChange: (auto: boolean) => void;
@@ -77,6 +80,8 @@ export const Controller: React.FC<ControllerProps> = ({
   onToggleSelectedEventDimmed,
   onCloseSelectedEvent,
   onStartAddEvent,
+  timelineLayoutMode,
+  onTimelineLayoutModeChange,
   timelineOrientation,
   timelineOrientationAuto,
   onTimelineOrientationAutoChange,
@@ -223,6 +228,8 @@ export const Controller: React.FC<ControllerProps> = ({
                     onJumpToDate={onJumpToDate}
                     onAutoFitRange={onAutoFitRange}
                     onAutoFitAll={onAutoFitAll}
+                    timelineLayoutMode={timelineLayoutMode}
+                    onTimelineLayoutModeChange={onTimelineLayoutModeChange}
                     timelineOrientation={timelineOrientation}
                     timelineOrientationAuto={timelineOrientationAuto}
                     onTimelineOrientationAutoChange={

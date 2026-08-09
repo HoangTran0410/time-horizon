@@ -3,6 +3,7 @@ import { MotionValue } from "motion/react";
 import {
   Event,
   SupportedLanguage,
+  TimelineLayoutMode,
   TimelineOrientation,
   VerticalTimeDirection,
 } from "../constants/types";
@@ -20,6 +21,10 @@ import {
   getEventTimelineYear,
 } from "../helpers";
 import { getLocalizedEventTitle } from "../helpers/localization";
+import {
+  buildTimelineLaneGeometry,
+  type TimelineLaneDescriptor,
+} from "../helpers/laneLayout";
 import { useI18n } from "../i18n";
 import {
   CollapsedEventGroup,
@@ -51,6 +56,8 @@ interface TimelineCanvasViewportProps {
   focusedEventId: string | null;
   rulerEvent: Event | null;
   eventAccentColors: Record<string, string | null>;
+  layoutMode?: TimelineLayoutMode;
+  timelineLanes?: TimelineLaneDescriptor[];
   onRenderFrame: (now: number) => void;
   onWheel: (e: globalThis.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
@@ -134,6 +141,7 @@ const EVENT_TITLE_MAX_LINES = 3;
 const EVENT_LABEL_GAP = 4;
 const MEDIA_BADGE_SIZE = 14;
 const MEDIA_BADGE_GAP = 4;
+const EMPTY_TIMELINE_LANES: TimelineLaneDescriptor[] = [];
 
 const CANVAS_THEME = {
   dark: {
@@ -358,6 +366,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   focusedEventId,
   rulerEvent,
   eventAccentColors,
+  layoutMode = "compact",
+  timelineLanes = EMPTY_TIMELINE_LANES,
   onRenderFrame,
   onWheel,
   onPointerDown,
@@ -670,7 +680,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       .map((eventId) => timelineEvents.find((event) => event.id === eventId))
       .filter((event): event is Event => event !== undefined);
     const anchorPrimary = getPrimaryScreenPosition(group.year);
-    const rowCross = group.side * getCollapsedGroupOffset(viewportHeight);
+    const rowCross =
+      group.cross ?? group.side * getCollapsedGroupOffset(viewportHeight);
 
     if (events.length === 0) {
       return {
@@ -787,7 +798,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     for (const group of currentCollapsedGroups) {
       const groupPoint = toCanvasPoint(
         getPrimaryScreenPosition(group.year),
-        group.side * getCollapsedGroupOffset(crossSize),
+        group.cross ?? group.side * getCollapsedGroupOffset(crossSize),
         width,
         height,
       );
@@ -970,6 +981,68 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       ctx.lineJoin = "round";
       ctx.clearRect(0, 0, width, height);
 
+      if (layoutMode === "layers") {
+        const laneGeometry = buildTimelineLaneGeometry(timelineLanes, crossSize);
+        for (const lane of laneGeometry) {
+          const lanePoint = toCanvasPoint(0, lane.cross, width, height);
+          const color = lane.color ?? canvasTheme.defaultIdleLine;
+          ctx.strokeStyle = withAlpha(color, 0.4);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          if (orientation === "horizontal") {
+            ctx.moveTo(0, snap(lanePoint.y));
+            ctx.lineTo(width, snap(lanePoint.y));
+          } else {
+            ctx.moveTo(snap(lanePoint.x), 0);
+            ctx.lineTo(snap(lanePoint.x), height);
+          }
+          ctx.stroke();
+
+          setTextStyle({
+            font: CANVAS_FONT_PRESETS.tickHighlighted,
+            textAlign: orientation === "horizontal" ? "left" : "center",
+            textBaseline: "middle",
+          });
+          const labelWidth = Math.min(
+            180,
+            ctx.measureText(lane.label).width + 16,
+          );
+          const labelX =
+            orientation === "horizontal"
+              ? 10
+              : Math.max(
+                  labelWidth / 2 + 8,
+                  Math.min(width - labelWidth / 2 - 8, lanePoint.x),
+                );
+          const labelY = orientation === "horizontal" ? lanePoint.y : 22;
+          ctx.fillStyle = withAlpha(canvasTheme.eventFill, 0.9);
+          ctx.strokeStyle = withAlpha(color, 0.48);
+          ctx.beginPath();
+          ctx.roundRect(
+            snap(
+              labelX -
+                (orientation === "horizontal" ? 4 : labelWidth / 2),
+            ),
+            snap(labelY - 11),
+            labelWidth,
+            22,
+            11,
+          );
+          ctx.fill();
+          ctx.stroke();
+          setTextStyle({
+            fillStyle: canvasTheme.eventText,
+            textAlign: orientation === "horizontal" ? "left" : "center",
+          });
+          ctx.fillText(
+            lane.label,
+            labelX + (orientation === "horizontal" ? 4 : 0),
+            labelY,
+            labelWidth - 12,
+          );
+        }
+      }
+
       ctx.strokeStyle = canvasTheme.axis;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -1139,10 +1212,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       for (const group of currentCollapsedGroups) {
         const isExpanded =
           currentExpandedCollapsedGroup?.side === group.side &&
+          currentExpandedCollapsedGroup?.laneId === group.laneId &&
           Math.abs(currentExpandedCollapsedGroup.year - group.year) < 1e-9;
         const groupPoint = toCanvasPoint(
           getPrimaryScreenPosition(group.year),
-          group.side * getCollapsedGroupOffset(crossSize),
+          group.cross ?? group.side * getCollapsedGroupOffset(crossSize),
           width,
           height,
         );
@@ -1860,7 +1934,9 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     focusPixel,
     focusYear,
     language,
+    layoutMode,
     orientation,
+    timelineLanes,
     zoom,
   ]);
 
