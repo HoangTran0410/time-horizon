@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import type { EventCollectionMeta } from "../constants/types";
+import type {
+  CollectionGroupDefinition,
+  EventCollectionMeta,
+} from "../constants/types";
+import { sanitizeCollectionGroupDefinitions } from "../helpers/collectionGroups";
 
 const DATA_BASE_URL =
   // @ts-ignore — `env` is injected by Vite; guard so the module can also be
@@ -12,6 +16,9 @@ const DATA_BASE_URL =
 export const useCatalogCollections = () => {
   const [catalogCollections, setCatalogCollections] = useState<
     EventCollectionMeta[]
+  >([]);
+  const [catalogGroups, setCatalogGroups] = useState<
+    CollectionGroupDefinition[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,13 +44,30 @@ export const useCatalogCollections = () => {
       }
     };
 
+    /**
+     * Topical folders for the catalog. Optional by design: a data repo that
+     * does not ship the file (or a failed fetch) just means no grouping, so
+     * this must never gate `isLoading`.
+     */
+    const loadGroups = async () => {
+      try {
+        const response = await fetch(`${DATA_BASE_URL}/collection-groups.json`);
+        if (!response.ok) return;
+        const data = sanitizeCollectionGroupDefinitions(await response.json());
+        if (!cancelled) setCatalogGroups(data);
+      } catch (error) {
+        console.error("[useCatalogCollections] groups", error);
+      }
+    };
+
     void load();
+    void loadGroups();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return { catalogCollections, isCatalogLoading: isLoading };
+  return { catalogCollections, catalogGroups, isCatalogLoading: isLoading };
 };
 
 /** Load events for a catalog collection by dataUrl string. */

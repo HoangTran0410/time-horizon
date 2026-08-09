@@ -2070,13 +2070,112 @@ select {
   padding: 0 1.5rem;
 }
 
+.landing-collections-group {
+  margin-top: 2.5rem;
+}
+
+.landing-collections-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  color: var(--ui-zinc-100);
+}
+
+.landing-collections-group-count {
+  font-family: var(--font-sans, inherit);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ui-zinc-400);
+  border: 1px solid var(--ui-border-zinc-800-70);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+}
+
+.landing-collections-rail-wrap {
+  position: relative;
+  margin-top: 0.5rem;
+}
+
 .landing-collections-rail {
   display: flex;
   gap: 1rem;
-  margin-top: 2rem;
   overflow-x: auto;
+  /* The rail is a scroll container, so anything above its content edge is
+     clipped — the top padding gives the cards' hover lift room to move. */
+  padding-top: 0.5rem;
   padding-bottom: 1rem;
   scroll-snap-type: x mandatory;
+}
+
+/* Fade the rail's own content out at a scrollable edge; a mask works over the
+   landing page's gradient backdrop where a solid overlay could not match. */
+.landing-collections-rail[data-fade-right] {
+  mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - 3.5rem),
+    transparent 100%
+  );
+}
+
+.landing-collections-rail[data-fade-left] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 3.5rem,
+    #000 100%
+  );
+}
+
+.landing-collections-rail[data-fade-left][data-fade-right] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 3.5rem,
+    #000 calc(100% - 3.5rem),
+    transparent 100%
+  );
+}
+
+.landing-rail-nav {
+  position: absolute;
+  top: calc(50% - 0.25rem);
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-zinc-800-70);
+  background: var(--ui-zinc-900-80);
+  color: var(--ui-zinc-100);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--ui-shadow-card);
+  transition: border-color 150ms ease;
+}
+
+.landing-rail-nav:hover {
+  border-color: var(--ui-border-emerald-500-40);
+}
+
+.landing-rail-nav-left {
+  left: -0.75rem;
+}
+
+.landing-rail-nav-right {
+  right: -0.75rem;
+}
+
+/* Touch devices swipe rails natively; the edge fade alone hints at overflow. */
+@media (hover: none) {
+  .landing-rail-nav {
+    display: none;
+  }
 }
 
 .landing-collection-card {

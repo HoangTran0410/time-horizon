@@ -10,17 +10,26 @@ import {
   Download,
   Eye,
   EyeOff,
+  Folder,
+  FolderOpen,
   LayoutGrid,
   List,
   MoreHorizontal,
   Trash2,
   X,
 } from "lucide-react";
-import type { Event, EventCollectionMeta } from "../constants/types";
+import type {
+  CollectionGroupDefinition,
+  Event,
+  EventCollectionMeta,
+} from "../constants/types";
+import { groupCollectionsByDefinitions } from "../helpers/collectionGroups";
+import { getLocalizedText } from "../helpers/localization";
 import { useI18n } from "../i18n";
 
 interface ExploreCollectionsModalProps {
   collections: EventCollectionMeta[];
+  groupDefinitions: CollectionGroupDefinition[];
   visibleCollectionIds: string[];
   downloadingCollectionIds: string[];
   collectionEventsById: Record<string, Event[]>;
@@ -97,6 +106,7 @@ export const ExploreCollectionsModal: React.FC<
   ExploreCollectionsModalProps
 > = ({
   collections,
+  groupDefinitions,
   visibleCollectionIds,
   downloadingCollectionIds,
   collectionEventsById,
@@ -105,7 +115,7 @@ export const ExploreCollectionsModal: React.FC<
   onDeleteCollection,
   onSetCollectionVisibility,
 }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const closeTimeoutRef = useRef<number | null>(null);
   const shouldCloseOnPointerUpRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -124,6 +134,11 @@ export const ExploreCollectionsModal: React.FC<
   const [openCollectionMenuId, setOpenCollectionMenuId] = useState<
     string | null
   >(null);
+  // Folders start collapsed — 57 collections scan better as a folder list —
+  // so the state tracks the ids the user has opened.
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const normalizedQuery = query.trim().toLowerCase();
   const deferredNormalizedQuery = useDeferredValue(normalizedQuery);
@@ -201,10 +216,59 @@ export const ExploreCollectionsModal: React.FC<
     ],
   );
 
-  const visibleCollections = filteredCollections.slice(
-    0,
-    visibleCollectionCount,
+  const groupedCollections = useMemo(
+    () => groupCollectionsByDefinitions(filteredCollections, groupDefinitions),
+    [filteredCollections, groupDefinitions],
   );
+  // No folder definitions in the data repo means no folders — flat catalog.
+  const hasGroups = groupedCollections.length > 0;
+
+  // While a search query or category filter is active every folder stays
+  // open, otherwise a match hidden inside a collapsed folder would be
+  // silently unfindable.
+  const areGroupsForcedOpen =
+    deferredNormalizedQuery.length > 0 || activeCategory !== null;
+
+  const toggleGroupCollapsed = (groupId: string) => {
+    setExpandedGroupIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  /**
+   * Incremental loading budget is spent folder by folder in display order:
+   * folder headers always render, collapsed folders cost nothing, and the
+   * scroll sentinel keeps topping the budget up.
+   */
+  const groupSections = useMemo(() => {
+    let budget = visibleCollectionCount;
+    return groupedCollections.map((group) => {
+      const isCollapsed =
+        !areGroupsForcedOpen && !expandedGroupIds.has(group.definition.id);
+      const items = isCollapsed ? [] : group.collections.slice(0, budget);
+      budget -= items.length;
+      return { ...group, isCollapsed, items };
+    });
+  }, [
+    expandedGroupIds,
+    groupedCollections,
+    areGroupsForcedOpen,
+    visibleCollectionCount,
+  ]);
+
+  const pageableCollectionCount = hasGroups
+    ? groupSections.reduce(
+        (total, section) =>
+          section.isCollapsed ? total : total + section.collections.length,
+        0,
+      )
+    : filteredCollections.length;
+  const flatVisibleCollections = hasGroups
+    ? []
+    : filteredCollections.slice(0, visibleCollectionCount);
 
   const downloadedCollectionCount = installedCollectionIds.size;
   const availableCollectionCount =
@@ -258,21 +322,21 @@ export const ExploreCollectionsModal: React.FC<
 
   useEffect(() => {
     setVisibleCollectionCount((current) => {
-      if (filteredCollections.length === 0) {
+      if (pageableCollectionCount === 0) {
         return getInitialVisibleCount(displayMode);
       }
 
       return Math.min(
         Math.max(current, getInitialVisibleCount(displayMode)),
-        filteredCollections.length,
+        pageableCollectionCount,
       );
     });
-  }, [displayMode, filteredCollections.length]);
+  }, [displayMode, pageableCollectionCount]);
 
   useEffect(() => {
     const root = scrollContainerRef.current;
     const sentinel = loadMoreSentinelRef.current;
-    if (!root || !sentinel || visibleCollectionCount >= filteredCollections.length) {
+    if (!root || !sentinel || visibleCollectionCount >= pageableCollectionCount) {
       return;
     }
 
@@ -283,7 +347,7 @@ export const ExploreCollectionsModal: React.FC<
         setVisibleCollectionCount((current) =>
           Math.min(
             current + getVisibleBatchSize(displayMode),
-            filteredCollections.length,
+            pageableCollectionCount,
           ),
         );
       },
@@ -295,7 +359,7 @@ export const ExploreCollectionsModal: React.FC<
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [displayMode, filteredCollections.length, visibleCollectionCount]);
+  }, [displayMode, pageableCollectionCount, visibleCollectionCount]);
 
   const requestClose = () => {
     if (isClosing) return;
@@ -352,6 +416,40 @@ export const ExploreCollectionsModal: React.FC<
 
     shouldCloseOnPointerUpRef.current = false;
   };
+
+  const renderGroupHeader = (section: {
+    definition: CollectionGroupDefinition;
+    collections: EventCollectionMeta[];
+    isCollapsed: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={() => toggleGroupCollapsed(section.definition.id)}
+      disabled={areGroupsForcedOpen}
+      className="flex w-full items-center gap-2.5 rounded-[1.1rem] border border-zinc-800/80 bg-zinc-900/60 px-3.5 py-2.5 text-left transition-colors hover:border-zinc-700 disabled:cursor-default disabled:hover:border-zinc-800/80"
+      aria-expanded={!section.isCollapsed}
+    >
+      {section.isCollapsed ? (
+        <Folder size={16} className="shrink-0 text-amber-300/80" />
+      ) : (
+        <FolderOpen size={16} className="shrink-0 text-amber-300/80" />
+      )}
+      <span className="min-w-0 flex-1 truncate text-[0.92rem] font-semibold text-white">
+        {getLocalizedText(section.definition.name, language)}
+      </span>
+      <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+        {t("collectionGroupCollectionCount", {
+          count: section.collections.length,
+        })}
+      </span>
+      <ChevronDown
+        size={15}
+        className={`shrink-0 text-zinc-400 transition-transform ${
+          section.isCollapsed ? "-rotate-90" : ""
+        }`}
+      />
+    </button>
+  );
 
   const renderGridCard = (collection: EventCollectionMeta) => {
     const collectionCategories = getCollectionCategories(collection);
@@ -841,9 +939,24 @@ export const ExploreCollectionsModal: React.FC<
                 </p>
               </div>
             ) : displayMode === "grid" ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {visibleCollections.map(renderGridCard)}
-              </div>
+              hasGroups ? (
+                <div className="flex flex-col gap-4">
+                  {groupSections.map((section) => (
+                    <section key={`explore-group-${section.definition.id}`}>
+                      {renderGroupHeader(section)}
+                      {!section.isCollapsed && section.items.length > 0 ? (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {section.items.map(renderGridCard)}
+                        </div>
+                      ) : null}
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {flatVisibleCollections.map(renderGridCard)}
+                </div>
+              )
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-zinc-800/80 text-left">
@@ -856,14 +969,30 @@ export const ExploreCollectionsModal: React.FC<
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {visibleCollections.map(renderTableRow)}
-                  </tbody>
+                  {hasGroups ? (
+                    groupSections.map((section) => (
+                      <tbody
+                        key={`explore-table-group-${section.definition.id}`}
+                        className="divide-y divide-zinc-800/80"
+                      >
+                        <tr>
+                          <td colSpan={3} className="px-3 pb-1 pt-3 md:px-4">
+                            {renderGroupHeader(section)}
+                          </td>
+                        </tr>
+                        {section.items.map(renderTableRow)}
+                      </tbody>
+                    ))
+                  ) : (
+                    <tbody className="divide-y divide-zinc-800/80">
+                      {flatVisibleCollections.map(renderTableRow)}
+                    </tbody>
+                  )}
                 </table>
               </div>
             )}
 
-            {visibleCollectionCount < filteredCollections.length ? (
+            {visibleCollectionCount < pageableCollectionCount ? (
               <div
                 ref={loadMoreSentinelRef}
                 className={

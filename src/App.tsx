@@ -55,10 +55,17 @@ export default function App() {
   const hasHydrated = useStore((state) => state.hasHydrated);
   const setLastOpenedView = useStore((state) => state.setLastOpenedView);
   const setCatalogMeta = useStore((state) => state.setCatalogMeta);
+  const setCatalogGroups = useStore((state) => state.setCatalogGroups);
   const resolvedTheme = resolveThemeMode(theme);
 
   // Fetch catalog metadata once at app root
-  const { catalogCollections, isCatalogLoading } = useCatalogCollections();
+  const { catalogCollections, catalogGroups, isCatalogLoading } =
+    useCatalogCollections();
+
+  // Sync folder definitions into the store so the Explore modal can use them
+  useEffect(() => {
+    setCatalogGroups(catalogGroups);
+  }, [catalogGroups, setCatalogGroups]);
 
   // Sync catalog metadata into store so Timeline/Sidebar can use it
   useEffect(() => {
@@ -222,6 +229,7 @@ export default function App() {
         <LandingPage
           theme={resolvedTheme}
           catalogCollections={catalogCollections}
+          catalogGroups={catalogGroups}
           onToggleTheme={handleToggleTheme}
           onEnterTimeline={handleEnterTimeline}
           onOpenCollection={handleOpenCollection}

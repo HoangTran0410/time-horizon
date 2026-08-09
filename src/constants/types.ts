@@ -123,6 +123,23 @@ export interface EventCollectionMeta {
   dataUrl?: string;
 }
 
+/**
+ * A topical folder for the public catalog, defined in the data repo
+ * (`collection-groups.json`) — names and membership rules are catalog
+ * content, not app code. Folders apply in file order, first match wins:
+ * - "any": the collection carries any of the folder's categories.
+ * - "primary": the collection's first category is one of the folder's.
+ * - "fallback": matches everything (put it last).
+ */
+export type CollectionGroupMatch = "any" | "primary" | "fallback";
+
+export interface CollectionGroupDefinition {
+  id: string;
+  name: LocalizedText;
+  match?: CollectionGroupMatch;
+  categories?: string[];
+}
+
 export interface StoredTimelineCollection {
   events: Event[];
   meta?: EventCollectionMeta | null;

@@ -77,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // ── Store state (read directly) ──────────────────────────────────────────
   const collectionLibrary = useStore((s) => s.collectionLibrary);
   const catalogMeta = useStore((s) => s.catalogMeta);
+  const catalogGroups = useStore((s) => s.catalogGroups);
   const visibleCollectionIds = useStore((s) => s.visibleCollectionIds);
   const downloadingCollectionIds = useStore((s) => s.downloadingCollectionIds);
   const collectionColorPreferences = useStore(
@@ -219,9 +220,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     for (const [id, meta] of Object.entries(catalogMeta)) {
       result[id] = meta as EventCollectionMeta;
     }
-    // Downloaded/persisted meta overrides catalog meta
+    // Downloaded/persisted meta overrides catalog meta — except categories:
+    // stored metas from before categories existed (or stripped on download)
+    // would otherwise knock the collection out of its catalog folder.
     for (const c of allCollections) {
-      result[c.id] = c;
+      result[c.id] = {
+        ...c,
+        categories: c.categories ?? result[c.id]?.categories,
+      };
     }
     return result;
   }, [catalogMeta, collections, syncableCollectionIds]);
@@ -1055,6 +1061,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isSidebarExploreOpen ? (
         <ExploreCollectionsModal
           collections={publicCollections}
+          groupDefinitions={catalogGroups}
           visibleCollectionIds={visibleCollectionIds}
           downloadingCollectionIds={downloadingCollectionIds}
           collectionEventsById={collectionEventsById}

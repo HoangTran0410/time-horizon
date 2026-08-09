@@ -9,6 +9,7 @@ import type {
   CollectionOrigin,
   DeletedCollectionSyncTombstone,
   Event,
+  CollectionGroupDefinition,
   EventCollectionMeta,
   ImportedEvent,
   MediaFilter,
@@ -83,6 +84,8 @@ type TimelineStoreState = {
   syncableIds: string[];
   /** Cached catalog collection metadata (id → meta) for quick lookup */
   catalogMeta: Record<string, EventCollectionMeta>;
+  /** Topical folder definitions for the catalog (from data/collection-groups.json) */
+  catalogGroups: CollectionGroupDefinition[];
   /** Downloaded collection data */
   collectionLibrary: Record<string, StoredTimelineCollection>;
   deletedCollectionSyncTombstones: Record<string, DeletedCollectionSyncTombstone>;
@@ -161,6 +164,7 @@ type TimelineStoreState = {
     catalogMeta: Record<string, EventCollectionMeta>,
     syncableIds: string[],
   ) => void;
+  setCatalogGroups: (catalogGroups: CollectionGroupDefinition[]) => void;
   setSyncConnectionStatus: (
     status: SyncConnectionStatus,
     message?: string | null,
@@ -1689,6 +1693,7 @@ export const useStore = create<TimelineStoreState>()(
           ...createInitialTimelineSearchState(),
           syncableIds: [],
           catalogMeta: {},
+          catalogGroups: [],
           collectionLibrary: {},
           deletedCollectionSyncTombstones: {},
           syncPreferences: createInitialSyncPreferences(),
@@ -1782,6 +1787,7 @@ export const useStore = create<TimelineStoreState>()(
                 state.syncableIds = syncableIds;
               }),
             ),
+          setCatalogGroups: (catalogGroups) => set({ catalogGroups }),
           setSyncConnectionStatus: (syncConnectionStatus, syncStatusMessage = null) =>
             set({
               syncConnectionStatus,
