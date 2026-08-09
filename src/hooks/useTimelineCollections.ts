@@ -30,6 +30,8 @@ export const useTimelineCollections = () => {
   /**
    * All collections that appear in the UI.
    * Built from catalog metadata + any persisted (downloaded/imported) collection meta.
+   * Newest first by `createdAt`; entries without a parseable date sort last,
+   * ties keep catalog order (sort is stable).
    */
   const collections = useMemo(() => {
     // Start with catalog metadata
@@ -44,7 +46,14 @@ export const useTimelineCollections = () => {
       }
     }
 
-    return Array.from(result.values());
+    const createdAtOf = (meta: EventCollectionMeta) => {
+      const parsed = Date.parse(meta.createdAt ?? "");
+      return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+    };
+
+    return Array.from(result.values()).sort(
+      (left, right) => createdAtOf(right) - createdAtOf(left),
+    );
   }, [catalogMeta, collectionLibrary]);
 
   /**

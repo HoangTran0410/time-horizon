@@ -2,9 +2,10 @@ export const BIG_BANG_YEAR = -13.8e9;
 
 /**
  * Catalog collection auto-loaded on a user's very first visit so the timeline
- * is never empty on arrival. Spans the full 13.8By range, which is the point.
+ * is never empty on arrival. All-span Vietnamese dynasties, so the first thing
+ * a new visitor sees is ranged bars rather than lone points.
  */
-export const DEFAULT_SEED_COLLECTION_ID = "cosmic";
+export const DEFAULT_SEED_COLLECTION_ID = "vn-dynasties";
 
 export const GOOGLE_CLIENT_ID =
   "18522689439-iqf64i30ho7o8u439pdslegvvhceiip9.apps.googleusercontent.com";
