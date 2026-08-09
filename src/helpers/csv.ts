@@ -90,6 +90,7 @@ export function exportCollectionToCsv(
     "description",
     "time",
     "endTime",
+    "ongoing",
     "duration",
     "emoji",
     "color",
@@ -109,6 +110,7 @@ export function exportCollectionToCsv(
         escapeCsvValue(serializeLocalizedText(ev.description)),
         escapeCsvValue(eventTimeToStr(ev.time)),
         escapeCsvValue(ev.endTime ? eventTimeToStr(ev.endTime) : ""),
+        escapeCsvValue(ev.ongoing ? "true" : ""),
         escapeCsvValue(ev.duration ?? ""),
         escapeCsvValue(ev.emoji),
         escapeCsvValue(ev.color ?? ""),
@@ -279,6 +281,9 @@ export function parseCsvEventRow(
     emoji,
     time,
     ...(endTime ? { endTime } : {}),
+    ...(/^(true|1|yes)$/i.test((row.ongoing ?? "").trim())
+      ? { ongoing: true }
+      : {}),
     priority: row.priority ? Number(row.priority) : 50,
     duration: row.duration ? Number(row.duration) : undefined,
     color: row.color || null,

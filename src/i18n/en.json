@@ -426,6 +426,7 @@
   "timeOfDayNeedsDay": "Pick a day first",
   "yearBceHint": "Negative means BCE (e.g. −753)",
   "endDate": "End date",
+  "ongoingEvent": "Ongoing — until now",
   "muteEvent": "Mute this event",
   "unmuteEvent": "Unmute this event",
   "unmuteAllEvents": "Unmute {count} muted {count, plural, one {event} other {events}}",

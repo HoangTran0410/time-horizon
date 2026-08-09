@@ -857,10 +857,12 @@ export const sanitizeImportedEvents = (
 
     const candidate = event as Partial<ImportedEvent>;
     const time = sanitizeImportedEventTime(candidate.time);
+    const ongoing = candidate.ongoing === true;
     // A malformed endTime degrades the event to a point rather than rejecting
-    // it — the start time is the part that must be trustworthy.
+    // it — the start time is the part that must be trustworthy. An ongoing
+    // event's end is "now", so a stored end date would only go stale: drop it.
     const endTime =
-      candidate.endTime != null
+      !ongoing && candidate.endTime != null
         ? sanitizeImportedEventTime(candidate.endTime)
         : null;
     const title = normalizeLocalizedText(candidate.title);
@@ -882,6 +884,7 @@ export const sanitizeImportedEvents = (
         emoji: candidate.emoji.trim(),
         time,
         ...(endTime ? { endTime } : {}),
+        ...(ongoing ? { ongoing: true } : {}),
         priority:
           typeof candidate.priority === "number" &&
           Number.isFinite(candidate.priority)

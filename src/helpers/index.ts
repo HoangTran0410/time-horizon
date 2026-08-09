@@ -214,6 +214,23 @@ export const getEventTimelineYear = (event: Event): number => {
 
 const _timelineEndYearCache = new WeakMap<Event, number | null>();
 
+// Computed once per session: an ongoing span's end only needs day precision,
+// and a stable value keeps the WeakMap caches below coherent.
+let _nowTimelineYear: number | null = null;
+
+/** Fractional year for "today", the end an ongoing event runs to. */
+export const getCurrentTimelineYear = (): number => {
+  if (_nowTimelineYear === null) {
+    const now = new Date();
+    _nowTimelineYear = eventTimeToTimelineYear([
+      now.getFullYear(),
+      now.getMonth() + 1,
+      now.getDate(),
+    ]);
+  }
+  return _nowTimelineYear;
+};
+
 /**
  * Fractional end year for a span event, or null for a point event.
  * Always >= the start year: a reversed pair is treated as a span, not an error,
@@ -222,6 +239,14 @@ const _timelineEndYearCache = new WeakMap<Event, number | null>();
 export const getEventTimelineEndYear = (event: Event): number | null => {
   const cached = _timelineEndYearCache.get(event);
   if (cached !== undefined) return cached;
+
+  if (event.ongoing) {
+    // Runs to "now"; a start in the future degrades to a point.
+    const nowYear = getCurrentTimelineYear();
+    const result = nowYear > getEventTimelineYear(event) ? nowYear : null;
+    _timelineEndYearCache.set(event, result);
+    return result;
+  }
 
   if (event.endTime == null) {
     _timelineEndYearCache.set(event, null);
@@ -596,14 +621,23 @@ export const getEventDisplayLabel = (
   locale: SupportedLanguage,
 ): string => formatEventTime(event, locale);
 
+/** End-of-span label for an ongoing event ("1986 → nay"). */
+export const ONGOING_END_LABELS: Record<SupportedLanguage, string> = {
+  en: "present",
+  vi: "nay",
+};
+
 /** Label for the end of a span, or null when the event is a point. */
 export const getEventEndDisplayLabel = (
   event: Event,
   locale: SupportedLanguage,
-): string | null =>
-  event.endTime == null || !isSpanEvent(event)
+): string | null => {
+  if (!isSpanEvent(event)) return null;
+  if (event.ongoing) return ONGOING_END_LABELS[locale];
+  return event.endTime == null
     ? null
     : formatTimelineTimeLabel(event.endTime, locale);
+};
 
 /** How long a span lasts, in fractional years, or null for a point event. */
 export const getEventSpanLengthYears = (event: Event): number | null => {
@@ -1045,6 +1079,10 @@ const normalizeStoredEventPayload = (
   ...(event.endTime != null
     ? { endTime: normalizeEventTimeParts(event.endTime) }
     : {}),
+  // Deliberately NOT part of getStoredEventSignature below: changing the
+  // signature formula would re-derive every legacy eventUid and duplicate
+  // events across Drive sync.
+  ...(event.ongoing ? { ongoing: true } : {}),
   emoji: event.emoji,
   priority: event.priority,
   duration: event.duration,
@@ -1168,6 +1206,7 @@ export const stripRuntimeEventId = (event: Event): StoredEvent => ({
         ] as Event["time"],
       }
     : {}),
+  ...(event.ongoing ? { ongoing: true } : {}),
   emoji: event.emoji,
   priority: event.priority,
   duration: event.duration,

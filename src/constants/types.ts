@@ -44,6 +44,12 @@ export interface Event {
    */
   endTime?: EventTime | null;
   /**
+   * A span that has not ended: runs from `time` to "now", evaluated at render
+   * time, so the data never goes stale ("Đổi Mới, 1986–present"). Wins over
+   * `endTime` — the sanitizer drops the end date when both are present.
+   */
+  ongoing?: boolean;
+  /**
    * Optional duration in years. Used to auto-zoom when focusing this event.
    * Example: 1 => show ~20 years around event; 0.01 => show month/day neighborhood.
    *

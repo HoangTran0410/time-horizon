@@ -21,6 +21,7 @@ import {
   normalizeEventTimeParts,
   normalizeExternalLinkUrl,
   normalizeImageUrl,
+  ONGOING_END_LABELS,
 } from "../helpers";
 import {
   getLocalizedText,
@@ -312,7 +313,9 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   const [showTimeOfDay, setShowTimeOfDay] = useState(
     () => event.time[3] != null || event.endTime?.[3] != null,
   );
-  const [showSpan, setShowSpan] = useState(() => event.endTime?.[0] != null);
+  const [showSpan, setShowSpan] = useState(
+    () => event.endTime?.[0] != null || event.ongoing === true,
+  );
   /**
    * Month/day/time of the end date live here as well as on the event, because
    * an empty end year has to null out `endTime` entirely — without this,
@@ -550,8 +553,22 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   };
 
   const handleToggleSpan = () => {
-    if (showSpan) handleYearChange("end", "");
+    if (showSpan) {
+      handleYearChange("end", "");
+      setEditedEvent((prev) => ({ ...prev, ongoing: undefined }));
+    }
     setShowSpan((prev) => !prev);
+  };
+
+  const handleToggleOngoing = () => {
+    setEditedEvent((prev) => {
+      if (prev.ongoing) return { ...prev, ongoing: undefined };
+      // "Until now" replaces the end date, so drop whatever was typed there.
+      endTimeTailRef.current = getEventTimeTail(undefined);
+      return { ...prev, ongoing: true, endTime: undefined };
+    });
+    setEndYearInput("");
+    setDateError(null);
   };
 
   useEffect(() => {
@@ -625,6 +642,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       video: undefined,
       link: undefined,
       endTime: undefined,
+      ongoing: undefined,
     }));
     endTimeTailRef.current = getEventTimeTail(undefined);
     setEndYearInput("");
@@ -1186,16 +1204,32 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 
                 {/* An end date turns the event into a span, drawn as a bar
                     covering the range instead of a single marker. It takes the
-                    same precision as the start — year through seconds. */}
+                    same precision as the start — year through seconds. An
+                    ongoing span has no end date at all: it runs to "now". */}
                 {showSpan && (
                   <div className="space-y-3 border-t border-zinc-800/70 pt-3">
-                    <span className="ui-label mb-0 block">{t("endDate")}</span>
-                    {renderDateRow("end")}
-                    {showTimeOfDay && renderTimeOfDayRow("end")}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="ui-label mb-0 block">{t("endDate")}</span>
+                      <label className="flex cursor-pointer items-center gap-1.5 text-[0.72rem] font-medium text-zinc-400">
+                        <input
+                          type="checkbox"
+                          checked={editedEvent.ongoing === true}
+                          onChange={handleToggleOngoing}
+                          className="h-3.5 w-3.5 accent-emerald-500"
+                        />
+                        {t("ongoingEvent")}
+                      </label>
+                    </div>
+                    {!editedEvent.ongoing && renderDateRow("end")}
+                    {!editedEvent.ongoing &&
+                      showTimeOfDay &&
+                      renderTimeOfDayRow("end")}
                     <p className="text-[0.72rem] text-zinc-500">
-                      {hasValidYear && hasValidEndYear
-                        ? `${buildDateReadout("start")} → ${buildDateReadout("end")}`
-                        : t("endYearSpanHint")}
+                      {editedEvent.ongoing
+                        ? `${buildDateReadout("start")} → ${ONGOING_END_LABELS[language]}`
+                        : hasValidYear && hasValidEndYear
+                          ? `${buildDateReadout("start")} → ${buildDateReadout("end")}`
+                          : t("endYearSpanHint")}
                     </p>
                   </div>
                 )}

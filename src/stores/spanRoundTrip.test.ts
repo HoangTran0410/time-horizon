@@ -17,15 +17,20 @@ const raw = [
   { title: "Đế chế La Mã", description: "", emoji: "🏛️", time: [-27], endTime: [476], priority: 90 },
   { title: "Big Bang", description: "", emoji: "💥", time: [-13.8e9], priority: 100 },
   { title: "Đảo ngược", description: "", emoji: "🔁", time: [500], endTime: [100], priority: 10 },
+  { title: "Đổi Mới", description: "", emoji: "🌱", time: [1986], ongoing: true, priority: 80 },
 ];
 
 describe("span events across persistence boundaries", () => {
   const events = sanitizeImportedEvents(raw, { collectionId: "t" });
 
   it("imports all events, keeping span-ness", () => {
-    expect(events).toHaveLength(3);
+    expect(events).toHaveLength(4);
     expect(isSpanEvent(events[0])).toBe(true);
     expect(isSpanEvent(events[1])).toBe(false);
+    // Ongoing: a span with no stored end — it runs to "now".
+    expect(isSpanEvent(events[3])).toBe(true);
+    expect(events[3].endTime).toBeUndefined();
+    expect(getEventTimelineRange(events[3]).endYear).toBeGreaterThan(2025);
   });
 
   it("every timeline range is ordered, even from a reversed input span", () => {
@@ -35,7 +40,7 @@ describe("span events across persistence boundaries", () => {
     }
   });
 
-  it("endTime and eventUid survive strip -> reload", () => {
+  it("endTime, ongoing and eventUid survive strip -> reload", () => {
     const stored = stripRuntimeEventIds(events);
     for (const event of stored) {
       expect("id" in event && (event as { id?: unknown }).id).toBeFalsy();
@@ -43,10 +48,16 @@ describe("span events across persistence boundaries", () => {
     expect(stored.map((e) => e.endTime ?? null)).toEqual(
       events.map((e) => e.endTime ?? null),
     );
+    expect(stored.map((e) => e.ongoing ?? null)).toEqual(
+      events.map((e) => e.ongoing ?? null),
+    );
 
     const reloaded = assignRuntimeEventIds(stored, { collectionId: "t" });
     expect(reloaded.map((e) => e.endTime ?? null)).toEqual(
       events.map((e) => e.endTime ?? null),
+    );
+    expect(reloaded.map((e) => e.ongoing ?? null)).toEqual(
+      events.map((e) => e.ongoing ?? null),
     );
     expect(reloaded.map((e) => e.eventUid)).toEqual(events.map((e) => e.eventUid));
   });
@@ -69,6 +80,9 @@ describe("span events across persistence boundaries", () => {
     const reimported = sanitizeImportedEvents(parsed.events, { collectionId: "t" });
     expect(reimported.map(getEventTimelineRange)).toEqual(
       events.map(getEventTimelineRange),
+    );
+    expect(reimported.map((e) => e.ongoing ?? null)).toEqual(
+      events.map((e) => e.ongoing ?? null),
     );
   });
 });

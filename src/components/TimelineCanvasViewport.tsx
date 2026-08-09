@@ -120,6 +120,8 @@ const EVENT_RADIUS = 24;
 /** Thickness of a span bar, and how far past the viewport edge it may extend. */
 const SPAN_BAR_THICKNESS = 10;
 const SPAN_CLAMP_MARGIN_PX = 40;
+/** Length of the fade-out at the "now" end of an ongoing span's bar. */
+const ONGOING_FADE_PX = 36;
 const COLLAPSED_RADIUS = 22;
 const EXPANDED_COLLAPSED_EVENT_RADIUS = 18;
 const EXPANDED_COLLAPSED_MIN_SPACING = 42;
@@ -1347,12 +1349,69 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             width,
             height,
           );
-          const barFill = accentColor
-            ? withAlpha(accentColor, isHighlighted ? 0.42 : 0.26)
-            : withAlpha(canvasTheme.defaultActiveLine, isHighlighted ? 0.36 : 0.22);
-          const barStroke = accentColor
-            ? withAlpha(accentColor, isHighlighted ? 0.95 : 0.6)
-            : idleBorderColor;
+          const fillBase = accentColor ?? canvasTheme.defaultActiveLine;
+          const fillAlpha = accentColor
+            ? isHighlighted
+              ? 0.42
+              : 0.26
+            : isHighlighted
+              ? 0.36
+              : 0.22;
+          const strokeBase = accentColor ?? canvasTheme.defaultIdleBorder;
+          const strokeAlpha = accentColor ? (isHighlighted ? 0.95 : 0.6) : 1;
+          let barFill: string | CanvasGradient = withAlpha(fillBase, fillAlpha);
+          let barStroke: string | CanvasGradient = withAlpha(
+            strokeBase,
+            strokeAlpha,
+          );
+
+          // An ongoing span has no end edge to draw: fade the bar out at the
+          // "now" side instead of capping it, so it reads as "still running".
+          if (event.ongoing) {
+            const nowIsMaxSide = spanEndPrimary >= spanStartPrimary;
+            const nowEdge = toCanvasPoint(
+              nowIsMaxSide ? clampedSpanEnd : clampedSpanStart,
+              layout.y.get(),
+              width,
+              height,
+            );
+            const startEdge = toCanvasPoint(
+              nowIsMaxSide ? clampedSpanStart : clampedSpanEnd,
+              layout.y.get(),
+              width,
+              height,
+            );
+            const barLength = Math.hypot(
+              nowEdge.x - startEdge.x,
+              nowEdge.y - startEdge.y,
+            );
+            if (barLength > 0) {
+              const fadeFrom = Math.max(0, 1 - ONGOING_FADE_PX / barLength);
+              const fillGradient = ctx.createLinearGradient(
+                startEdge.x,
+                startEdge.y,
+                nowEdge.x,
+                nowEdge.y,
+              );
+              fillGradient.addColorStop(0, withAlpha(fillBase, fillAlpha));
+              fillGradient.addColorStop(fadeFrom, withAlpha(fillBase, fillAlpha));
+              fillGradient.addColorStop(1, withAlpha(fillBase, 0));
+              const strokeGradient = ctx.createLinearGradient(
+                startEdge.x,
+                startEdge.y,
+                nowEdge.x,
+                nowEdge.y,
+              );
+              strokeGradient.addColorStop(0, withAlpha(strokeBase, strokeAlpha));
+              strokeGradient.addColorStop(
+                fadeFrom,
+                withAlpha(strokeBase, strokeAlpha),
+              );
+              strokeGradient.addColorStop(1, withAlpha(strokeBase, 0));
+              barFill = fillGradient;
+              barStroke = strokeGradient;
+            }
+          }
 
           ctx.fillStyle = barFill;
           ctx.strokeStyle = barStroke;

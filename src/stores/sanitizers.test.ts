@@ -99,6 +99,34 @@ describe("sanitizeImportedEvents — hostile input tolerance", () => {
     expect(event.endTime).toBeUndefined();
   });
 
+  it("passes `ongoing: true` through and rejects every other value", () => {
+    const events = sanitizeImportedEvents([
+      { title: "A", description: "", emoji: "🌕", time: [1986], ongoing: true },
+      { title: "B", description: "", emoji: "🌕", time: [1986], ongoing: "yes" },
+      { title: "C", description: "", emoji: "🌕", time: [1986], ongoing: 1 },
+    ]);
+    expect(events.map((event) => event.ongoing)).toEqual([
+      true,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it("drops a stored endTime when the event is ongoing — the end is 'now'", () => {
+    const [event] = sanitizeImportedEvents([
+      {
+        title: "Đổi Mới",
+        description: "",
+        emoji: "🌱",
+        time: [1986],
+        endTime: [2026],
+        ongoing: true,
+      },
+    ]);
+    expect(event.ongoing).toBe(true);
+    expect(event.endTime).toBeUndefined();
+  });
+
   it("assigns deterministic runtime ids and eventUids", () => {
     const raw = [
       { title: "A", description: "", emoji: "🌕", time: [1969] },

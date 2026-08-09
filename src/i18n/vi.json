@@ -426,6 +426,7 @@
   "timeOfDayNeedsDay": "Chọn ngày trước",
   "yearBceHint": "Số âm = trước Công nguyên (vd −753)",
   "endDate": "Mốc kết thúc",
+  "ongoingEvent": "Đang tiếp diễn — đến nay",
   "muteEvent": "Làm mờ sự kiện này",
   "unmuteEvent": "Bỏ làm mờ sự kiện này",
   "unmuteAllEvents": "Bỏ mờ {count} sự kiện",
