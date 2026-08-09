@@ -1130,9 +1130,12 @@ export const useTimelineViewport = ({
           WHEEL_PINCH_GESTURE_GAP_MS;
 
       if (shouldStartNewWheelPinchGesture) {
+        // Anchor at the cursor, not at focusPixel: focusPixel only moves on
+        // pan/zoom, so it is stale the moment the mouse moves elsewhere. The
+        // anchor still locks for the whole gesture to avoid mid-pinch skitter.
         const anchorPixel = Math.max(
           0,
-          Math.min(primaryRectSize, focusPixel.get() || primaryRectSize / 2),
+          Math.min(primaryRectSize, primaryPointer),
         );
         wheelPinchGestureRef.current = {
           anchorPixel,
