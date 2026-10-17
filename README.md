@@ -6,7 +6,7 @@
 
 Scroll from the Big Bang to this afternoon on one continuous canvas — no page breaks, no scale switches, no reloading.
 
-**[→ Open the timeline](https://hoangtran99.is-a.dev/time-horizon/)**
+**[→ Open the timeline](https://time-horizon.pages.dev)**
 
 [![Deploy](https://github.com/HoangTran0410/time-horizon/actions/workflows/deploy.yml/badge.svg)](https://github.com/HoangTran0410/time-horizon/actions/workflows/deploy.yml)
 ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
@@ -14,6 +14,10 @@ Scroll from the Big Bang to this afternoon on one continuous canvas — no page 
 ![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
 ![No backend](https://img.shields.io/badge/backend-none-1f6f5c)
 ![MIT](https://img.shields.io/badge/license-MIT-blue)
+
+<!-- aio-desktop-badge:start -->
+<a href="https://fbaio.org/#/desktop"><img src="https://img.shields.io/badge/Try-AIO_Desktop-7c3aed?style=for-the-badge&logo=googlechrome&logoColor=white" alt="AIO Desktop"></a>
+<!-- aio-desktop-badge:end -->
 
 <img src=".github/readme/timeline.jpg" alt="Cosmic Origins and Earth &amp; Life on one axis, eleven billion years across the screen" width="100%">
 
@@ -89,3 +93,11 @@ Collections live in **[time-horizon-data](https://github.com/HoangTran0410/time-
 ## License
 
 MIT
+
+<!-- aio-desktop:start -->
+### 🖥️ AIO Desktop
+
+**EN:** Find this app and many more free tools & games in **[AIO Desktop](https://fbaio.org/#/desktop)**, a Windows/macOS-style web desktop by Social AIO. [▶ Open AIO Desktop](https://fbaio.org/#/desktop)
+
+**VI:** Xem app này cùng nhiều công cụ, trò chơi miễn phí khác trong **[AIO Desktop](https://fbaio.org/#/desktop)**, màn kiểu Windows/macOS của Social AIO. [▶ Mở AIO Desktop](https://fbaio.org/#/desktop)
+<!-- aio-desktop:end -->

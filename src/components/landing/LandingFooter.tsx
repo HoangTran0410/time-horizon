@@ -34,6 +34,16 @@ export function LandingFooter() {
             from a subpath (…/time-horizon/), where "/privacy.html" 404s. */}
         <a href="./privacy.html">{t("landingFooterPrivacy")}</a>
         <a href="./terms.html">{t("landingFooterTerms")}</a>
+        {/* Hidden when embedded in AIO Desktop itself. */}
+        {window.self === window.top && (
+          <a
+            href="https://fbaio.org/#/desktop"
+            target="_blank"
+            rel="noopener"
+          >
+            {t("landingFooterAioDesktop")}
+          </a>
+        )}
       </nav>
     </footer>
   );
