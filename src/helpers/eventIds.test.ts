@@ -3,6 +3,7 @@ import {
   assignRuntimeEventIds,
   buildCustomCollectionMeta,
   slugifyCollectionId,
+  slugifyCollectionName,
   stripRuntimeEventId,
   stripRuntimeEventIds,
 } from "../helpers";
@@ -264,5 +265,16 @@ describe("buildCustomCollectionMeta", () => {
     );
     expect(meta.author).toBe("You");
     expect(meta.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("slugifyCollectionName", () => {
+  it("transliterates đ/Đ for newly minted ids", () => {
+    expect(slugifyCollectionName("Điện Biên Phủ")).toBe("dien-bien-phu");
+    expect(slugifyCollectionName("Đời Đường")).toBe("doi-duong");
+  });
+
+  it("leaves the eventUid namespace slug unchanged", () => {
+    expect(slugifyCollectionId("Điện Biên Phủ")).toBe("ien-bien-phu");
   });
 });

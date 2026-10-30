@@ -15,7 +15,7 @@ import {
   createLocalDateStamp,
   DEFAULT_SPATIAL_MAPPING,
   sanitizeSpatialMapping,
-  slugifyCollectionId,
+  slugifyCollectionName,
   stripRuntimeEventIds,
 } from "../helpers";
 import { DEFAULT_LANGUAGE } from "../helpers/localization";
@@ -88,7 +88,7 @@ const createUniqueCollectionId = (
   baseValue: string,
   existingIds: Set<string>,
 ) => {
-  const baseId = slugifyCollectionId(baseValue);
+  const baseId = slugifyCollectionName(baseValue);
   let nextId = baseId;
   let suffix = 2;
 

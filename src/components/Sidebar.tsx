@@ -60,7 +60,7 @@ interface SidebarProps {
   ) => Promise<string>;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const SidebarView: React.FC<SidebarProps> = ({
   collections,
   syncableCollectionIds,
   editableCollectionIds,
@@ -1176,3 +1176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
+// Memoized: Timeline re-renders many times per second while zooming, and the
+// sidebar has nothing to redraw then. Timeline passes it stable props.
+export const Sidebar = React.memo(SidebarView);

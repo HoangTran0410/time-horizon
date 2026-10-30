@@ -56,6 +56,7 @@ import { getLocalizedEventTitle } from "../helpers/localization";
 import { exportCollectionToCsv, parseCsvEvents } from "../helpers/csv";
 import { useI18n } from "../i18n";
 import { useAutoTimelineOrientation } from "../hooks/useAutoTimelineOrientation";
+import { useStableCallback } from "../hooks/useStableCallback";
 import { useTimelineCollections } from "../hooks/useTimelineCollections";
 import { useTimelineShareUrl } from "../hooks/useTimelineShareUrl";
 import { useTimelineViewport } from "../hooks/useTimelineViewport";
@@ -1531,6 +1532,30 @@ export const Timeline = ({
     };
   }, [hasPendingSyncableChanges]);
 
+
+  // Sidebar is memoized; Timeline re-renders on every tick/label update while
+  // zooming, so hand it stable props or the memo is worthless.
+  const sidebarSyncableCollectionIds = useMemo(
+    () => Array.from(catalogCollectionIds),
+    [catalogCollectionIds],
+  );
+  const handleSidebarOpenSyncPanel = useStableCallback(() =>
+    openOverlayPanel("sync"),
+  );
+  const handleSidebarEditEvent = useStableCallback((event: Event) => {
+    openEventEditor(event.id);
+  });
+  const handleSidebarDeleteEvent = useStableCallback(handleDeleteTimelineEvent);
+  const handleSidebarAddEvent = useStableCallback(handleStartAddEvent);
+  const handleSidebarImportCollections = useStableCallback(
+    handleImportCollectionFile,
+  );
+  const handleSidebarExportCollection = useStableCallback(
+    handleExportCollection,
+  );
+  const handleSidebarEditCollection = useStableCallback(handleEditCollection);
+  const handleSidebarBackToLanding = useStableCallback(onBackToLanding);
+
   return (
     // Every motion-driven panel/dialog below honours the OS "reduce motion"
     // setting; the canvas camera is direct manipulation and stays as is.
@@ -1570,22 +1595,18 @@ export const Timeline = ({
       >
         <Sidebar
           collections={collections}
-          syncableCollectionIds={Array.from(catalogCollectionIds)}
+          syncableCollectionIds={sidebarSyncableCollectionIds}
           editableCollectionIds={editableCollectionIds}
-          onOpenSyncPanel={() => openOverlayPanel("sync")}
-          onEditEvent={(event) => {
-            openEventEditor(event.id);
-          }}
-          onDeleteEvent={handleDeleteTimelineEvent}
-          onAddEvent={handleStartAddEvent}
+          onOpenSyncPanel={handleSidebarOpenSyncPanel}
+          onEditEvent={handleSidebarEditEvent}
+          onDeleteEvent={handleSidebarDeleteEvent}
+          onAddEvent={handleSidebarAddEvent}
           onAddCollection={openCollectionCreator}
-          onImportCollections={handleImportCollectionFile}
-          onExportCollection={handleExportCollection}
-          onEditCollection={handleEditCollection}
-          onUpdateCollectionEvents={(collectionId, events) => {
-            replaceCollectionEvents(collectionId, events);
-          }}
-          onBackToLanding={onBackToLanding}
+          onImportCollections={handleSidebarImportCollections}
+          onExportCollection={handleSidebarExportCollection}
+          onEditCollection={handleSidebarEditCollection}
+          onUpdateCollectionEvents={replaceCollectionEvents}
+          onBackToLanding={handleSidebarBackToLanding}
         />
 
         {shouldShowEmptyTimelineGuidance ? (

@@ -25,6 +25,16 @@ export const slugifyCollectionId = (value: string): string => {
   return slug || "collection";
 };
 
+/**
+ * Slug for minting a NEW collection id from a display name. Unlike
+ * `slugifyCollectionId` it transliterates đ/Đ (NFKD leaves U+0111 intact), so
+ * "Điện Biên Phủ" becomes "dien-bien-phu". Kept separate on purpose:
+ * `slugifyCollectionId` also namespaces derived eventUids, and changing it
+ * would re-derive the uids of existing collections.
+ */
+export const slugifyCollectionName = (value: string): string =>
+  slugifyCollectionId(value.replace(/[đĐ]/g, "d"));
+
 export const createLocalDateStamp = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -241,7 +251,7 @@ export const buildCustomCollectionMeta = (
   existingCollections: EventCollectionMeta[],
 ): EventCollectionMeta => {
   const existingIds = new Set(existingCollections.map((item) => item.id));
-  const baseId = slugifyCollectionId(collection.name);
+  const baseId = slugifyCollectionName(collection.name);
   let nextId = baseId;
   let suffix = 2;
 

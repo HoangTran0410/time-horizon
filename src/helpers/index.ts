@@ -43,6 +43,7 @@ export {
 
 export {
   slugifyCollectionId,
+  slugifyCollectionName,
   createLocalDateStamp,
   assignRuntimeEventIds,
   stripRuntimeEventId,
