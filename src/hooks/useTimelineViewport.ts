@@ -60,6 +60,7 @@ import {
   COLLAPSED_GROUP_EXPAND_ZOOM,
   getMaxZoomForYear,
   MIN_ZOOM,
+  SPAN_CLAMP_MARGIN_PX,
   SPAN_MIN_RENDER_PX,
   TICK_OVERSCAN_INTERVALS,
   ZOOM_LAYOUT_THROTTLE_MS,
@@ -75,6 +76,10 @@ import {
   getAbsoluteYearFromDateJump,
   getStableTickLabelWidthEstimate,
   getTickIntervalThatFitsLabels,
+  createCardPacker,
+  getEventCardFootprint,
+  getEventPackingRects,
+  getSpanMarkerPrimary,
   getTimelineLayoutLevels,
   resolveZoomFixedPointPixel,
   shouldStartDragInertia,
@@ -565,18 +570,27 @@ export const useTimelineViewport = ({
       return b.priority - a.priority;
     });
 
-    // Bucketed by row, and collapsed groups by side: the collision test only
-    // ever compares within one row, and scanning every placed event for every
-    // candidate row made a zoomed-out pass over thousands of events quadratic.
-    const occupiedByLevel = new Map<
-      number,
-      { startYear: number; endYear: number }[]
-    >();
-    const occupy = (level: number, startYear: number, endYear: number) => {
-      const row = occupiedByLevel.get(level);
-      if (row) row.push({ startYear, endYear });
-      else occupiedByLevel.set(level, [{ startYear, endYear }]);
-    };
+    // Every placed card reserves the rectangle the canvas draws for it, and a
+    // candidate row is rejected if it hits any of them — including cards on
+    // neighbouring rows, which a fixed per-row gap never looked at.
+    const packer = createCardPacker();
+    const crossSize = getViewportCrossSize();
+    const primarySize = getViewportPrimarySize();
+    const panPixel = getCurrentPanX();
+    const toScreenPrimary = (year: number) =>
+      year * currentZoom * axisDirection + panPixel;
+    const windowStartPx = Math.min(
+      toScreenPrimary(layoutStart),
+      toScreenPrimary(layoutEnd),
+    );
+    const windowEndPx = Math.max(
+      toScreenPrimary(layoutStart),
+      toScreenPrimary(layoutEnd),
+    );
+    const footprints = {
+      [1]: getEventCardFootprint(orientation, crossSize, 1),
+      [-1]: getEventCardFootprint(orientation, crossSize, -1),
+    } as const;
     const nextCollapsedGroups: CollapsedEventGroup[] = [];
     const collapsedGroupsBySide = new Map<number, CollapsedEventGroup[]>();
 
@@ -615,34 +629,64 @@ export const useTimelineViewport = ({
       // Below that it is visually a point and may collapse like one.
       const spanWidthPx = (eventEnd - eventStart) * currentZoom;
       const isWideSpan = spanWidthPx >= SPAN_MIN_RENDER_PX;
+      const startPx = toScreenPrimary(eventStart);
+      const endPx = toScreenPrimary(eventEnd);
+      const bar = isWideSpan ? { start: startPx, end: endPx } : null;
+      const markerPrimary = isWideSpan
+        ? getSpanMarkerPrimary(startPx, endPx, primarySize, SPAN_CLAMP_MARGIN_PX)
+        : toScreenPrimary(eventYear);
+      const rectsAt = (level: number) =>
+        getEventPackingRects({
+          footprint: footprints[level > 0 ? 1 : -1],
+          markerPrimary,
+          cross: level * LAYOUT_ROW_OFFSET,
+          bar,
+          windowStart: windowStartPx,
+          windowEnd: windowEndPx,
+        });
 
+      // Own side first so the alternating left/right rhythm holds where there
+      // is room; the far side before giving up and collapsing.
       let placedLevel: number | null = null;
-      for (const level of layoutLevels) {
-        const actualLevel = level * side;
-        // Interval overlap with the same padding the point test used. For two
-        // points this reduces exactly to |a - b| < minDistYears.
-        const collision =
-          occupiedByLevel
-            .get(actualLevel)
-            ?.some(
-              (occupiedEvent) =>
-                eventStart < occupiedEvent.endYear + minDistYears &&
-                occupiedEvent.startYear < eventEnd + minDistYears,
-            ) ?? false;
-        if (!collision) {
-          placedLevel = actualLevel;
-          occupy(actualLevel, eventStart, eventEnd);
-          break;
+      for (const candidateSide of [side, -side]) {
+        for (const level of layoutLevels) {
+          const actualLevel = level * candidateSide;
+          const rects = rectsAt(actualLevel);
+          if (packer.fits(rects)) {
+            placedLevel = actualLevel;
+            packer.occupy(rects);
+            break;
+          }
         }
+        if (placedLevel !== null) break;
       }
 
       // Collapsing a visibly wide bar into a dot loses the very thing it is
-      // meant to show, so a wide span takes the outermost row instead.
+      // meant to show, so a wide span with no room for its card keeps just its
+      // bar, on the first row where the bar alone fits. With no room even for
+      // that it collapses like a point — drawn across a label it hides both.
+      let barOnly = false;
       if (placedLevel === null && isWideSpan) {
-        const fallbackLevel =
-          (layoutLevels[layoutLevels.length - 1] ?? 1) * side;
-        placedLevel = fallbackLevel;
-        occupy(fallbackLevel, eventStart, eventEnd);
+        let barLevel: number | null = null;
+        for (const candidateSide of [side, -side]) {
+          for (const level of layoutLevels) {
+            const actualLevel = level * candidateSide;
+            if (packer.fits(rectsAt(actualLevel).slice(1))) {
+              barLevel = actualLevel;
+              break;
+            }
+          }
+          if (barLevel !== null) break;
+        }
+        if (barLevel !== null) {
+          barOnly = true;
+          placedLevel = barLevel;
+          packer.occupy(rectsAt(barLevel).slice(1));
+        }
+      }
+      if ((layout.barOnly ?? false) !== barOnly) {
+        layout.barOnly = barOnly;
+        notifyLayoutChange();
       }
 
       if (placedLevel !== null) {

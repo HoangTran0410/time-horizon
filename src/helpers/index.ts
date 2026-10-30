@@ -96,3 +96,12 @@ export {
   SPATIAL_MAX_SAFE_LATITUDE,
   SPATIAL_WORLD_CIRCUMFERENCE_METERS,
 } from "./spatialMapping";
+
+export {
+  createCardPacker,
+  getEventCardFootprint,
+  getEventPackingRects,
+  getSpanMarkerPrimary,
+  VERTICAL_SIDE_LABEL_MIN_WIDTH,
+  type PackingRect,
+} from "./eventPacking";

@@ -209,6 +209,12 @@ export type EventLayoutState = {
   opacity: MotionValue<number>;
   targetY: number;
   targetOpacity: number;
+  /**
+   * A wide span with no room left for its card: the canvas draws only the
+   * bar (still hoverable/clickable) rather than piling its label onto a
+   * neighbour's.
+   */
+  barOnly?: boolean;
 };
 
 export type CollapsedEventGroup = {
