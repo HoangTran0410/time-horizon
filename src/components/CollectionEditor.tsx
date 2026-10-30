@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 
 // Lazy-load the heavy emoji picker — only loaded when user opens the picker UI
 const EmojiPicker = lazy(() =>
@@ -96,6 +97,20 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
     });
   };
 
+  // Escape peels one layer at a time: the emoji picker first, then the dialog.
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen: true,
+    onClose: () => {
+      if (showEmojiPicker) {
+        setShowEmojiPicker(false);
+        return;
+      }
+      requestClose();
+    },
+    initialFocusSelector: "input[type='text']",
+  });
+  const fieldId = (name: string) => `${titleId}-${name}`;
+
   const handleBackdropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     shouldCloseOnPointerUpRef.current = e.target === e.currentTarget;
   };
@@ -120,6 +135,10 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="ui-modal-surface ui-panel w-full max-w-md rounded-[1.9rem] p-6 sm:p-8"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
@@ -130,28 +149,37 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           <div>
             <div className="ui-kicker mb-2">{t("libraryBuilder")}</div>
 
-            <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
+            <h2
+              id={titleId}
+              className="ui-display-title text-[1.9rem] leading-none text-white"
+            >
               {title ??
                 (mode === "edit" ? t("editCollection") : t("newCollection"))}
             </h2>
           </div>
           <button
+            type="button"
             onClick={requestClose}
             className="ui-icon-button h-10 w-10"
             aria-label={t("close")}
+            title={t("close")}
           >
-            <X width={20} height={20} />
+            <X width={20} height={20} aria-hidden="true" />
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="ui-label">{t("icon")}</label>
+            <label className="ui-label" id={fieldId("icon")}>
+              {t("icon")}
+            </label>
             <div className="relative">
               <button
                 type="button"
                 className="collection-emoji-trigger ui-field flex items-center justify-between text-left"
                 onClick={() => setShowEmojiPicker((value) => !value)}
+                aria-labelledby={fieldId("icon")}
+                aria-expanded={showEmojiPicker}
               >
                 <span className="text-lg">{draft.emoji}</span>
                 <ChevronDown width={14} height={14} className="text-zinc-500" />
@@ -184,9 +212,20 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           </div>
 
           <div>
-            <label className="ui-label">{t("name")}</label>
+            <label className="ui-label" htmlFor={fieldId("name")}>
+              {t("name")}
+            </label>
             <input
+              id={fieldId("name")}
               type="text"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? fieldId("error") : undefined}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               value={draft.name}
               onChange={(e) => {
                 setDraft((prev) => ({ ...prev, name: e.target.value }));
@@ -198,8 +237,11 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           </div>
 
           <div>
-            <label className="ui-label">{t("description")}</label>
+            <label className="ui-label" htmlFor={fieldId("description")}>
+              {t("description")}
+            </label>
             <textarea
+              id={fieldId("description")}
               value={draft.description}
               onChange={(e) => {
                 setDraft((prev) => ({ ...prev, description: e.target.value }));
@@ -212,7 +254,10 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
           </div>
 
           {error && (
-            <p className="rounded-2xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+            <p
+              id={fieldId("error")}
+              role="alert"
+              className="rounded-2xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-300">
               {error}
             </p>
           )}
@@ -220,12 +265,14 @@ export const CollectionEditor: React.FC<CollectionEditorProps> = ({
 
         <div className="mt-8 flex justify-end gap-3">
           <button
+            type="button"
             onClick={requestClose}
             className="ui-button ui-button-secondary px-6 py-3"
           >
             {t("cancel")}
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             className="ui-button ui-button-primary px-6 py-3"
           >

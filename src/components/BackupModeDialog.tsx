@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, Download, Trash2, Upload } from "lucide-react";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 
 interface BackupModeDialogProps {
   isOpen: boolean;
@@ -20,6 +21,10 @@ export const BackupModeDialog: React.FC<BackupModeDialogProps> = ({
   onCancel,
 }) => {
   const { t } = useI18n();
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen,
+    onClose: onCancel,
+  });
 
   if (typeof document === "undefined") {
     return null;
@@ -39,6 +44,10 @@ export const BackupModeDialog: React.FC<BackupModeDialogProps> = ({
           onClick={onCancel}
         >
           <motion.div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             className="ui-modal-surface ui-panel w-full max-w-lg overflow-hidden rounded-[2rem]"
             initial={{ opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -54,7 +63,7 @@ export const BackupModeDialog: React.FC<BackupModeDialogProps> = ({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="ui-kicker">{t("backupChoiceKicker")}</div>
-                  <h2 className="ui-display-title mt-2 text-[1.5rem] leading-tight text-white">
+                  <h2 id={titleId} className="ui-display-title mt-2 text-[1.5rem] leading-tight text-white">
                     {t("backupChoiceTitle", { count: collectionNames.length })}
                   </h2>
                   <p className="mt-2 text-[0.92rem] leading-7 text-zinc-400">

@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { FileText, FolderOpen, Plus } from "lucide-react";
+import { MotionConfig } from "motion/react";
 import { ThemeMode } from "../constants/theme";
 import {
   Event,
@@ -15,7 +16,12 @@ import {
   StoredEvent,
   TimelineLayoutMode,
 } from "../constants/types";
-import { GOOGLE_CLIENT_ID } from "../constants";
+import {
+  CAMERA_FIT_PADDING,
+  GOOGLE_CLIENT_ID,
+  MAX_ZOOM,
+  MIN_ZOOM,
+} from "../constants";
 import { CollectionEditor } from "./CollectionEditor";
 import { EventEditor } from "./EventEditor";
 import { Sidebar } from "./Sidebar";
@@ -32,6 +38,13 @@ import { SyncPanel } from "./SyncPanel";
 import { TimelineGuidanceOverlay } from "./TimelineGuidanceOverlay";
 import { TimelineCanvasViewport } from "./TimelineCanvasViewport";
 import { WarpOverlay } from "./TimelineMarkers";
+import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
+import { TimelineFirstRunHint } from "./TimelineFirstRunHint";
+import {
+  getKeyboardCameraRange,
+  getTimelineKeyAction,
+  isEditableKeyTarget,
+} from "./timelineKeyboard";
 import {
   createSpatialAnchorFromViewport,
   createLocalDateStamp,
@@ -126,6 +139,9 @@ export const Timeline = ({
    * previously all four could be true at once, stacking their dim layers.
    */
   const [overlayPanel, setOverlayPanel] = useState<OverlayPanel>(null);
+  const [isShortcutsDialogOpen, setIsShortcutsDialogOpen] = useState(false);
+  // Bumped by the "/" shortcut; Controller opens (and focuses) search on change.
+  const [searchOpenRequest, setSearchOpenRequest] = useState(0);
   const isSettingsPanelOpen = overlayPanel === "settings";
   const isSpatialSettingsPanelOpen = overlayPanel === "spatial";
   const isSyncPanelOpen = overlayPanel === "sync";
@@ -1355,6 +1371,145 @@ export const Timeline = ({
     [],
   );
 
+  // Keyboard navigation for the canvas. Read through a ref so the listener is
+  // bound once instead of on every render of this very busy component.
+  const keyboardContextRef = useRef({
+    orientation: effectiveTimelineOrientation,
+    verticalTimeDirection,
+    selectedEventNeighbors,
+    handleAutoFit,
+    handleAutoFitRange,
+    handleFocusEvent,
+  });
+  keyboardContextRef.current = {
+    orientation: effectiveTimelineOrientation,
+    verticalTimeDirection,
+    selectedEventNeighbors,
+    handleAutoFit,
+    handleAutoFitRange,
+    handleFocusEvent,
+  };
+
+  const keyboardCameraTargetRef = useRef<{
+    centerYear: number;
+    zoom: number;
+    orientation: string;
+    at: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (isEditableKeyTarget(event.target as HTMLElement | null)) return;
+      // Any open modal owns the keyboard.
+      if (document.querySelector("[aria-modal='true']")) return;
+
+      const context = keyboardContextRef.current;
+      const action = getTimelineKeyAction(event, context.orientation);
+      if (!action) return;
+
+      // Arrow keys on a focused button/link inside a floating panel belong to
+      // that panel; only steal them from the page itself or the canvas.
+      const target = event.target as HTMLElement | null;
+      const isArrow = event.key.startsWith("Arrow");
+      if (
+        isArrow &&
+        target &&
+        target !== document.body &&
+        !containerRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      switch (action) {
+        case "help":
+          event.preventDefault();
+          setIsShortcutsDialogOpen(true);
+          return;
+        case "search":
+          event.preventDefault();
+          setSearchOpenRequest((value) => value + 1);
+          return;
+        case "fitAll":
+          event.preventDefault();
+          context.handleAutoFit();
+          return;
+        case "previousEvent":
+        case "nextEvent": {
+          const neighbor =
+            action === "previousEvent"
+              ? context.selectedEventNeighbors.previousEvent
+              : context.selectedEventNeighbors.nextEvent;
+          if (neighbor) {
+            event.preventDefault();
+            context.handleFocusEvent(neighbor);
+          }
+          return;
+        }
+        default: {
+          const container = containerRef.current;
+          if (!container) return;
+          const primarySize =
+            context.orientation === "horizontal"
+              ? container.clientWidth
+              : container.clientHeight;
+          const axisDirection =
+            context.orientation === "vertical" &&
+            context.verticalTimeDirection === "up"
+              ? -1
+              : 1;
+          // Repeated presses chain from the previous key's target rather than
+          // the mid-animation camera, so holding a key keeps a steady pace.
+          const now = performance.now();
+          const pending = keyboardCameraTargetRef.current;
+          const isChained =
+            pending !== null &&
+            now - pending.at < 650 &&
+            pending.orientation === context.orientation;
+          const zoomValue = isChained
+            ? pending.zoom
+            : Math.exp(currentLogZoom.get());
+          const centerYear = isChained
+            ? pending.centerYear
+            : focusYear.get() +
+              (primarySize / 2 - focusPixel.get()) /
+                (zoomValue * axisDirection);
+          const range = getKeyboardCameraRange(
+            action,
+            {
+              centerYear,
+              zoom: zoomValue,
+              primarySize,
+              axisDirection,
+              fitFraction: 1 - CAMERA_FIT_PADDING * 2,
+            },
+            { large: event.shiftKey },
+          );
+          if (!range) return;
+          event.preventDefault();
+          const fitFraction = 1 - CAMERA_FIT_PADDING * 2;
+          keyboardCameraTargetRef.current = {
+            centerYear: (range.startYear + range.endYear) / 2,
+            // Mirrors the fit's own clamp loosely; the viewport clamps for real.
+            zoom: Math.min(
+              MAX_ZOOM,
+              Math.max(
+                MIN_ZOOM,
+                (primarySize * fitFraction) / (range.endYear - range.startYear),
+              ),
+            ),
+            orientation: context.orientation,
+            at: now,
+          };
+          context.handleAutoFitRange(range);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentLogZoom, focusPixel, focusYear]);
+
   useEffect(() => {
     if (!sharedSpatialMapping) return;
     setSpatialMapping(sharedSpatialMapping);
@@ -1377,7 +1532,9 @@ export const Timeline = ({
   }, [hasPendingSyncableChanges]);
 
   return (
-    <>
+    // Every motion-driven panel/dialog below honours the OS "reduce motion"
+    // setting; the canvas camera is direct manipulation and stays as is.
+    <MotionConfig reducedMotion="user">
       {isDraggingFile && (
         <div
           onDragEnter={handleFileDragEnter}
@@ -1393,10 +1550,10 @@ export const Timeline = ({
               </div>
               <div>
                 <div className="text-[1.15rem] font-semibold text-emerald-100">
-                  Drop to import
+                  {t("dropToImportTitle")}
                 </div>
                 <div className="mt-1 text-[0.85rem] text-emerald-300/70">
-                  Time Horizon collection file (.json)
+                  {t("dropToImportDescription")}
                 </div>
               </div>
             </div>
@@ -1475,6 +1632,16 @@ export const Timeline = ({
             ]}
           />
         ) : null}
+
+        <TimelineFirstRunHint
+          isSuppressed={
+            shouldShowEmptyTimelineGuidance ||
+            isViewportBeforeBigBang ||
+            overlayPanel !== null ||
+            isSidebarOpen ||
+            isShortcutsDialogOpen
+          }
+        />
 
         {isViewportBeforeBigBang ? (
           <TimelineGuidanceOverlay
@@ -1563,7 +1730,15 @@ export const Timeline = ({
           onShare={() => setOverlayPanel("share")}
           onToggleTheme={onToggleTheme}
           onOpenSpatialPanel={() => setOverlayPanel("spatial")}
+          onOpenShortcuts={() => {
+            closeOverlayPanel();
+            setIsShortcutsDialogOpen(true);
+          }}
           onClose={closeOverlayPanel}
+        />
+        <KeyboardShortcutsDialog
+          isOpen={isShortcutsDialogOpen}
+          onClose={() => setIsShortcutsDialogOpen(false)}
         />
         <SpatialSettingsPanel
           isOpen={isSpatialSettingsPanelOpen}
@@ -1582,6 +1757,7 @@ export const Timeline = ({
         />
 
         <Controller
+          searchOpenRequest={searchOpenRequest}
           zoomRangeLabel={zoomRangeLabel}
           searchableEvents={timelineEvents}
           selectedEvent={selectedEventInfo}
@@ -1701,7 +1877,7 @@ export const Timeline = ({
             onSubmit={handleCreateNewCollection}
             onClose={handleCloseImportDialog}
             title={
-              pendingImportEvents ? "New Collection for Import" : undefined
+              pendingImportEvents ? t("newCollectionForImport") : undefined
             }
           />
         )}
@@ -1716,7 +1892,6 @@ export const Timeline = ({
             }}
             onSubmit={handleUpdateExistingCollection}
             onClose={() => setEditingCollection(null)}
-            title="Edit Collection"
           />
         )}
 
@@ -1798,10 +1973,10 @@ export const Timeline = ({
 
         <ConfirmDialog
           isOpen={Boolean(importError)}
-          title="Import failed"
+          title={t("importFailedTitle")}
           description={importError ?? ""}
-          confirmLabel="OK"
-          cancelLabel="Close"
+          confirmLabel={t("ok")}
+          cancelLabel={t("close")}
           onConfirm={() => setImportError(null)}
           onCancel={() => setImportError(null)}
         />
@@ -1830,6 +2005,6 @@ export const Timeline = ({
           zoomPivotIsExact={isWarpPivotExact}
         />
       </div>
-    </>
+    </MotionConfig>
   );
 };

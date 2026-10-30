@@ -17,6 +17,7 @@ import {
   sanitizeSpatialMapOpacity,
 } from "../helpers";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 import { useStore } from "../stores";
 
 interface SpatialSettingsPanelProps {
@@ -59,6 +60,9 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
     setOpacityInput(String(Math.round(mapping.mapOpacity * 100)));
   }, [mapping.mapOpacity]);
 
+  // Escape is handled here (not only by Timeline) so a stacked dialog wins.
+  const { containerRef, titleId } = useDialogA11y({ isOpen, onClose });
+
   const anchorYearLabel =
     mapping.anchorYear === null
       ? t("usingCurrentViewportAsAnchor")
@@ -83,6 +87,10 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
           onClick={onClose}
         >
           <motion.div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             key="spatial-settings-card"
             className="ui-modal-surface ui-panel my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-[1.9rem] p-6 sm:p-8"
             initial={{ opacity: 0, scale: 0.94, y: 8 }}
@@ -96,9 +104,9 @@ export const SpatialSettingsPanel: React.FC<SpatialSettingsPanelProps> = ({
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <div className="ui-kicker">{t("spatialBackground")}</div>
-                <div className="ui-display-title mt-1 text-[1.35rem] leading-none text-white">
+                <h2 id={titleId} className="ui-display-title mt-1 text-[1.35rem] leading-none text-white">
                   {t("spaceTimeMapping")}
-                </div>
+                </h2>
               </div>
               <button
                 type="button"

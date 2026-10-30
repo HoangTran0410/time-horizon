@@ -5,6 +5,7 @@ import {
   Cloud,
   Code,
   Globe2,
+  Keyboard,
   Maximize2,
   Minimize2,
   MoonStar,
@@ -16,6 +17,7 @@ import type { ThemeMode } from "../constants/theme";
 import { LANGUAGE_OPTIONS } from "../helpers/localization";
 import { LanguagePickerButton } from "./LanguagePickerButton";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 import { useStore } from "../stores";
 import { hasPendingSyncableChanges as hasPendingSyncableChangesForSync } from "../sync";
 import { getSyncStatusLabelKey, getSyncStatusPresentation } from "./syncStatus";
@@ -27,6 +29,8 @@ interface ControlCenterPanelProps {
   onOpenSyncPanel: () => void;
   onShare: () => void;
   onToggleTheme: () => void;
+  /** Optional: hosts without keyboard navigation simply omit the button. */
+  onOpenShortcuts?: () => void;
   onClose: () => void;
 }
 
@@ -37,6 +41,7 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
   onOpenSyncPanel,
   onShare,
   onToggleTheme,
+  onOpenShortcuts,
   onClose,
 }) => {
   const { t } = useI18n();
@@ -64,6 +69,14 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
     return document.fullscreenElement !== null;
   });
 
+  // Touch-only devices have no keyboard to use shortcuts with.
+  const [isCoarsePointer] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches,
+  );
+
   const supportsFullscreen =
     typeof document !== "undefined" &&
     typeof document.documentElement.requestFullscreen === "function";
@@ -90,6 +103,8 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
   const spatialStatusLabel = spatialMappingEnabled
     ? t("enabled")
     : t("disabled");
+
+  const { containerRef, titleId } = useDialogA11y({ isOpen, onClose });
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -131,6 +146,10 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
           onClick={onClose}
         >
           <motion.div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             className="ui-panel mt-2 w-full max-w-[24rem] overflow-hidden rounded-[1.9rem] border border-zinc-800/90 bg-zinc-950/96 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -145,9 +164,9 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
                   <div className="ui-kicker text-emerald-300">
                     {t("controlCenter")}
                   </div>
-                  <div className="mt-1 text-[1.3rem] font-semibold tracking-[-0.03em] text-white">
+                  <h2 id={titleId} className="mt-1 text-[1.3rem] font-semibold tracking-[-0.03em] text-white">
                     {t("toolbarSettingsTitle")}
-                  </div>
+                  </h2>
                   {/* <p className="mt-1 text-[0.82rem] leading-6 text-zinc-400">
                     {t("toolbarSettingsDescription")}
                   </p> */}
@@ -159,7 +178,7 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
                   aria-label={t("close")}
                   title={t("close")}
                 >
-                  <X width={15} height={15} />
+                  <X width={15} height={15} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -280,6 +299,17 @@ export const ControlCenterPanel: React.FC<ControlCenterPanelProps> = ({
                     <span>{currentOption.shortLabel}</span>
                   </span>
                 </div>
+
+                {onOpenShortcuts && !isCoarsePointer ? (
+                  <button
+                    type="button"
+                    onClick={onOpenShortcuts}
+                    className="ui-button ui-button-secondary justify-center rounded-[1rem] px-4 py-3"
+                  >
+                    <Keyboard width={15} height={15} aria-hidden="true" />
+                    <span>{t("keyboardShortcutsShort")}</span>
+                  </button>
+                ) : null}
 
                 <a
                   href="https://github.com/hoangTran0410/time-horizon"

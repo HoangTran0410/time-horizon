@@ -102,6 +102,7 @@ const EventImagePreview: React.FC<EventImagePreviewProps> = ({
   onPointerCancel,
   onDoubleClick,
 }) => {
+  const { t } = useI18n();
   const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
     "loading",
   );
@@ -166,8 +167,8 @@ const EventImagePreview: React.FC<EventImagePreviewProps> = ({
       {status === "error" && (
         <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
           <div className="flex flex-col items-center gap-1 text-[10px]">
-            <ImageOff width={16} height={16} />
-            <span>Image unavailable</span>
+            <ImageOff width={16} height={16} aria-hidden="true" />
+            <span>{t("imageUnavailable")}</span>
           </div>
         </div>
       )}
@@ -188,7 +189,8 @@ const EventImagePreview: React.FC<EventImagePreviewProps> = ({
         onPointerCancel={onPointerCancel}
         onDoubleClick={onDoubleClick}
         className={`${sharedClassName} transition-transform hover:scale-[1.03]`}
-        title="Open image"
+        title={t("openImage")}
+        aria-label={t("openImage")}
       >
         {content}
       </button>
