@@ -5,7 +5,11 @@ import {
   LAYOUT_MAX_LEVELS_PER_SIDE,
   LAYOUT_ROW_OFFSET,
 } from "../constants";
-import type { CollapsedEventGroup } from "../constants/types";
+import type {
+  CollapsedEventGroup,
+  TimelineOrientation,
+} from "../constants/types";
+import { getEventCardFootprint } from "./eventPacking";
 
 export const getTimelineLayoutLevelCount = (viewportHeight: number): number => {
   const halfHeight = Math.max(0, viewportHeight / 2);
@@ -21,8 +25,29 @@ export const getTimelineLayoutLevels = (viewportHeight: number): number[] =>
     (_, index) => index + 1,
   );
 
-export const getCollapsedGroupOffset = (viewportHeight: number): number =>
-  (getTimelineLayoutLevelCount(viewportHeight) + 1) * LAYOUT_ROW_OFFSET;
+const COLLAPSED_GROUP_RADIUS = 22;
+
+/**
+ * Cross offset of the "+N" collapsed-group badges: one row past the last
+ * layout row, and — given the orientation — far enough out that the badge
+ * clears the outermost row's card. Vertical timelines draw labels beside the
+ * marker, which reaches well past one row, and a badge on the next row sat on
+ * top of them. Clamped so the badge stays on screen.
+ */
+export const getCollapsedGroupOffset = (
+  viewportHeight: number,
+  orientation?: TimelineOrientation,
+): number => {
+  const levelCount = getTimelineLayoutLevelCount(viewportHeight);
+  const nextRow = (levelCount + 1) * LAYOUT_ROW_OFFSET;
+  if (!orientation) return nextRow;
+
+  const cardReach = getEventCardFootprint(orientation, viewportHeight, 1).crossEnd;
+  const clearOfCards =
+    levelCount * LAYOUT_ROW_OFFSET + cardReach + COLLAPSED_GROUP_RADIUS + 4;
+  const onScreen = viewportHeight / 2 - COLLAPSED_GROUP_RADIUS - 4;
+  return Math.max(nextRow, Math.min(clearOfCards, onScreen));
+};
 
 /**
  * One frame of the camera, reduced to the map it applies to years.

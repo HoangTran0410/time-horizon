@@ -7,7 +7,11 @@ import {
   TimelineOrientation,
   VerticalTimeDirection,
 } from "../constants/types";
-import { BIG_BANG_YEAR, SPAN_MIN_RENDER_PX } from "../constants";
+import {
+  BIG_BANG_YEAR,
+  SPAN_CLAMP_MARGIN_PX,
+  SPAN_MIN_RENDER_PX,
+} from "../constants";
 import { resolveThemeMode, ThemeMode } from "../constants/theme";
 import { CANVAS_FONT_PRESETS } from "../constants/typography";
 import {
@@ -19,6 +23,7 @@ import {
   getEventTimelineEndYear,
   getEventTimelineRange,
   getEventTimelineYear,
+  VERTICAL_SIDE_LABEL_MIN_WIDTH,
 } from "../helpers";
 import { getLocalizedEventTitle } from "../helpers/localization";
 import {
@@ -127,7 +132,6 @@ const approach = (
 const EVENT_RADIUS = 24;
 /** Thickness of a span bar, and how far past the viewport edge it may extend. */
 const SPAN_BAR_THICKNESS = 10;
-const SPAN_CLAMP_MARGIN_PX = 40;
 /** Length of the fade-out at the "now" end of an ongoing span's bar. */
 const ONGOING_FADE_PX = 36;
 const COLLAPSED_RADIUS = 22;
@@ -686,7 +690,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       .filter((event): event is Event => event !== undefined);
     const anchorPrimary = getPrimaryScreenPosition(group.year);
     const rowCross =
-      group.cross ?? group.side * getCollapsedGroupOffset(viewportHeight);
+      group.cross ?? group.side * getCollapsedGroupOffset(viewportHeight, orientation);
 
     if (events.length === 0) {
       return {
@@ -803,7 +807,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     for (const group of currentCollapsedGroups) {
       const groupPoint = toCanvasPoint(
         getPrimaryScreenPosition(group.year),
-        group.cross ?? group.side * getCollapsedGroupOffset(crossSize),
+        group.cross ?? group.side * getCollapsedGroupOffset(crossSize, orientation),
         width,
         height,
       );
@@ -854,7 +858,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         width,
         height,
       );
-      if (Math.hypot(x - eventX, y - eventY) <= EVENT_RADIUS) {
+      if (
+        !(layout.barOnly && hasVisibleSpan) &&
+        Math.hypot(x - eventX, y - eventY) <= EVENT_RADIUS
+      ) {
         return { type: "event", event: visibleEvent.event };
       }
 
@@ -1263,7 +1270,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           Math.abs(currentExpandedCollapsedGroup.year - group.year) < 1e-9;
         const groupPoint = toCanvasPoint(
           getPrimaryScreenPosition(group.year),
-          group.cross ?? group.side * getCollapsedGroupOffset(crossSize),
+          group.cross ?? group.side * getCollapsedGroupOffset(crossSize, orientation),
           width,
           height,
         );
@@ -1563,6 +1570,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           ctx.stroke();
         }
 
+        if (layout.barOnly && hasVisibleSpan) {
+          restoreCanvasState();
+          continue;
+        }
+
         ctx.strokeStyle = isHighlighted ? activeLineColor : idleLineColor;
         ctx.beginPath();
         if (orientation === "horizontal") {
@@ -1654,9 +1666,24 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         const isBelowMarker = layout.y.get() > 0;
         const useStackedLabels =
           orientation === "horizontal" ||
-          (orientation === "vertical" && width < 640);
+          (orientation === "vertical" && width < VERTICAL_SIDE_LABEL_MIN_WIDTH);
         const stackedLabelsBelowEvent =
-          orientation === "vertical" && width < 640 ? true : isBelowMarker;
+          orientation === "vertical" && width < VERTICAL_SIDE_LABEL_MIN_WIDTH ? true : isBelowMarker;
+        // Narrow vertical timelines stack the label along the event's own span
+        // bar; a halo in the card colour keeps the text legible over it.
+        const haloLabels =
+          hasVisibleSpan &&
+          orientation === "vertical" &&
+          width < VERTICAL_SIDE_LABEL_MIN_WIDTH;
+        if (haloLabels) {
+          ctx.strokeStyle = canvasTheme.eventFill;
+          ctx.lineWidth = 4;
+          ctx.lineJoin = "round";
+        }
+        const fillLabelText = (text: string, x: number, y: number) => {
+          if (haloLabels) ctx.strokeText(text, x, y);
+          ctx.fillText(text, x, y);
+        };
 
         if (useStackedLabels) {
           setTextStyle({
@@ -1666,7 +1693,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           if (stackedLabelsBelowEvent) {
             const titleTop = eventY + 34;
             titleLines.forEach((line, index) => {
-              ctx.fillText(
+              fillLabelText(
                 line,
                 eventX,
                 snap(titleTop + index * EVENT_TITLE_LINE_HEIGHT),
@@ -1724,7 +1751,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
               34 -
               titleLines.length * EVENT_TITLE_LINE_HEIGHT -
               EVENT_LABEL_GAP;
-          ctx.fillText(label, eventX, snap(dateY));
+          fillLabelText(label, eventX, snap(dateY));
         } else {
           const labelX =
             eventX +

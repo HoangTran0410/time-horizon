@@ -158,4 +158,10 @@ export const LONG_TRAVEL_VIEWPORT_MULTIPLIER = 2.5;
  * would be shorter than the event marker itself, so it is drawn and laid out
  * as a plain point event.
  */
+/**
+ * How far past the viewport a span bar is drawn before clamping; its marker
+ * sits at the middle of the clamped bar. Shared by the canvas and the layout
+ * pass, which has to predict where that marker lands.
+ */
+export const SPAN_CLAMP_MARGIN_PX = 40;
 export const SPAN_MIN_RENDER_PX = 28;

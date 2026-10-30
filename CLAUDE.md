@@ -119,6 +119,13 @@ row/fade MotionValues report changes through `hooks/eventLayoutSignal.ts`, which
 knows to repaint while they animate. Every `Timeline` re-render re-renders its whole subtree, so
 avoid new per-frame or per-sample `setState` calls.
 
+Row layout (compact mode) packs each event's real card rectangle — marker, wrapped title, date, and
+span bar — with `helpers/eventPacking.ts`, testing collisions against every placed card, not just
+the same row. Its footprint constants mirror the canvas draw code (`EVENT_RADIUS`,
+`EVENT_LABEL_MAX_WIDTH`, the 34px label offset, title line height); **change one, change both**,
+or labels start overlapping again. A wide span with no room for its card is drawn bar-only
+(`layout.barOnly`); with no room for the bar either it collapses into a "+N" group.
+
 ### Canvas rendering: `src/components/TimelineCanvasViewport.tsx`
 
 The timeline itself (ticks, event cards, emoji, labels, ruler, hover states) is drawn into one
