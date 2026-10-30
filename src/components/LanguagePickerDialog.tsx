@@ -1,9 +1,10 @@
 import React, { useMemo } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Check, Languages, X } from "lucide-react";
 import { LANGUAGE_OPTIONS } from "../helpers/localization";
 import { useI18n } from "../i18n";
 import { useStore } from "../stores";
+import { useDialogA11y } from "./useDialogA11y";
 
 const dialogTransition = {
   type: "spring",
@@ -34,6 +35,12 @@ export const LanguagePickerDialog: React.FC<LanguagePickerDialogProps> = ({
   const { language, t } = useI18n();
   const setCurrentLanguage = useStore((state) => state.setCurrentLanguage);
 
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen,
+    onClose,
+    initialFocusSelector: "[aria-pressed='true']",
+  });
+
   const currentOption = useMemo(
     () =>
       LANGUAGE_OPTIONS.find((option) => option.value === language) ??
@@ -42,6 +49,7 @@ export const LanguagePickerDialog: React.FC<LanguagePickerDialogProps> = ({
   );
 
   return (
+    <MotionConfig reducedMotion="user">
     <AnimatePresence>
       {isOpen ? (
         <motion.div
@@ -58,6 +66,10 @@ export const LanguagePickerDialog: React.FC<LanguagePickerDialogProps> = ({
           onWheel={(event) => event.stopPropagation()}
         >
           <motion.div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             className="ui-modal-surface ui-panel w-full max-w-sm overflow-hidden rounded-[2rem]"
             initial={{ opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -70,10 +82,12 @@ export const LanguagePickerDialog: React.FC<LanguagePickerDialogProps> = ({
             <div className="border-b border-zinc-800 bg-[radial-gradient(circle_at_top,_rgba(23,181,143,0.18),_transparent_50%)] px-6 pb-4 pt-6">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">
-                  <Languages size={20} />
+                  <Languages size={20} aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white">
+                  <h2
+                    id={titleId}
+                    className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white">
                     {t("chooseLanguage")}
                   </h2>
                 </div>
@@ -97,6 +111,8 @@ export const LanguagePickerDialog: React.FC<LanguagePickerDialogProps> = ({
                   <button
                     key={option.value}
                     type="button"
+                    lang={option.value}
+                    aria-pressed={isActive}
                     onClick={() => {
                       setCurrentLanguage(option.value);
                       onClose();
@@ -136,5 +152,6 @@ export const LanguagePickerDialog: React.FC<LanguagePickerDialogProps> = ({
         </motion.div>
       ) : null}
     </AnimatePresence>
+    </MotionConfig>
   );
 };

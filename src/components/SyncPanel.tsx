@@ -13,6 +13,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { GOOGLE_CLIENT_ID } from "../constants";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 import { useStore } from "../stores";
 
 interface SyncPanelProps {
@@ -68,6 +69,8 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
           ? t("syncError")
           : t("syncDisconnected");
 
+  const { containerRef, titleId } = useDialogA11y({ isOpen, onClose });
+
   const lastSyncedLabel = syncPreferences.lastSuccessfulSyncAt
     ? new Date(syncPreferences.lastSuccessfulSyncAt).toLocaleString(
         language === "vi" ? "vi-VN" : "en-US",
@@ -90,6 +93,10 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
           onClick={onClose}
         >
           <motion.div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             className="ui-modal-surface ui-panel my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.9rem] p-6 sm:p-8"
             initial={{ opacity: 0, scale: 0.94, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -101,9 +108,9 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <div className="ui-kicker">{t("syncSettings")}</div>
-                <div className="ui-display-title mt-1 text-[1.35rem] leading-none text-white">
+                <h2 id={titleId} className="ui-display-title mt-1 text-[1.35rem] leading-none text-white">
                   {t("googleDriveSync")}
-                </div>
+                </h2>
               </div>
               <button
                 type="button"

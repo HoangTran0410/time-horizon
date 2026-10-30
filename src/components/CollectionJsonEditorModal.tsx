@@ -10,6 +10,7 @@ import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { X } from "lucide-react";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 
 // Lazy-load the heavy Monaco Editor — only loaded when the modal opens
 const Editor = lazy(() =>
@@ -163,6 +164,12 @@ export const CollectionJsonEditorModal: React.FC<
     return () => document.removeEventListener("keydown", handler);
   }, [isClosing, requestClose]);
 
+  // Escape is owned by the listener above (it must fire inside Monaco).
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen: true,
+    closeOnEscape: false,
+  });
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -196,6 +203,10 @@ export const CollectionJsonEditorModal: React.FC<
       onWheel={(e) => e.stopPropagation()}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="ui-modal-surface ui-panel relative flex w-full max-w-5xl flex-col overflow-hidden rounded-[1.6rem]"
         data-ui-state={isClosing ? "closing" : "open"}
         style={{ height: "min(92vh, 820px)" }}
@@ -208,7 +219,7 @@ export const CollectionJsonEditorModal: React.FC<
           <div className="min-w-0">
             <div className="ui-kicker mb-1">{t("jsonEditor")}</div>
             
-            <h2 className="ui-display-title text-[1.3rem] leading-none text-white sm:text-[1.5rem] sm:leading-none">
+            <h2 id={titleId} className="ui-display-title text-[1.3rem] leading-none text-white sm:text-[1.5rem] sm:leading-none">
               {collectionName}
             </h2>
           </div>

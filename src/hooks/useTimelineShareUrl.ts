@@ -358,22 +358,59 @@ export const getSharedOrientationFromSearch = (
   return null;
 };
 
-/** Write focusYear + logZoom to URL params. Uses scientific notation for large values. */
+/**
+ * Viewport width the URL precision is budgeted for. The real width is not
+ * known here (and differs on the receiving device), so a generous desktop
+ * width is assumed; narrower screens only get more precision than they need.
+ */
+const VIEWPORT_URL_REFERENCE_PX = 1000;
+/** Largest focus error a shared link may introduce, as a fraction of the visible span. */
+const VIEWPORT_URL_MAX_SPAN_ERROR = 1e-5;
+/** Plain years keep at least this many decimals, which is what links always carried. */
+const VIEWPORT_URL_MIN_YEAR_DECIMALS = 2;
+
+/**
+ * Shortest year string that still lands within a small fraction of the
+ * visible span. A fixed 4-significant-digit exponent used to move -1234567 to
+ * -1235000, a 433-year jump on a link opened at century zoom.
+ */
+const formatViewportYearForUrl = (focusYear: number, logZoom: number) => {
+  const visibleSpanYears = VIEWPORT_URL_REFERENCE_PX / Math.exp(logZoom);
+  const step = visibleSpanYears * VIEWPORT_URL_MAX_SPAN_ERROR;
+
+  if (Math.abs(focusYear) < 1e6) {
+    const decimals = Number.isFinite(step) && step > 0
+      ? Math.ceil(-Math.log10(Math.min(step, 10 ** -VIEWPORT_URL_MIN_YEAR_DECIMALS)))
+      : VIEWPORT_URL_MIN_YEAR_DECIMALS;
+    return String(Number(focusYear.toFixed(Math.min(15, decimals))));
+  }
+
+  // Large years: scientific notation with only the significant digits the
+  // zoom needs, e.g. "-6.6e7" or "-1.234567e6".
+  const exponent = Math.floor(Math.log10(Math.abs(focusYear)));
+  const stepExponent =
+    Number.isFinite(step) && step > 0 ? Math.floor(Math.log10(step)) : exponent;
+  const significantDigits = Math.max(
+    1,
+    Math.min(17, exponent - stepExponent + 1),
+  );
+  return Number(focusYear.toPrecision(significantDigits))
+    .toExponential()
+    .replace("e+", "e");
+};
+
+/** Write focusYear + logZoom to URL params. Large years use scientific notation. */
 export const setSharedViewportInUrl = (
   url: URL,
   focusYear: number,
   logZoom: number,
 ): void => {
-  const roundedYear = Math.round(focusYear * 100) / 100;
   const roundedLogZoom = Math.round(logZoom * 1000) / 1000;
 
-  // Use scientific notation for large numbers for readability in the URL
-  const yearStr =
-    Math.abs(roundedYear) >= 1e6
-      ? roundedYear.toExponential(3)
-      : String(roundedYear);
-
-  url.searchParams.set(TIMELINE_VIEWPORT_YEAR_PARAM, yearStr);
+  url.searchParams.set(
+    TIMELINE_VIEWPORT_YEAR_PARAM,
+    formatViewportYearForUrl(focusYear, logZoom),
+  );
   url.searchParams.set(TIMELINE_VIEWPORT_ZOOM_PARAM, String(roundedLogZoom));
 };
 

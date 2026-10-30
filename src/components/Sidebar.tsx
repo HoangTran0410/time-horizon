@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { ConfirmDialog, ConfirmDialogOptions } from "./ConfirmDialog";
 import { ExploreCollectionsModal } from "./ExploreCollectionsModal";
+import { useDialogA11y } from "./useDialogA11y";
+import { isEditableKeyTarget } from "./timelineKeyboard";
 import { SearchPanel, SearchPanelStateAdapter } from "./SearchPanel";
 import { CollectionJsonEditorModal } from "./CollectionJsonEditorModal";
 import { stripRuntimeEventIds } from "../helpers";
@@ -58,7 +60,7 @@ interface SidebarProps {
   ) => Promise<string>;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const SidebarView: React.FC<SidebarProps> = ({
   collections,
   syncableCollectionIds,
   editableCollectionIds,
@@ -148,6 +150,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const importInputRef = useRef<HTMLInputElement>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+  const sidebarPanelRef = useRef<HTMLElement>(null);
   const [collectionQuery, setCollectionQuery] = useState("");
   const [, setActiveCollectionId] = useState<string | null>(null);
   const [openCollectionMenuId, setOpenCollectionMenuId] = useState<
@@ -390,6 +394,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
     closeSidebarExplore();
   };
 
+  const { containerRef: browseDialogRef } = useDialogA11y({
+    isOpen: Boolean(browsedCollection),
+    onClose: handleCloseSidebarSearch,
+  });
+
+  // Escape closes the drawer itself when nothing modal sits on top of it.
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector("[aria-modal='true']")) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        isEditableKeyTarget(target) &&
+        !sidebarPanelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      useStore.getState().closeSidebar();
+      sidebarToggleRef.current?.focus({ preventScroll: true });
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarOpen]);
+
   const handleExportCollection = async (
     collectionId: string,
     format: "csv" | "json" = "csv",
@@ -431,13 +461,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       <button
+        ref={sidebarToggleRef}
+        type="button"
         onClick={toggleSidebar}
-        className="ui-panel fixed left-4 top-4 z-95 flex h-12 w-12 items-center justify-center rounded-[1.25rem] text-white"
+        className="ui-panel ui-focusable fixed left-4 top-4 z-95 flex h-12 w-12 items-center justify-center rounded-[1.25rem] text-white"
+        aria-label={isSidebarOpen ? t("closeLibrary") : t("openLibrary")}
+        title={isSidebarOpen ? t("closeLibrary") : t("openLibrary")}
+        aria-expanded={isSidebarOpen}
+        aria-controls="timeline-library-drawer"
       >
-        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        {isSidebarOpen ? (
+          <X size={24} aria-hidden="true" />
+        ) : (
+          <Menu size={24} aria-hidden="true" />
+        )}
       </button>
 
-      <div
+      {/* Off-canvas when closed: `inert` keeps Tab and screen readers out of
+          a drawer nobody can see. */}
+      <aside
+        ref={sidebarPanelRef}
+        id="timeline-library-drawer"
+        aria-label={t("libraryDrawerLabel")}
+        inert={!isSidebarOpen}
         onPointerDown={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
         className={`ui-sidebar-shell fixed left-0 top-0 z-90 flex h-full w-screen max-w-[26rem] transform flex-col transition-transform duration-300 ease-in-out ${
@@ -1020,7 +1066,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
       {browsedCollection ? (
         <div
@@ -1030,6 +1076,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onWheel={(event) => event.stopPropagation()}
         >
           <div
+            ref={browseDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("browseCollectionTitle", {
+              name: browsedCollection.name,
+            })}
             className="w-full max-w-[min(92vw,40rem)]"
             onClick={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
@@ -1047,7 +1099,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               // subtitle={`Browse ${browsedCollectionEvents.length} loaded events.`}
               // searchPlaceholder={`Search ${browsedCollection.name}...`}
               emptyMessage={t("noResultsForCollection")}
-              resultLabel={`${t("collection")} events`}
+              resultLabel={t("collectionEventsLabel")}
               showTimelineToggle={false}
               wrapperClassName="w-full"
               panelClassName="w-full max-w-none rounded-[1.6rem] border-zinc-800 bg-zinc-950/95 shadow-2xl"
@@ -1124,3 +1176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
+// Memoized: Timeline re-renders many times per second while zooming, and the
+// sidebar has nothing to redraw then. Timeline passes it stable props.
+export const Sidebar = React.memo(SidebarView);

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle } from "lucide-react";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 
 export interface ConfirmDialogOptions {
   title: string;
@@ -40,18 +41,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const resolvedConfirmLabel = confirmLabel ?? t("confirm");
   const resolvedCancelLabel = cancelLabel ?? t("cancel");
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onCancel();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onCancel]);
+  // Focus lands on Cancel first: a stray Enter must never confirm a
+  // destructive action.
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen,
+    onClose: onCancel,
+    initialFocusSelector: "[data-dialog-cancel]",
+  });
+  const descriptionId = `${titleId}-description`;
 
   const handleBackdropPointerDown = (
     event: React.PointerEvent<HTMLDivElement>,
@@ -88,6 +85,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           onWheel={(event) => event.stopPropagation()}
         >
           <motion.div
+            ref={containerRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
             className="ui-modal-surface ui-panel w-full max-w-md overflow-hidden rounded-[2rem]"
             initial={{ opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -106,14 +108,20 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                       : "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
                   }`}
                 >
-                  <AlertTriangle size={20} />
+                  <AlertTriangle size={20} aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="ui-kicker">{t("confirmAction")}</div>
-                  <h2 className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white">
+                  <h2
+                    id={titleId}
+                    className="ui-display-title mt-2 text-[1.6rem] leading-tight text-white"
+                  >
                     {title}
                   </h2>
-                  <p className="mt-2 text-[0.92rem] leading-7 text-zinc-400">
+                  <p
+                    id={descriptionId}
+                    className="mt-2 text-[0.92rem] leading-7 text-zinc-400"
+                  >
                     {description}
                   </p>
                 </div>
@@ -124,6 +132,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
+                data-dialog-cancel
                 className="ui-button ui-button-secondary"
               >
                 {resolvedCancelLabel}

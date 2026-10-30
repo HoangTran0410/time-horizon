@@ -29,6 +29,7 @@ import {
   normalizeLocalizedText,
 } from "../helpers/localization";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 import { EventVideoModal } from "./EventVideoModal";
 
 interface EventEditorProps {
@@ -863,6 +864,13 @@ export const EventEditor: React.FC<EventEditorProps> = ({
     </div>
   );
 
+  // Escape stays with handleEditorKeyDownCapture (it must see keys inside
+  // fields); the hook adds focus trapping and focus return.
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen: true,
+    closeOnEscape: false,
+  });
+
   return (
     <div
       className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
@@ -875,6 +883,10 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="ui-modal-surface ui-panel flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.9rem]"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
@@ -884,7 +896,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       >
         {/* Header stays put so the title/close never scroll away. */}
         <div className="flex shrink-0 items-center justify-between gap-4 px-5 pb-3 pt-5 md:px-8 md:pt-6">
-          <h2 className="ui-display-title text-[1.5rem] leading-none text-white md:text-[1.75rem]">
+          <h2 id={titleId} className="ui-display-title text-[1.5rem] leading-none text-white md:text-[1.75rem]">
             {mode === "create" ? t("newEvent") : t("editEvent")}
           </h2>
           <button

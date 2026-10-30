@@ -17,6 +17,8 @@ import {
   MoreHorizontal,
   Trash2,
   X,
+  RefreshCw,
+  WifiOff,
 } from "lucide-react";
 import type {
   CollectionGroupDefinition,
@@ -26,6 +28,7 @@ import type {
 import { groupCollectionsByDefinitions } from "../helpers/collectionGroups";
 import { getLocalizedText } from "../helpers/localization";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 
 interface ExploreCollectionsModalProps {
   collections: EventCollectionMeta[];
@@ -369,16 +372,12 @@ export const ExploreCollectionsModal: React.FC<
     }, 180);
   };
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        requestClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isClosing, onClose]);
+  // Escape/focus handling is shared; it only fires when this is the topmost
+  // dialog, so a confirm opened from here closes on its own.
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen: true,
+    onClose: requestClose,
+  });
 
   useEffect(
     () => () => {
@@ -702,6 +701,10 @@ export const ExploreCollectionsModal: React.FC<
       onWheel={(e) => e.stopPropagation()}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="ui-modal-surface ui-panel w-full max-w-5xl overflow-hidden rounded-[2rem]"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
@@ -717,6 +720,7 @@ export const ExploreCollectionsModal: React.FC<
             <div className="mb-2 flex items-start justify-between gap-3">
               <div className="min-w-0 max-w-2xl">
                 <h2
+                  id={titleId}
                   className={`ui-display-title truncate whitespace-nowrap text-white ${
                     isLowHeightViewport ? "text-[1.9rem]" : "text-[2.3rem]"
                   }`}
@@ -929,7 +933,32 @@ export const ExploreCollectionsModal: React.FC<
             }
             ref={scrollContainerRef}
           >
-            {filteredCollections.length === 0 ? (
+            {collections.length === 0 ? (
+              // The whole catalog is missing — almost always a failed
+              // metadata fetch (offline, data host down), not an empty repo.
+              <div
+                role="status"
+                className="mx-4 flex flex-col items-center rounded-[1.4rem] border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center md:mx-6"
+              >
+                <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/10 text-amber-200">
+                  <WifiOff size={20} aria-hidden="true" />
+                </span>
+                <div className="text-lg font-semibold text-white">
+                  {t("catalogUnavailableTitle")}
+                </div>
+                <p className="mt-2 max-w-md text-[0.9rem] leading-6 text-zinc-400">
+                  {t("catalogUnavailableDescription")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="ui-button ui-button-secondary mt-5 px-4 py-2.5"
+                >
+                  <RefreshCw size={15} aria-hidden="true" />
+                  <span>{t("retry")}</span>
+                </button>
+              </div>
+            ) : filteredCollections.length === 0 ? (
               <div className="mx-4 rounded-[1.4rem] border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center md:mx-6">
                 <div className="text-lg font-semibold text-white">
                   {emptyStateTitle}

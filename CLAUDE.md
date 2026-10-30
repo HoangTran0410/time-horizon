@@ -53,12 +53,22 @@ maplibre-gl for the optional map background. Everything is client-side; there is
 `App.tsx` switches between two views — `LandingPage` and `Timeline` — based on URL params and the
 persisted `lastOpenedView`.
 
-### Single store: `src/stores/index.ts`
+### Single store: `src/stores/`
 
-One ~2.6k-line Zustand store holds all app state, wrapped in `immer(persist(...))`.
+One Zustand store holds all app state, wrapped in `immer(persist(...))`. `stores/index.ts` is the
+store itself (actions, persist config) and the public entry point — import from `../stores`; it
+re-exports what components need from the modules beside it:
+
+- `types.ts` — `TimelineStoreState` and the persisted `TimelinePersistedState` subset.
+- `sanitizers.ts` — the persistence boundary: every `sanitize*` helper, `sanitizeImportedEvents`,
+  `sanitizePersistedTimelineState`, and the collection-record constructors they share
+  (`createCollectionRecord`, `markCollectionSyncStateDirty`, `promoteCollectionToFork`, …).
+- `search.ts` — search filtering/sorting and the partial-date time-range filter.
+- `legacyStorage.ts` — one-time migration of pre-v1 localStorage keys.
+- `collectionLookup.ts` — lookups over `collectionId -> events` maps.
 
 - Persisted under `time-horizon:timeline-store:v1`, **version 5**. New state that must survive reload
-  has to be added to the `partialize` whitelist at the bottom of the file.
+  has to be added to the `partialize` whitelist at the bottom of `stores/index.ts`.
 - `sanitizePersistedTimelineState` re-validates *every* persisted field on rehydrate/merge. Persisted
   payloads also arrive from Google Drive and from user JSON/CSV imports, so this defensive layer is
   intentional — extend the matching `sanitize*` helper when adding persisted shapes.
@@ -84,7 +94,7 @@ carry only metadata until a collection is downloaded.
 ### Event identity: `id` vs `eventUid`
 
 - `event.id` is a **runtime-only** deterministic id derived from event content
-  (`assignRuntimeEventIds` in `src/helpers/index.ts`). It is stripped by `stripRuntimeEventIds`
+  (`assignRuntimeEventIds` in `src/helpers/eventIds.ts`). It is stripped by `stripRuntimeEventIds`
   before persisting and before export. Use it for React keys, selection, hit-testing.
 - `event.eventUid` is the **durable** identity used by Drive sync and conflict handling. It must be
   preserved across edits, imports, and re-downloads.
@@ -103,12 +113,22 @@ coarse results (`ticks`, `collapsedGroups`, labels, fps) are lifted into `useSta
 `ZOOM_*_THROTTLE_MS` constants in `src/constants/index.ts`. Adding per-frame work to a React render
 path here will visibly cost frames — follow the existing ref + rAF pattern.
 
+Nothing may spin a perpetual rAF loop: an idle timeline should schedule no frames. FPS sampling is
+dev-only (`IS_DEV_BUILD`), the zoom-thumb loop runs only while the thumb is off-centre, and event
+row/fade MotionValues report changes through `hooks/eventLayoutSignal.ts`, which is how the canvas
+knows to repaint while they animate. Every `Timeline` re-render re-renders its whole subtree, so
+avoid new per-frame or per-sample `setState` calls.
+
 ### Canvas rendering: `src/components/TimelineCanvasViewport.tsx`
 
 The timeline itself (ticks, event cards, emoji, labels, ruler, hover states) is drawn into one
 `<canvas>` each frame, with manual hit-testing for hover/click. React DOM is used only for overlays:
 panels, dialogs, toolbar, markers, warp overlay. **Changing how an event looks means editing canvas
-draw code and its hit-test region, not JSX.** Text wrapping/measurement is cached per event.
+draw code and its hit-test region, not JSX.** Text wrapping/measurement is cached per event (and
+reset when web fonts finish loading). Text state (`font`, `textAlign`, `textBaseline`) is tracked
+in locals inside the frame instead of read back from the context, which is slow; use
+`setTextStyle` and the `saveCanvasState`/`restoreCanvasState` pair, never raw `ctx.save()` or
+`ctx.font =`.
 
 ### Share URLs: `src/hooks/useTimelineShareUrl.ts`
 
@@ -145,6 +165,10 @@ Two layers:
 
 ### Other notes
 
+- `src/helpers/index.ts` only re-exports focused modules — `time.ts` (EventTime <-> fractional year),
+  `timeFormat.ts` (labels), `ticks.ts` (ruler), `eventIds.ts` (runtime ids / eventUid),
+  `viewportMath.ts`, `mediaUrls.ts`, `color.ts`, `spatialMapping.ts`. Import from `../helpers`;
+  add new helpers to the matching module and its re-export list.
 - Time is `EventTime = [year, month?, day?, hour?, minute?, second?]`, year-only being the common
   case; negative years are BCE and `BIG_BANG_YEAR = -13.8e9` is the floor. Convert with
   `getEventTimelineYear` / `normalizeEventTimeParts` rather than by hand.

@@ -25,7 +25,7 @@ export const TimelineGuidanceOverlay: React.FC<
   >
     <div className="ui-guidance-panel pointer-events-auto w-full max-w-xl p-5 sm:p-6">
       <div className="ui-kicker ui-guidance-eyebrow mb-3">{eyebrow}</div>
-      <h2 className="ui-guidance-title font-[Fraunces,'Times_New_Roman',serif] text-[1.8rem] leading-tight sm:text-[2.15rem]">
+      <h2 className="ui-guidance-title ui-display-title text-[1.8rem] leading-tight sm:text-[2.15rem]">
         {title}
       </h2>
       <p className="ui-guidance-copy mt-3 max-w-lg text-[0.95rem] leading-7">

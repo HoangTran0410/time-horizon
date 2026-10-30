@@ -19,6 +19,8 @@ import { useI18n } from "../i18n";
 import { hasActiveTimelineSearch, useStore } from "../stores";
 
 interface ControllerProps {
+  /** Changes whenever something (the "/" shortcut) asks for search to open. */
+  searchOpenRequest?: number;
   zoomRangeLabel: string;
   searchableEvents: Event[];
   selectedEvent: Event | null;
@@ -57,6 +59,7 @@ interface ControllerProps {
 type ActivePanel = "navigate" | "search" | "info" | null;
 
 export const Controller: React.FC<ControllerProps> = ({
+  searchOpenRequest = 0,
   zoomRangeLabel,
   searchableEvents,
   selectedEvent,
@@ -113,7 +116,39 @@ export const Controller: React.FC<ControllerProps> = ({
     mobileInfoPanelReopenFlag,
   );
 
+  // Opened from the keyboard → the user wants to type, so focus the field.
+  // (Tap-opened search deliberately does not, to keep the mobile keyboard
+  // from covering the results.)
+  const [shouldFocusSearchInput, setShouldFocusSearchInput] =
+    React.useState(false);
+  const lastSearchOpenRequestRef = React.useRef(searchOpenRequest);
+  React.useEffect(() => {
+    if (searchOpenRequest === lastSearchOpenRequestRef.current) return;
+    lastSearchOpenRequestRef.current = searchOpenRequest;
+    setShouldFocusSearchInput(true);
+    setActivePanel("search");
+  }, [searchOpenRequest]);
+
+  // Escape closes whichever floating panel is up (search, navigation, info),
+  // unless a modal is stacked above it — that one owns the key.
+  React.useEffect(() => {
+    if (!activePanel) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector("[aria-modal='true']")) return;
+      setActivePanel(null);
+      setShouldFocusSearchInput(false);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active !== document.body) {
+        active.blur();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activePanel]);
+
   const togglePanel = (panel: Exclude<ActivePanel, null>) => {
+    setShouldFocusSearchInput(false);
     setActivePanel((current) => (current === panel ? null : panel));
   };
 
@@ -250,6 +285,7 @@ export const Controller: React.FC<ControllerProps> = ({
                 {activePanel === "search" ? (
                   <SearchPanel
                     isOpen
+                    autoFocusInput={shouldFocusSearchInput}
                     searchableEvents={searchableEvents}
                     onSearchSelect={handleSearchSelect}
                     onEditEvent={onEditEvent}

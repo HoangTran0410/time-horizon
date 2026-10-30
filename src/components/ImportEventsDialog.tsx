@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type { EventCollectionMeta } from "../constants/types";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 
 interface ImportEventsDialogProps {
   eventCount: number;
@@ -34,6 +35,11 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
     }, 180);
   };
 
+  const { containerRef, titleId } = useDialogA11y({
+    isOpen: true,
+    onClose: requestClose,
+  });
+
   return (
     <div
       className="ui-modal-overlay fixed inset-0 z-100 flex items-center justify-center bg-black/80 p-4"
@@ -46,6 +52,10 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
       onWheel={(e) => e.stopPropagation()}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="ui-modal-surface ui-panel w-full max-w-md rounded-[1.9rem] p-6 sm:p-8"
         data-ui-state={isClosing ? "closing" : "open"}
         onClick={(e) => e.stopPropagation()}
@@ -56,7 +66,10 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
         <div className="mb-6 flex items-center justify-between">
           <div>
             <div className="ui-kicker mb-2">{t("import")}</div>
-            <h2 className="ui-display-title text-[1.9rem] leading-none text-white">
+            <h2
+              id={titleId}
+              className="ui-display-title text-[1.9rem] leading-none text-white"
+            >
               {t("importDialogTitle", { count: eventCount })}
             </h2>
           </div>
@@ -72,6 +85,7 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
@@ -84,9 +98,15 @@ export const ImportEventsDialog: React.FC<ImportEventsDialogProps> = ({
 
         {collections.length > 0 && (
           <div className="mb-4">
-            <label className="ui-label mb-2 block">{t("importInto")}</label>
+            <label
+              htmlFor={`${titleId}-target`}
+              className="ui-label mb-2 block"
+            >
+              {t("importInto")}
+            </label>
             <div className="relative">
               <select
+                id={`${titleId}-target`}
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
                 className="ui-field w-full appearance-none pr-10"

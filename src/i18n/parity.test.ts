@@ -103,3 +103,71 @@ describe("i18n placeholder parity between en.json and vi.json", () => {
     expect(extractPlaceholders("no placeholders here")).toEqual(new Set());
   });
 });
+
+/**
+ * `t()` (src/i18n/index.ts) only understands one ICU shape:
+ * `{name, plural, one {...} other {...}}` with no braces inside a branch. Any
+ * other ICU form (`=0`, `few`, `select`, nested placeholders in a branch) is
+ * rendered to the user verbatim. This mirrors that regex so a string the
+ * runtime cannot interpolate fails here instead of on screen.
+ */
+const SUPPORTED_PLURAL_BLOCK =
+  /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g;
+
+const findUnsupportedIcu = (value: string): string | null => {
+  const withoutPlurals = value.replace(SUPPORTED_PLURAL_BLOCK, "");
+  if (/\{\s*\w+\s*,/.test(withoutPlurals)) return "unsupported ICU block";
+  // Whatever is left must be plain `{name}` placeholders with balanced braces.
+  const leftover = withoutPlurals.replace(/\{\w+\}/g, "");
+  if (/[{}]/.test(leftover)) return "unbalanced or non-identifier braces";
+  return null;
+};
+
+describe("i18n strings only use syntax the runtime interpolator supports", () => {
+  for (const [language, map] of [
+    ["en", enMap],
+    ["vi", viMap],
+  ] as const) {
+    it(`${language}.json has no ICU shapes t() would render raw`, () => {
+      const problems = Object.entries(map)
+        .map(([key, value]) => {
+          const problem = findUnsupportedIcu(value);
+          return problem ? `${key}: ${problem} -> ${value}` : null;
+        })
+        .filter((entry): entry is string => entry !== null);
+      expect(problems, problems.join("\n")).toEqual([]);
+    });
+  }
+
+  it("uses a plural block in both languages or in neither, per key", () => {
+    const hasPlural = (value: string) => /\{\w+,\s*plural,/.test(value);
+    const mismatched = Object.keys(enMap).filter(
+      (key) => key in viMap && hasPlural(enMap[key]) !== hasPlural(viMap[key]),
+    );
+    // Vietnamese has no grammatical plural, so vi may use a bare {count} where
+    // en needs a plural block — but never the reverse.
+    const viOnly = mismatched.filter((key) => hasPlural(viMap[key]));
+    expect(viOnly).toEqual([]);
+  });
+
+  it("checker sanity: flags shapes the runtime cannot handle", () => {
+    expect(findUnsupportedIcu("{count, plural, one {# item} other {# items}}")).toBeNull();
+    expect(findUnsupportedIcu("Hi {name}")).toBeNull();
+    expect(findUnsupportedIcu("{count, plural, =0 {none} other {#}}")).not.toBeNull();
+    expect(findUnsupportedIcu("{g, select, male {he} other {they}}")).not.toBeNull();
+    expect(findUnsupportedIcu("Hi {name")).not.toBeNull();
+    expect(findUnsupportedIcu("Hi {first name}")).not.toBeNull();
+  });
+});
+
+describe("i18n whitespace hygiene", () => {
+  it("has no leading/trailing whitespace drift between languages", () => {
+    const drift = Object.keys(enMap)
+      .filter((key) => key in viMap)
+      .filter((key) => {
+        const edge = (value: string) => [/^\s/.test(value), /\s$/.test(value)].join();
+        return edge(enMap[key]) !== edge(viMap[key]);
+      });
+    expect(drift, `edge-whitespace differs: ${drift.join(", ")}`).toEqual([]);
+  });
+});

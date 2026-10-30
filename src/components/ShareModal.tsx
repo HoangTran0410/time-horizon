@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Copy, Check, X, Layers, MapPin, Link, Locate } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useI18n } from "../i18n";
+import { useDialogA11y } from "./useDialogA11y";
 import { createPortal } from "react-dom";
 
 /** ─── Props ─────────────────────────────────────────────────────────── */
@@ -137,6 +138,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   }, [shareUrl]);
 
+  const { containerRef, titleId } = useDialogA11y({ isOpen: true, onClose });
+
   const yearLabel =
     Math.abs(Math.round(focusYear)) < 1000
       ? Math.round(focusYear).toString()
@@ -158,6 +161,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         onClick={onClose}
       >
         <motion.div
+          ref={containerRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
           key="share-card"
           className="ui-modal-surface ui-panel w-full max-w-md rounded-[1.9rem] p-6 sm:p-8"
           initial={{ opacity: 0, scale: 0.94, y: 8 }}
@@ -172,7 +179,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <div className="mb-6 flex items-center justify-between">
             <div className="share-card-title-row">
               <Link width={16} height={16} className="share-card-icon" />
-              <h2 className="share-card-title">{t("shareTimeline")}</h2>
+              <h2 id={titleId} className="share-card-title">{t("shareTimeline")}</h2>
             </div>
             <button
               type="button"

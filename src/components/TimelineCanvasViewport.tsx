@@ -26,6 +26,7 @@ import {
   type TimelineLaneDescriptor,
 } from "../helpers/laneLayout";
 import { useI18n } from "../i18n";
+import { subscribeToEventLayoutChanges } from "../hooks/eventLayoutSignal";
 import {
   CollapsedEventGroup,
   ExpandedCollapsedGroup,
@@ -386,6 +387,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const latestRef = useRef({
     timelineEvents,
+    eventsById: new Map<string, Event>(),
     collapsedGroups,
     expandedCollapsedGroup,
     visibleBounds,
@@ -406,7 +408,10 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
   const renderFrameRef = useRef<number | null>(null);
   const renderCanvasRef = useRef<() => void>(() => {});
   const onRenderFrameRef = useRef(onRenderFrame);
+  /** Wrapped title lines per event id; cleared when language or events change. */
   const wrappedEventTitleCacheRef = useRef(new Map<string, string[]>());
+  /** measureText widths per font + text, for labels drawn every frame. */
+  const textWidthCacheRef = useRef(new Map<string, number>());
   const cursorRef = useRef<"grab" | "grabbing" | "pointer">("grab");
   const rulerPointerRef = useRef<{
     x: number;
@@ -440,6 +445,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
   useEffect(() => {
     wrappedEventTitleCacheRef.current.clear();
+    textWidthCacheRef.current.clear();
   }, [language, timelineEvents]);
 
   const requestRender = useCallback(() => {
@@ -451,6 +457,20 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     });
   }, []);
 
+  useEffect(() => {
+    // Titles measured before the web font arrives were wrapped with fallback
+    // metrics; drop those measurements and repaint once fonts finish loading.
+    const fonts = typeof document !== "undefined" ? document.fonts : undefined;
+    if (!fonts || typeof fonts.addEventListener !== "function") return;
+    const handleFontsLoaded = () => {
+      wrappedEventTitleCacheRef.current.clear();
+      textWidthCacheRef.current.clear();
+      requestRender();
+    };
+    fonts.addEventListener("loadingdone", handleFontsLoaded);
+    return () => fonts.removeEventListener("loadingdone", handleFontsLoaded);
+  }, [requestRender]);
+
   const renderNow = useCallback((now: number) => {
     if (renderFrameRef.current !== null) {
       cancelAnimationFrame(renderFrameRef.current);
@@ -459,33 +479,6 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
     renderCanvasRef.current();
     onRenderFrameRef.current(now);
-  }, []);
-
-  /**
-   * Is any canvas-owned animation still in flight? Only visible events are
-   * checked — an off-screen event easing into place needs no frames — so this
-   * stays far cheaper than the repaint it guards.
-   */
-  const hasPendingCanvasAnimation = useCallback(() => {
-    const { visibleEvents, eventLayouts: layouts } = latestRef.current;
-
-    for (const { event } of visibleEvents) {
-      const layout = layouts[event.id];
-      if (!layout) continue;
-      // Epsilons, not equality: a spring approaches its target asymptotically
-      // and equality could keep the loop spinning forever.
-      if (Math.abs(layout.opacity.get() - layout.targetOpacity) > 0.002) {
-        return true;
-      }
-      if (Math.abs(layout.y.get() - layout.targetY) > 0.05) return true;
-    }
-
-    for (const entry of tickTransitionsRef.current.values()) {
-      if (entry.opacity !== entry.opacityTarget) return true;
-      if (entry.highlight !== entry.highlightTarget) return true;
-    }
-
-    return false;
   }, []);
 
   const updateCursor = (nextCursor: "grab" | "grabbing" | "pointer") => {
@@ -563,6 +556,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
 
     latestRef.current = {
       timelineEvents,
+      eventsById:
+        latestRef.current.timelineEvents === timelineEvents &&
+        latestRef.current.eventsById.size > 0
+          ? latestRef.current.eventsById
+          : new Map(timelineEvents.map((event) => [event.id, event])),
       collapsedGroups,
       expandedCollapsedGroup,
       visibleBounds,
@@ -680,8 +678,11 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     height: number,
     viewportHeight: number,
   ) => {
+    // Read through latestRef: this runs from the render loop, whose closure
+    // does not re-capture `timelineEvents` when only the events change.
+    const { eventsById } = latestRef.current;
     const events = group.eventIds
-      .map((eventId) => timelineEvents.find((event) => event.id === eventId))
+      .map((eventId) => eventsById.get(eventId))
       .filter((event): event is Event => event !== undefined);
     const anchorPrimary = getPrimaryScreenPosition(group.year);
     const rowCross =
@@ -933,6 +934,45 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
       const crossCenter = getCrossCenter(width, height);
       const currentTimeYear = getCurrentAbsoluteYear();
       const snap = (value: number) => Math.round(value * dpr) / dpr;
+      /**
+       * Text state as last set this frame. Reading ctx.font back serializes
+       * the font and was the single hottest line of the draw loop, so text
+       * state is tracked here instead (null = unknown, set it). The canvas
+       * resets state when resized, hence per frame; save/restore pairs go
+       * through saveCanvasState/restoreCanvasState to keep it in step.
+       */
+      let currentFont: string | null = null;
+      let currentTextAlign: CanvasTextAlign | null = null;
+      let currentTextBaseline: CanvasTextBaseline | null = null;
+      const savedTextState: Array<
+        [string | null, CanvasTextAlign | null, CanvasTextBaseline | null]
+      > = [];
+      const saveCanvasState = () => {
+        ctx.save();
+        savedTextState.push([currentFont, currentTextAlign, currentTextBaseline]);
+      };
+      const restoreCanvasState = () => {
+        ctx.restore();
+        const saved = savedTextState.pop();
+        if (saved) {
+          [currentFont, currentTextAlign, currentTextBaseline] = saved;
+        } else {
+          currentFont = null;
+          currentTextAlign = null;
+          currentTextBaseline = null;
+        }
+      };
+      const measureTextWidth = (font: string, text: string) => {
+        const cacheKey = `${font}|${text}`;
+        const cache = textWidthCacheRef.current;
+        const cached = cache.get(cacheKey);
+        if (cached !== undefined) return cached;
+        setTextStyle({ font });
+        const measured = ctx.measureText(text).width;
+        if (cache.size >= 512) cache.clear();
+        cache.set(cacheKey, measured);
+        return measured;
+      };
       const setTextStyle = ({
         font,
         fillStyle,
@@ -944,31 +984,32 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         textAlign?: CanvasTextAlign;
         textBaseline?: CanvasTextBaseline;
       }) => {
-        if (font && ctx.font !== font) {
+        if (font && currentFont !== font) {
           ctx.font = font;
+          currentFont = font;
         }
-        if (fillStyle && ctx.fillStyle !== fillStyle) {
+        if (fillStyle) {
+          // Plain assignment: the getter normalizes colours (rgba spacing,
+          // hex case), so comparing against it rarely matched anyway.
           ctx.fillStyle = fillStyle;
         }
-        if (textAlign && ctx.textAlign !== textAlign) {
+        if (textAlign && currentTextAlign !== textAlign) {
           ctx.textAlign = textAlign;
+          currentTextAlign = textAlign;
         }
-        if (textBaseline && ctx.textBaseline !== textBaseline) {
+        if (textBaseline && currentTextBaseline !== textBaseline) {
           ctx.textBaseline = textBaseline;
+          currentTextBaseline = textBaseline;
         }
       };
       const getWrappedEventTitle = (event: Event) => {
-        const localizedTitle = getLocalizedEventTitle(event, language);
-        const cacheKey = [
-          event.id,
-          localizedTitle,
-          CANVAS_FONT_PRESETS.eventTitle,
-          EVENT_LABEL_MAX_WIDTH,
-          EVENT_TITLE_MAX_LINES,
-        ].join("|");
-        const cached = wrappedEventTitleCacheRef.current.get(cacheKey);
+        // Keyed by id alone: the id derives from event content, the cache is
+        // cleared when language or events change, and font/width are constant.
+        // Building a composite key string per event per frame was measurable.
+        const cached = wrappedEventTitleCacheRef.current.get(event.id);
         if (cached) return cached;
 
+        const localizedTitle = getLocalizedEventTitle(event, language);
         setTextStyle({ font: CANVAS_FONT_PRESETS.eventTitle });
         const wrapped = wrapCanvasText(
           ctx,
@@ -976,7 +1017,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           EVENT_LABEL_MAX_WIDTH,
           EVENT_TITLE_MAX_LINES,
         );
-        wrappedEventTitleCacheRef.current.set(cacheKey, wrapped);
+        wrappedEventTitleCacheRef.current.set(event.id, wrapped);
         return wrapped;
       };
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1009,7 +1050,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           });
           const labelWidth = Math.min(
             180,
-            ctx.measureText(lane.label).width + 16,
+            measureTextWidth(CANVAS_FONT_PRESETS.tickHighlighted, lane.label) +
+              16,
           );
           const labelX =
             orientation === "horizontal"
@@ -1098,7 +1140,8 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           textBaseline: "middle",
         });
         const labelWidth =
-          ctx.measureText(currentTimeLabel).width + labelPaddingX * 2;
+          measureTextWidth(CANVAS_FONT_PRESETS.tickHighlighted, currentTimeLabel) +
+          labelPaddingX * 2;
         ctx.fillStyle = canvasTheme.currentTimeFill;
         ctx.strokeStyle = canvasTheme.currentTimeStroke;
         ctx.beginPath();
@@ -1409,7 +1452,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
         const activeTextColor = accentColor ?? canvasTheme.defaultActiveText;
         const activeDateColor = accentColor ?? canvasTheme.defaultActiveDate;
 
-        ctx.save();
+        saveCanvasState();
         ctx.globalAlpha = isHovered ? Math.max(alpha, 0.95) : alpha;
 
         // The span bar sits behind the stem and marker so the circle still
@@ -1667,7 +1710,9 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
               : isBelowMarker
                 ? "left"
                 : "right",
-          textBaseline: useStackedLabels ? ctx.textBaseline : "middle",
+          textBaseline: useStackedLabels
+            ? (currentTextBaseline ?? ctx.textBaseline)
+            : "middle",
         });
         if (useStackedLabels) {
           const dateY = stackedLabelsBelowEvent
@@ -1694,7 +1739,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
           ctx.fillText(label, snap(labelX), snap(labelY));
         }
 
-        ctx.restore();
+        restoreCanvasState();
       }
 
       if (currentRulerEvent && rulerPointerRef.current.isVisible) {
@@ -1795,7 +1840,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
             const labelPaddingX = 10;
             const labelHeight = 24;
 
-            ctx.save();
+            saveCanvasState();
             ctx.setLineDash([8, 8]);
             ctx.strokeStyle = withAlpha(originAccent, 0.95);
             ctx.lineWidth = 2;
@@ -1843,7 +1888,7 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
               textBaseline: "middle",
             });
             ctx.fillText(rulerLabel, labelX, labelY);
-            ctx.restore();
+            restoreCanvasState();
           }
         }
       }
@@ -1956,44 +2001,14 @@ export const TimelineCanvasViewport: React.FC<TimelineCanvasViewportProps> = ({
     };
   }, [focusPixel, focusYear, zoom]);
 
-  useEffect(() => {
-    const needsAnimationLoop =
-      timelineEvents.length > 0 ||
-      collapsedGroups.length > 0 ||
-      expandedCollapsedGroup !== null ||
-      rulerEvent !== null;
-
-    if (!needsAnimationLoop) {
-      return;
-    }
-
-    // Canvas needs an explicit RAF loop while Motion animates event layout
-    // values — those are mutated outside React, so there is no other signal.
-    // Camera-only movement is handled by the MotionValue subscriptions above.
-    //
-    // The loop keeps ticking, but only *renders* when something is actually
-    // moving. It previously redrew unconditionally, which meant a full canvas
-    // repaint every frame forever as soon as a single event was loaded.
-    let frameId = 0;
-    const loop = (now: number) => {
-      if (hasPendingCanvasAnimation()) {
-        renderNow(now);
-      }
-      frameId = requestAnimationFrame(loop);
-    };
-    frameId = requestAnimationFrame(loop);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [
-    collapsedGroups.length,
-    expandedCollapsedGroup,
-    hasPendingCanvasAnimation,
-    renderNow,
-    rulerEvent,
-    timelineEvents.length,
-  ]);
+  useEffect(
+    // Event rows and fades are MotionValues the viewport hook animates outside
+    // React. Each change is reported here, so the canvas repaints exactly while
+    // something moves and an idle timeline schedules no frames at all. This
+    // replaced a perpetual rAF loop that polled every visible layout per frame.
+    () => subscribeToEventLayoutChanges(eventLayouts, requestRender),
+    [eventLayouts, requestRender],
+  );
 
   useEffect(
     () => () => {

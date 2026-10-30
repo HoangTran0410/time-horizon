@@ -2293,3 +2293,114 @@ select {
   background-color: rgba(234, 179, 8, 0.25);
   border-bottom: 2px solid rgba(234, 179, 8, 0.6);
 }
+
+/* ── Accessibility layer ─────────────────────────────────────────────────
+   A visible keyboard focus indicator for everything interactive. The old
+   4px ring at 12% alpha was close to invisible on the dark canvas; this is
+   a solid 2px outline (WCAG 2.4.11-friendly) that only appears for keyboard
+   focus, so mouse and touch users never see it. */
+:root {
+  --ui-focus-outline: #5fe0c0;
+}
+
+:root[data-theme="light"] {
+  --ui-focus-outline: #0a7a61;
+}
+
+:where(
+    a[href],
+    button,
+    [role="button"],
+    [role="tab"],
+    [role="switch"],
+    summary,
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+  outline: 2px solid var(--ui-focus-outline);
+  outline-offset: 2px;
+}
+
+.ui-button:focus-visible,
+.ui-icon-button:focus-visible,
+.ui-toolbar-button:focus-visible,
+.ui-focusable:focus-visible,
+.share-toggle-track:focus-visible {
+  outline: 2px solid var(--ui-focus-outline);
+  outline-offset: 2px;
+  box-shadow: var(--ui-focus-ring);
+}
+
+.ui-field:focus-visible {
+  outline: 2px solid var(--ui-focus-outline);
+  outline-offset: 1px;
+}
+
+/* Programmatically focused dialog surfaces (tabindex=-1) need no ring. */
+[role="dialog"]:focus,
+[role="alertdialog"]:focus {
+  outline: none;
+}
+
+/* Key caps in the shortcuts sheet. */
+.ui-kbd {
+  display: inline-flex;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid var(--ui-border-zinc-700);
+  border-bottom-width: 2px;
+  background: var(--ui-zinc-900);
+  padding: 0 0.45rem;
+  color: var(--ui-zinc-100);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Touch screens: keep every small chip/badge button at a 40px tap target
+   without changing how it looks on desktop. */
+@media (pointer: coarse) {
+  button.ui-badge {
+    min-height: 2.5rem;
+  }
+
+  /* Landing bar controls were ~34px on phones; this lands them at 40px. */
+  .landing-topbar {
+    --landing-topbar-height: 3.4rem;
+  }
+
+  .ui-button-compact {
+    min-height: 2.5rem;
+  }
+}
+
+/* Reduced motion: collapse CSS transitions/animations app-wide. JS-driven
+   motion components honour the same setting through <MotionConfig
+   reducedMotion="user">; the canvas camera is unaffected (it is direct
+   manipulation, not decoration). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ui-button:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Loading spinners carry meaning; keep them turning, just slower. */
+  .animate-spin {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

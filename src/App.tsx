@@ -10,6 +10,7 @@ import { LandingPage } from "./components/landing/LandingPage";
 import { DEFAULT_SEED_COLLECTION_ID } from "./constants";
 import { applyThemeToDocument, resolveThemeMode } from "./constants/theme";
 import { useCatalogCollections } from "./hooks/useCatalogCollections";
+import { useI18n } from "./i18n";
 import { useTimelineShareUrl } from "./hooks/useTimelineShareUrl";
 import { useStore } from "./stores";
 
@@ -42,9 +43,18 @@ const prefetchTimeline = () => {
  * a prefetched or cached chunk resolves before React ever paints this.
  */
 function AppLoadingScreen() {
+  const { t } = useI18n();
   return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-rose-400" />
+    <div
+      className="flex h-screen w-full items-center justify-center"
+      role="status"
+      aria-busy="true"
+    >
+      <div
+        aria-hidden="true"
+        className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-emerald-400"
+      />
+      <span className="sr-only">{t("loadingTimeline")}</span>
     </div>
   );
 }
@@ -57,6 +67,13 @@ export default function App() {
   const setCatalogMeta = useStore((state) => state.setCatalogMeta);
   const setCatalogGroups = useStore((state) => state.setCatalogGroups);
   const resolvedTheme = resolveThemeMode(theme);
+  const { language } = useI18n();
+
+  // Screen readers pick pronunciation (and browsers pick hyphenation and
+  // font fallback) from <html lang>; keep it on the active UI language.
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   // Fetch catalog metadata once at app root
   const { catalogCollections, catalogGroups, isCatalogLoading } =

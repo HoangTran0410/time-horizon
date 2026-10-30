@@ -51,6 +51,8 @@ export interface SearchPanelStateAdapter {
 
 interface SearchPanelProps {
   isOpen: boolean;
+  /** Focus the query field on open (keyboard-initiated opens only). */
+  autoFocusInput?: boolean;
   searchableEvents: Event[];
   onSearchSelect: (event: Event) => void;
   onEditEvent: (event: Event) => void;
@@ -87,6 +89,7 @@ const EMPTY_RESULTS: Event[] = [];
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
   isOpen,
+  autoFocusInput = false,
   searchableEvents,
   onSearchSelect,
   onEditEvent,
@@ -200,8 +203,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
     let hydrateFrame = 0;
     const frame = window.requestAnimationFrame(() => {
-      // searchInputRef.current?.focus();
-      // searchInputRef.current?.select();
+      if (autoFocusInput) {
+        searchInputRef.current?.focus({ preventScroll: true });
+        searchInputRef.current?.select();
+      }
       if (resultsListRef.current) {
         resultsListRef.current.scrollTop = 0;
       }
@@ -359,6 +364,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // Consume it: only the menu closes, not the panel around it.
+        event.preventDefault();
         setActiveResultActionMenu(null);
       }
     };

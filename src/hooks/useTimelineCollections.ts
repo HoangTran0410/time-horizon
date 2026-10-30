@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import type { EventCollectionMeta } from "../constants/types";
+import { useMemo, useRef } from "react";
+import type { Event, EventCollectionMeta } from "../constants/types";
 import { findEventCollectionIdInCollections, useStore } from "../stores";
 
 /**
@@ -99,13 +99,28 @@ export const useTimelineCollections = () => {
     [collectionColorPreferences, collections],
   );
 
-  const timelineEvents = useMemo(
-    () =>
-      collections
-        .filter((collection) => visibleCollectionIds.includes(collection.id))
-        .flatMap((collection) => collectionEventsById[collection.id] ?? []),
-    [collectionEventsById, collections, visibleCollectionIds],
-  );
+  /**
+   * Kept referentially stable while its contents are: collectionLibrary also
+   * changes for metadata, colour and sync bookkeeping, and a fresh array here
+   * re-ran the viewport's full relayout and the canvas's culling pass for an
+   * event list that had not changed.
+   */
+  const previousTimelineEventsRef = useRef<Event[]>([]);
+  const timelineEvents = useMemo(() => {
+    const visibleIds = new Set(visibleCollectionIds);
+    const nextEvents = collections
+      .filter((collection) => visibleIds.has(collection.id))
+      .flatMap((collection) => collectionEventsById[collection.id] ?? []);
+    const previousEvents = previousTimelineEventsRef.current;
+    if (
+      previousEvents.length === nextEvents.length &&
+      previousEvents.every((event, index) => event === nextEvents[index])
+    ) {
+      return previousEvents;
+    }
+    previousTimelineEventsRef.current = nextEvents;
+    return nextEvents;
+  }, [collectionEventsById, collections, visibleCollectionIds]);
 
   const eventAccentColors = useMemo(() => {
     const colors: Record<string, string | null> = {};
