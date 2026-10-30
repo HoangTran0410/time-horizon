@@ -50,6 +50,14 @@ export const ZOOM_WARP_MIN_LOG_DELTA = 1e-4;
  */
 export const ZOOM_WARP_SAMPLE_STALE_MS = 320;
 export const FPS_SAMPLE_WINDOW_MS = 250;
+/**
+ * Vite dev build. Gates diagnostics that only the dev UI shows: the FPS
+ * counter's sampling loop used to run in production too, and its state updates
+ * re-rendered the whole Timeline several times a second for nothing.
+ */
+export const IS_DEV_BUILD: boolean =
+  // @ts-ignore — `env` is injected by Vite; guarded for scripts and tests.
+  import.meta.env?.DEV === true;
 
 /**
  * Below this viewport width the timeline auto-switches to vertical (unless the

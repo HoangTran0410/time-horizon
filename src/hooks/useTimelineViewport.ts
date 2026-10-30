@@ -51,6 +51,7 @@ import {
   EVENT_LAYOUT_SPRING,
   FOCUS_SPRING,
   FPS_SAMPLE_WINDOW_MS,
+  IS_DEV_BUILD,
   LAYOUT_MARGIN_RATIO,
   LAYOUT_MIN_DISTANCE_PX,
   LAYOUT_REFRESH_SHIFT_RATIO,
@@ -81,6 +82,7 @@ import {
 } from "../helpers";
 import { getSearchableLocalizedText } from "../helpers/localization";
 import { resolveViewportDimension } from "../helpers/viewportSize";
+import { notifyEventLayoutChange } from "./eventLayoutSignal";
 import {
   packTimelineLaneEvents,
   type TimelineLaneDescriptor,
@@ -563,8 +565,20 @@ export const useTimelineViewport = ({
       return b.priority - a.priority;
     });
 
-    const occupied: { startYear: number; endYear: number; level: number }[] = [];
+    // Bucketed by row, and collapsed groups by side: the collision test only
+    // ever compares within one row, and scanning every placed event for every
+    // candidate row made a zoomed-out pass over thousands of events quadratic.
+    const occupiedByLevel = new Map<
+      number,
+      { startYear: number; endYear: number }[]
+    >();
+    const occupy = (level: number, startYear: number, endYear: number) => {
+      const row = occupiedByLevel.get(level);
+      if (row) row.push({ startYear, endYear });
+      else occupiedByLevel.set(level, [{ startYear, endYear }]);
+    };
     const nextCollapsedGroups: CollapsedEventGroup[] = [];
+    const collapsedGroupsBySide = new Map<number, CollapsedEventGroup[]>();
 
     sortedEvents.forEach((event) => {
       const layout = eventLayouts.current[event.id];
@@ -607,19 +621,17 @@ export const useTimelineViewport = ({
         const actualLevel = level * side;
         // Interval overlap with the same padding the point test used. For two
         // points this reduces exactly to |a - b| < minDistYears.
-        const collision = occupied.some(
-          (occupiedEvent) =>
-            occupiedEvent.level === actualLevel &&
-            eventStart < occupiedEvent.endYear + minDistYears &&
-            occupiedEvent.startYear < eventEnd + minDistYears,
-        );
+        const collision =
+          occupiedByLevel
+            .get(actualLevel)
+            ?.some(
+              (occupiedEvent) =>
+                eventStart < occupiedEvent.endYear + minDistYears &&
+                occupiedEvent.startYear < eventEnd + minDistYears,
+            ) ?? false;
         if (!collision) {
           placedLevel = actualLevel;
-          occupied.push({
-            startYear: eventStart,
-            endYear: eventEnd,
-            level: actualLevel,
-          });
+          occupy(actualLevel, eventStart, eventEnd);
           break;
         }
       }
@@ -630,11 +642,7 @@ export const useTimelineViewport = ({
         const fallbackLevel =
           (layoutLevels[layoutLevels.length - 1] ?? 1) * side;
         placedLevel = fallbackLevel;
-        occupied.push({
-          startYear: eventStart,
-          endYear: eventEnd,
-          level: fallbackLevel,
-        });
+        occupy(fallbackLevel, eventStart, eventEnd);
       }
 
       if (placedLevel !== null) {
@@ -657,23 +665,25 @@ export const useTimelineViewport = ({
           }
         }
       } else {
-        const existingGroup = nextCollapsedGroups.find(
-          (group) =>
-            group.side === side &&
-            Math.abs(group.year - eventYear) < minDistYears,
+        const sideGroups = collapsedGroupsBySide.get(side);
+        const existingGroup = sideGroups?.find(
+          (group) => Math.abs(group.year - eventYear) < minDistYears,
         );
 
         if (existingGroup) {
           existingGroup.count += 1;
           existingGroup.eventIds.push(event.id);
         } else {
-          nextCollapsedGroups.push({
+          const group: CollapsedEventGroup = {
             id: `${event.id}-collapsed`,
             year: eventYear,
             side,
             count: 1,
             eventIds: [event.id],
-          });
+          };
+          nextCollapsedGroups.push(group);
+          if (sideGroups) sideGroups.push(group);
+          else collapsedGroupsBySide.set(side, [group]);
         }
 
         if (layout.targetOpacity !== 0) {
@@ -1781,6 +1791,8 @@ export const useTimelineViewport = ({
   };
 
   const recordRenderFrame = (now: number) => {
+    // The counter is dev-only UI; sampling in production only cost re-renders.
+    if (!IS_DEV_BUILD) return;
     const sample = renderFpsSampleRef.current;
     if (sample.sampleStart === 0) {
       sample.sampleStart = now;
@@ -1918,6 +1930,8 @@ export const useTimelineViewport = ({
     setExpandedCollapsedGroup(null);
   }, [selectedEventId]);
 
+  const notifyLayoutChange = () => notifyEventLayoutChange(eventLayouts.current);
+
   useEffect(() => {
     const nextEventIds = new Set(
       renderedTimelineEvents.map((event) => event.id),
@@ -1931,12 +1945,17 @@ export const useTimelineViewport = ({
 
     renderedTimelineEvents.forEach((event) => {
       if (!eventLayouts.current[event.id]) {
-        eventLayouts.current[event.id] = {
+        const layout: EventLayoutState = {
           y: new MotionValue(0),
           opacity: new MotionValue(0),
           targetY: 0,
           targetOpacity: 0,
         };
+        // Lets the canvas repaint exactly while a row or fade animates,
+        // instead of polling every layout each frame.
+        layout.y.on("change", notifyLayoutChange);
+        layout.opacity.on("change", notifyLayoutChange);
+        eventLayouts.current[event.id] = layout;
       }
     });
   }, [renderedTimelineEvents]);
@@ -2215,6 +2234,9 @@ export const useTimelineViewport = ({
   }, [verticalWheelBehavior]);
 
   useEffect(() => {
+    // Dev-only: a perpetual rAF loop plus a state update every sample window
+    // is not free, and production never shows the counter.
+    if (!IS_DEV_BUILD) return;
     let frameId = 0;
 
     const loop = (now: number) => {
@@ -2286,23 +2308,34 @@ export const useTimelineViewport = ({
   }, []);
 
   useEffect(() => {
-    let frame = 0;
+    // Zooms continuously while the zoom thumb is held off-centre. The loop
+    // only runs while it is: it used to spin every frame for the lifetime of
+    // the timeline just to read a zero.
+    let frame: number | null = null;
 
     const loop = () => {
+      frame = null;
       const thumbY = zoomThumbY.get();
-      if (thumbY !== 0) {
-        const zoomSpeed = -thumbY * 0.0005;
-        const currentLogZoom = targetLogZoom.current;
-        const nextLogZoom = clampLogZoom(currentLogZoom + zoomSpeed);
+      if (thumbY === 0) return;
 
-        targetLogZoom.current = nextLogZoom;
-        logZoom.set(nextLogZoom);
-      }
+      const zoomSpeed = -thumbY * 0.0005;
+      const currentLogZoom = targetLogZoom.current;
+      const nextLogZoom = clampLogZoom(currentLogZoom + zoomSpeed);
+
+      targetLogZoom.current = nextLogZoom;
+      logZoom.set(nextLogZoom);
       frame = requestAnimationFrame(loop);
     };
-    frame = requestAnimationFrame(loop);
+    const startLoop = () => {
+      if (frame === null && zoomThumbY.get() !== 0) {
+        frame = requestAnimationFrame(loop);
+      }
+    };
+    const unsubscribeThumb = zoomThumbY.on("change", startLoop);
+    startLoop();
     return () => {
-      cancelAnimationFrame(frame);
+      unsubscribeThumb();
+      if (frame !== null) cancelAnimationFrame(frame);
       if (zoomWarpTimeoutRef.current !== null) {
         window.clearTimeout(zoomWarpTimeoutRef.current);
       }

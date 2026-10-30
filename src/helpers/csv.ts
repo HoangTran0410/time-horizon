@@ -31,16 +31,38 @@ function escapeCsvValue(v: unknown): string {
 const serializeLocalizedText = (value: LocalizedText): string =>
   typeof value === "string" ? value : JSON.stringify(value);
 
+/** BCP 47-ish language tag: "vi", "en", "pt-BR", "zh-Hant". */
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+
+const isLocalizedTextJson = (value: unknown): value is Record<string, string> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  return (
+    entries.length > 0 &&
+    entries.every(
+      ([key, entry]) =>
+        LANGUAGE_CODE_PATTERN.test(key) && typeof entry === "string",
+    )
+  );
+};
+
 const parseLocalizedText = (value: string): LocalizedText | null => {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
   if (trimmed.startsWith("{")) {
     try {
-      return normalizeLocalizedText(JSON.parse(trimmed));
+      const parsed: unknown = JSON.parse(trimmed);
+      // Only a map of language code -> string is localized text. Anything else
+      // ({"note":"x"}, nested values) is a plain description that happens to
+      // look like JSON, and must survive as the text the author wrote.
+      if (isLocalizedTextJson(parsed)) {
+        return normalizeLocalizedText(parsed) ?? trimmed;
+      }
     } catch {
-      return trimmed;
+      // Not JSON at all: fall through to the raw text.
     }
+    return trimmed;
   }
 
   return trimmed;

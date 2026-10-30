@@ -136,9 +136,35 @@ describe("viewport `y` / `z`", () => {
 
   it("writes years beyond ±1e6 in scientific notation that parses back", () => {
     const { url, year } = roundTrip(-66_000_000, -10);
-    expect(url.searchParams.get("y")).toBe("-6.600e+7");
+    expect(url.searchParams.get("y")).toBe("-6.6e7");
     expect(year).toBe(-66_000_000);
     expect(roundTrip(BIG_BANG_YEAR, -18).year).toBe(BIG_BANG_YEAR);
+  });
+
+  it("keeps large years within a small fraction of the visible span", () => {
+    // Century zoom (~10 px/yr, ~100 visible years): -1234567 used to be
+    // written as -1.235e+6, a 433-year jump.
+    const logZoom = Math.log(10);
+    const visibleSpan = 1000 / Math.exp(logZoom);
+    for (const focusYear of [-1_234_567, 7_654_321.5, -987_654_321]) {
+      const { year } = roundTrip(focusYear, logZoom);
+      expect(Math.abs((year ?? 0) - focusYear)).toBeLessThan(visibleSpan * 1e-4);
+    }
+  });
+
+  it("writes only the digits the zoom needs", () => {
+    // Zoomed all the way out, 1e-5 of 13.8 billion years is ~100k years.
+    expect(roundTrip(-13_812_345_678, Math.log(1000 / 13.8e9)).url.searchParams.get("y"))
+      .toBe("-1.38123e10");
+  });
+
+  it("adds decimals at sub-day zoom so a shared hour stays put", () => {
+    // ~1 hour across 1000px.
+    const logZoom = Math.log(1000 / (1 / (365.25 * 24)));
+    const visibleSpan = 1000 / Math.exp(logZoom);
+    const focusYear = 2024.123456789;
+    const { year } = roundTrip(focusYear, logZoom);
+    expect(Math.abs((year ?? 0) - focusYear)).toBeLessThan(visibleSpan * 1e-4);
   });
 
   it("accepts hand-written scientific notation and plain numbers", () => {
