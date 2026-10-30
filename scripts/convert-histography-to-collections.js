@@ -57,17 +57,10 @@ const toEventTime = (rawYear) => {
     return [Number(normalized), null, null, null, null, null];
   }
 
-  const [, yearPart, fractionPart] = match;
-  const year = Number(yearPart);
-
-  if (!fractionPart) {
-    return [year, null, null, null, null, null];
-  }
-
-  const fraction = Number(`0.${fractionPart}`);
-  const month = Math.max(1, Math.min(12, Math.floor(fraction * 12) + 1));
-
-  return [year, month, null, null, null, null];
+  // Histography's fractional year is layout jitter, not a date: deriving a
+  // month from it put the Moon landing in October 1969. Keep the year only.
+  const [, yearPart] = match;
+  return [Number(yearPart), null, null, null, null, null];
 };
 
 const toHistographyImageUrl = (image) => {
